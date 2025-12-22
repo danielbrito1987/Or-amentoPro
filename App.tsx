@@ -1,16 +1,21 @@
 
 import React, { useState, useEffect } from 'react';
-import { Quote, CatalogItem, ProviderInfo, ItemType } from './types';
+import { Quote, CatalogItem, ProviderInfo, User } from './types';
 import { storageService } from './services/storageService';
+import { authService } from './services/authService';
 import { Sidebar } from './components/Sidebar';
 import { QuotesPage } from './pages/QuotesPage';
 import { CatalogPage } from './pages/CatalogPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { QuoteEditorPage } from './pages/QuoteEditorPage';
 import { QuoteViewPage } from './pages/QuoteViewPage';
+import { LoginPage } from './pages/LoginPage';
 import { FileText, Menu, X } from 'lucide-react';
 
 const App: React.FC = () => {
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  
   const [activeTab, setActiveTab] = useState<'quotes' | 'catalog' | 'settings'>('quotes');
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
@@ -20,9 +25,30 @@ const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
+    // Check initial auth
+    const isAuth = authService.isAuthenticated();
+    setIsAuthenticated(isAuth);
+    if (isAuth) {
+      setCurrentUser(authService.getCurrentUser());
+    }
+    
+    // Load data
     setQuotes(storageService.getQuotes());
     setCatalog(storageService.getCatalog());
   }, []);
+
+  const handleLoginSuccess = (user: User) => {
+    setIsAuthenticated(true);
+    setCurrentUser(user);
+  };
+
+  const handleLogout = () => {
+    authService.logout();
+    setIsAuthenticated(false);
+    setCurrentUser(null);
+    setSelectedQuote(null);
+    setIsEditingQuote(false);
+  };
 
   const handleStartNewQuote = () => {
     const newQuote: Quote = {
@@ -61,6 +87,10 @@ const App: React.FC = () => {
     storageService.saveCatalog(updated);
   };
 
+  if (!isAuthenticated) {
+    return <LoginPage onLoginSuccess={handleLoginSuccess} />;
+  }
+
   return (
     <div className="min-h-screen flex flex-col md:flex-row">
       {/* Mobile Header */}
@@ -69,7 +99,9 @@ const App: React.FC = () => {
           <div className="bg-blue-600 p-1.5 rounded-lg"><FileText className="w-5 h-5 text-white" /></div>
           <h1 className="text-lg font-bold">OrçaFácil</h1>
         </div>
-        <button onClick={() => setIsSidebarOpen(!isSidebarOpen)}>{isSidebarOpen ? <X /> : <Menu />}</button>
+        <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 text-slate-400">
+          {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
+        </button>
       </div>
 
       <Sidebar 
@@ -77,7 +109,8 @@ const App: React.FC = () => {
         onTabChange={(tab) => { setActiveTab(tab); setSelectedQuote(null); setIsEditingQuote(false); }} 
         providerInfo={providerInfo} 
         isOpen={isSidebarOpen} 
-        onClose={() => setIsSidebarOpen(false)} 
+        onClose={() => setIsSidebarOpen(false)}
+        onLogout={handleLogout}
       />
 
       <main className="flex-1 overflow-y-auto bg-gray-50 pb-20 md:pb-0">

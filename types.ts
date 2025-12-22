@@ -41,3 +41,15 @@ export interface ProviderInfo {
   address: string;
   logo?: string; // Base64 string
 }
+
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+}
+
+export interface AuthState {
+  user: User | null;
+  token: string | null;
+  isAuthenticated: boolean;
+}
