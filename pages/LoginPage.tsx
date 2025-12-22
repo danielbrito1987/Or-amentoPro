@@ -97,7 +97,7 @@ export const LoginPage: React.FC = () => {
 
           <div className="mt-8 pt-6 border-t border-slate-800 text-center">
             <p className="text-slate-500 text-sm italic">
-              Use qualquer e-mail e senha (mínimo 4 caracteres) para testar o sistema.
+              <a href="#">Esqueceu sua senha</a>
             </p>
           </div>
         </div>
