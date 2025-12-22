@@ -13,32 +13,46 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { FileText, Menu, X, Loader2 } from 'lucide-react';
 
 const AppContent: React.FC = () => {
-  const { user, isAuthenticated, isLoading, logout } = useAuth();
+  const { isAuthenticated, isLoading, logout } = useAuth();
   
   const [activeTab, setActiveTab] = useState<'quotes' | 'catalog' | 'settings'>('quotes');
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
-  const [providerInfo, setProviderInfo] = useState<ProviderInfo>(storageService.getProviderInfo());
+  const [providerInfo, setProviderInfo] = useState<ProviderInfo>({
+    name: 'Carregando...',
+    document: '',
+    phone: '',
+    email: '',
+    address: ''
+  });
   const [selectedQuote, setSelectedQuote] = useState<Quote | null>(null);
   const [isEditingQuote, setIsEditingQuote] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isFetchingData, setIsFetchingData] = useState(false);
 
   useEffect(() => {
-    if (isAuthenticated) {
-      getQuotes();
-      getCatalog();
-    }
+    const loadInitialData = async () => {
+      if (isAuthenticated) {
+        setIsFetchingData(true);
+        try {
+          const [fetchedQuotes, fetchedCatalog, fetchedProvider] = await Promise.all([
+            storageService.getQuotes(),
+            storageService.getCatalog(),
+            storageService.getProviderInfo()
+          ]);
+          setQuotes(fetchedQuotes);
+          setCatalog(fetchedCatalog);
+          setProviderInfo(fetchedProvider);
+        } catch (error) {
+          console.error("Erro ao carregar dados da API:", error);
+        } finally {
+          setIsFetchingData(false);
+        }
+      }
+    };
+    
+    loadInitialData();
   }, [isAuthenticated]);
-
-  const getQuotes = async () => {
-    const quotes = await storageService.getQuotes(user!.id);
-    setQuotes(quotes);
-  }
-
-  const getCatalog = async () => {
-    const catalog = await storageService.getCatalog(user!.id);
-    setCatalog(catalog);
-  }
 
   const handleStartNewQuote = () => {
     const newQuote: Quote = {
@@ -60,21 +74,58 @@ const AppContent: React.FC = () => {
     setIsEditingQuote(true);
   };
 
-  const saveCatalogItem = (item: Partial<CatalogItem>, isEditing: boolean) => {
-    let updatedCatalog;
-    if (isEditing) {
-      updatedCatalog = catalog.map(i => i.id === (item as CatalogItem).id ? { ...i, ...item } as CatalogItem : i);
-    } else {
-      updatedCatalog = [...catalog, { ...item, id: crypto.randomUUID() } as CatalogItem];
+  const saveCatalogItem = async (item: Partial<CatalogItem>, isEditing: boolean) => {
+    setIsFetchingData(true);
+    try {
+      if (isEditing) {
+        await storageService.updateCatalogItem(item as CatalogItem);
+      } else {
+        await storageService.saveCatalogItem(item as CatalogItem);
+      }
+      const updated = await storageService.getCatalog();
+      setCatalog(updated);
+    } catch (error) {
+      alert("Erro ao salvar no catálogo: " + error);
+    } finally {
+      setIsFetchingData(false);
     }
-    setCatalog(updatedCatalog);
-    storageService.saveCatalog(user!.id, item as CatalogItem);
   };
 
-  const deleteCatalogItem = (id: string) => {
+  const deleteCatalogItem = async (id: string) => {
+    // Assumindo que a API tenha um delete para catalog
+    // Caso não tenha, apenas filtramos localmente e enviamos o lote (saveCatalog)
     const updated = catalog.filter(i => i.id !== id);
     setCatalog(updated);
-    //storageService.saveCatalog(user!.id, updated as CatalogItem);
+    await storageService.saveCatalog(updated);
+  };
+
+  const handleDeleteQuote = async (id: string) => {
+    if (confirm("Tem certeza que deseja excluir este orçamento?")) {
+      setIsFetchingData(true);
+      try {
+        await storageService.deleteQuote(id);
+        setQuotes(prev => prev.filter(q => q.id !== id));
+      } catch (error) {
+        alert("Erro ao excluir orçamento.");
+      } finally {
+        setIsFetchingData(false);
+      }
+    }
+  };
+
+  const handleSaveQuote = async (q: Quote) => {
+    setIsFetchingData(true);
+    try {
+      await storageService.saveQuote(q);
+      const updated = await storageService.getQuotes();
+      setQuotes(updated);
+      setIsEditingQuote(false);
+      setSelectedQuote(null);
+    } catch (error) {
+      alert("Erro ao salvar orçamento.");
+    } finally {
+      setIsFetchingData(false);
+    }
   };
 
   if (isLoading) {
@@ -91,6 +142,13 @@ const AppContent: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row">
+      {/* Loading Overlay for API Actions */}
+      {isFetchingData && (
+        <div className="fixed inset-0 bg-white/50 z-[100] flex items-center justify-center backdrop-blur-[1px] no-print">
+          <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+        </div>
+      )}
+
       {/* Mobile Header */}
       <div className="md:hidden flex items-center justify-between p-4 bg-slate-900 text-white no-print">
         <div className="flex items-center space-x-3">
@@ -118,7 +176,7 @@ const AppContent: React.FC = () => {
               quotes={quotes} 
               onNewQuote={handleStartNewQuote} 
               onSelectQuote={setSelectedQuote} 
-              onDeleteQuote={(id) => { storageService.deleteQuote(id, user!.id); getQuotes(); }} 
+              onDeleteQuote={handleDeleteQuote} 
             />
           )}
 
@@ -134,7 +192,12 @@ const AppContent: React.FC = () => {
             <SettingsPage 
               providerInfo={providerInfo} 
               onUpdate={setProviderInfo} 
-              onSave={() => { storageService.saveProviderInfo(providerInfo); alert('Dados salvos!'); }} 
+              onSave={async () => { 
+                setIsFetchingData(true);
+                await storageService.saveProviderInfo(providerInfo); 
+                setIsFetchingData(false);
+                alert('Dados salvos com sucesso!'); 
+              }} 
             />
           )}
 
@@ -144,7 +207,7 @@ const AppContent: React.FC = () => {
               catalog={catalog} 
               onBack={() => { setIsEditingQuote(false); setSelectedQuote(null); }} 
               onUpdateQuote={setSelectedQuote}
-              onSave={(q) => { storageService.saveQuote(q, user!.id); getQuotes(); setIsEditingQuote(false); setSelectedQuote(null); }} 
+              onSave={handleSaveQuote} 
             />
           )}
 

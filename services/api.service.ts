@@ -1,78 +1,62 @@
 
-const API_BASE_URL = 'https://orcamentopro-backend.onrender.com/api'; // Alterar se o backend estiver em outra porta/url
+const BASE_URL = 'https://orcamentopro-backend.onrender.com/api';
 
-interface RequestOptions extends RequestInit {
-    headers?: Record<string, string>;
-}
+export const apiService = {
+  getHeaders: () => {
+    const token = localStorage.getItem('orcafacil_jwt_token');
+    return {
+      'Content-Type': 'application/json',
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    };
+  },
 
-class ApiService {
-    private getToken(): string | null {
-        return localStorage.getItem('authToken');
+  handleResponse: async (response: Response) => {
+    if (response.status === 401) {
+      // Token expirado ou inválido - opcionalmente forçar logout aqui
+      localStorage.removeItem('orcafacil_jwt_token');
+      localStorage.removeItem('orcafacil_user');
+      window.location.reload();
     }
-
-    private async request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
-        const token = this.getToken();
-        
-        const headers: Record<string, string> = {
-            'Content-Type': 'application/json',
-            ...options.headers,
-        };
-
-        if (token) {
-            headers['Authorization'] = `Bearer ${token}`;
-        }
-
-        const config: RequestInit = {
-            ...options,
-            headers,
-        };
-
-        try {
-            const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
-
-            // Tratamento para 401 (Token expirado ou inválido)
-            if (response.status === 401) {
-                localStorage.removeItem('authToken');
-                window.location.href = '#/login';
-                throw new Error('Sessão expirada');
-            }
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.message || `Erro na requisição: ${response.status}`);
-            }
-
-            // Se não tiver conteúdo (ex: 204 No Content), retorna null
-            if (response.status === 204) return null as T;
-
-            return await response.json();
-        } catch (error) {
-            console.error('API Error:', error);
-            throw error;
-        }
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `Erro na requisição: ${response.status}`);
     }
+    
+    return response.json();
+  },
 
-    get<T>(endpoint: string) {
-        return this.request<T>(endpoint, { method: 'GET' });
-    }
+  get: async <T>(endpoint: string): Promise<T> => {
+    const response = await fetch(`${BASE_URL}${endpoint}`, {
+      method: 'GET',
+      headers: apiService.getHeaders(),
+    });
+    return apiService.handleResponse(response);
+  },
 
-    post<T>(endpoint: string, body: any) {
-        return this.request<T>(endpoint, { 
-            method: 'POST', 
-            body: JSON.stringify(body) 
-        });
-    }
+  post: async <T>(endpoint: string, data: any): Promise<T> => {
+    const response = await fetch(`${BASE_URL}${endpoint}`, {
+      method: 'POST',
+      headers: apiService.getHeaders(),
+      body: JSON.stringify(data),
+    });
+    return apiService.handleResponse(response);
+  },
 
-    put<T>(endpoint: string, body: any) {
-        return this.request<T>(endpoint, { 
-            method: 'PUT', 
-            body: JSON.stringify(body) 
-        });
-    }
+  put: async <T>(endpoint: string, data: any): Promise<T> => {
+    const response = await fetch(`${BASE_URL}${endpoint}`, {
+      method: 'PUT',
+      headers: apiService.getHeaders(),
+      body: JSON.stringify(data),
+    });
+    return apiService.handleResponse(response);
+  },
 
-    delete<T>(endpoint: string) {
-        return this.request<T>(endpoint, { method: 'DELETE' });
-    }
-}
-
-export const api = new ApiService();
+  delete: async <T>(endpoint: string): Promise<T> => {
+    const response = await fetch(`${BASE_URL}${endpoint}`, {
+      method: 'DELETE',
+      headers: apiService.getHeaders(),
+    });
+    return apiService.handleResponse(response);
+  },
+};

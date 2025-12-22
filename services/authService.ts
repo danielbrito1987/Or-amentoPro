@@ -1,33 +1,22 @@
 
 import { User } from '../types';
-import { api } from './api.service';
+import { apiService } from './api.service';
 
 const TOKEN_KEY = 'orcafacil_jwt_token';
 const USER_KEY = 'orcafacil_user';
 
 export const authService = {
   login: async (email: string, password: string): Promise<{ token: string; user: User }> => {
-    // Simulando uma chamada de API e geração de JWT
-    return new Promise((resolve, reject) => {
-      try {
-        setTimeout(async () => {
-          const response = await api.post<{ access_token: string, user: User }>('/auth/login', {
-            email,
-            password
-          });
-
-          const { access_token, user } = response;
-
-          localStorage.setItem(TOKEN_KEY, access_token);
-          localStorage.setItem(USER_KEY, JSON.stringify(user));
-
-          resolve({ token: access_token, user });
-        }, 800);
-      } catch (error) {
-        console.error(error);
-        throw new Error('Credenciais inválidas ou erro no servidor.');
-      }
+    // Agora faz a chamada real para o backend
+    const result = await apiService.post<{ token: string; user: User }>('/auth/login', { 
+      email, 
+      password 
     });
+
+    localStorage.setItem(TOKEN_KEY, result.token);
+    localStorage.setItem(USER_KEY, JSON.stringify(result.user));
+    
+    return result;
   },
 
   logout: () => {
