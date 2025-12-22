@@ -11,10 +11,7 @@
       body { font-family: 'Inter', sans-serif; }
       
       @media print {
-        /* Esconder elementos desnecessários */
         .no-print { display: none !important; }
-        
-        /* Forçar visibilidade e remover limites de scroll */
         html, body, #root, main {
           height: auto !important;
           overflow: visible !important;
@@ -23,25 +20,18 @@
           padding: 0 !important;
           width: 100% !important;
         }
-
-        /* Ajustar a área do orçamento para ocupar a página toda */
         .max-w-6xl {
           max-width: 100% !important;
           padding: 0 !important;
           margin: 0 !important;
         }
-
-        /* Garantir que quebras de página não cortem itens ao meio */
         tr, .bg-gray-50, .border-t {
           page-break-inside: avoid;
         }
-
-        /* Melhorar legibilidade no PDF */
         .text-blue-600 { color: #2563eb !important; }
         .bg-gray-50 { background-color: #f9fafb !important; -webkit-print-color-adjust: exact; }
       }
 
-      /* Custom scrollbar para a lista de itens */
       .custom-scrollbar::-webkit-scrollbar {
         width: 4px;
       }
@@ -56,16 +46,19 @@
   <script type="importmap">
 {
   "imports": {
-    "react": "https://esm.sh/react@^19.2.3",
     "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
+    "vite": "https://esm.sh/vite@^7.3.0",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
     "@google/genai": "https://esm.sh/@google/genai@^1.34.0",
-    "lucide-react": "https://esm.sh/lucide-react@^0.561.0",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/"
+    "lucide-react": "https://esm.sh/lucide-react@^0.562.0"
   }
 }
 </script>
 </head>
   <body class="bg-gray-50 text-gray-900">
     <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
   </body>
 </html>
