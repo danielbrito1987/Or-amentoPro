@@ -9,10 +9,48 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
       body { font-family: 'Inter', sans-serif; }
+      
       @media print {
+        /* Esconder elementos desnecessários */
         .no-print { display: none !important; }
-        .print-only { display: block !important; }
-        body { background: white !important; }
+        
+        /* Forçar visibilidade e remover limites de scroll */
+        html, body, #root, main {
+          height: auto !important;
+          overflow: visible !important;
+          background: white !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          width: 100% !important;
+        }
+
+        /* Ajustar a área do orçamento para ocupar a página toda */
+        .max-w-6xl {
+          max-width: 100% !important;
+          padding: 0 !important;
+          margin: 0 !important;
+        }
+
+        /* Garantir que quebras de página não cortem itens ao meio */
+        tr, .bg-gray-50, .border-t {
+          page-break-inside: avoid;
+        }
+
+        /* Melhorar legibilidade no PDF */
+        .text-blue-600 { color: #2563eb !important; }
+        .bg-gray-50 { background-color: #f9fafb !important; -webkit-print-color-adjust: exact; }
+      }
+
+      /* Custom scrollbar para a lista de itens */
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 4px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: #f1f1f1;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 10px;
       }
     </style>
   <script type="importmap">

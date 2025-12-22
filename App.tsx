@@ -20,7 +20,11 @@ import {
   X,
   MapPin,
   Upload,
-  Image as ImageIcon
+  Image as ImageIcon,
+  MessageCircle,
+  Share2,
+  Download,
+  Filter
 } from 'lucide-react';
 import { generateQuoteNotes } from './services/geminiService';
 
@@ -64,6 +68,7 @@ const App: React.FC = () => {
   const [selectedQuote, setSelectedQuote] = useState<Quote | null>(null);
   const [isEditingQuote, setIsEditingQuote] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   
   const logoInputRef = useRef<HTMLInputElement>(null);
 
@@ -76,6 +81,17 @@ const App: React.FC = () => {
     setQuotes(storageService.getQuotes());
     setCatalog(storageService.getCatalog());
   }, []);
+
+  // Filtered Quotes Logic
+  const filteredQuotes = quotes.filter(quote => {
+    const term = searchTerm.toLowerCase();
+    const rawTerm = searchTerm.replace(/\D/g, '');
+    const nameMatch = quote.customerName.toLowerCase().includes(term);
+    const phoneMatch = quote.customerPhone.replace(/\D/g, '').includes(rawTerm);
+    const numberMatch = quote.number.toLowerCase().includes(term);
+    
+    return nameMatch || (rawTerm !== '' && phoneMatch) || numberMatch;
+  });
 
   const handleSaveCatalogItem = () => {
     if (!newItem.name || newItem.price === undefined) return;
@@ -153,6 +169,39 @@ const App: React.FC = () => {
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const generateShareText = (quote: Quote) => {
+    const itemsList = quote.items.map(i => `• ${i.quantity}${i.unit || 'un'} x ${i.name}: ${formatCurrency(i.price * i.quantity)}`).join('\n');
+    return `*Orçamento ${quote.number}*\n\nOlá, ${quote.customerName}!\nSegue o resumo do orçamento solicitado:\n\n${itemsList}\n\n*Total: ${formatCurrency(quote.total)}*\n\n${quote.notes ? `_Observações: ${quote.notes}_` : ''}\n\nAtenciosamente,\n*${providerInfo.name}*`;
+  };
+
+  const handleWhatsAppShare = (quote: Quote) => {
+    const text = encodeURIComponent(generateShareText(quote));
+    const phone = quote.customerPhone.replace(/\D/g, '');
+    const url = `https://wa.me/${phone.startsWith('55') ? phone : '55' + phone}?text=${text}`;
+    window.open(url, '_blank');
+  };
+
+  const handleNativeShare = async (quote: Quote) => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Orçamento ${quote.number}`,
+          text: generateShareText(quote),
+        });
+      } catch (err) {
+        console.error('Erro ao compartilhar:', err);
+      }
+    } else {
+      alert('Seu navegador não suporta compartilhamento nativo. Use o botão do WhatsApp.');
+    }
+  };
+
+  const handlePrint = () => {
+    setTimeout(() => {
+      window.print();
+    }, 100);
   };
 
   const NavButtons = () => (
@@ -238,14 +287,35 @@ const App: React.FC = () => {
           {/* Quotes List Tab */}
           {activeTab === 'quotes' && !isEditingQuote && !selectedQuote && (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                 <div>
                   <h2 className="text-2xl font-bold text-slate-800">Orçamentos</h2>
                   <p className="text-slate-500">Gerencie suas propostas comerciais</p>
                 </div>
-                <Button onClick={handleStartNewQuote} icon={<Plus size={20} />} className="w-full sm:w-auto">
-                  Novo Orçamento
-                </Button>
+                <div className="flex flex-col sm:flex-row gap-3">
+                   {/* Search Input */}
+                  <div className="relative group min-w-[280px]">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors" size={20} />
+                    <input 
+                      type="text"
+                      placeholder="Buscar por cliente ou telefone..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full pl-10 pr-10 py-2.5 bg-white border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all shadow-sm"
+                    />
+                    {searchTerm && (
+                      <button 
+                        onClick={() => setSearchTerm('')}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      >
+                        <X size={16} />
+                      </button>
+                    )}
+                  </div>
+                  <Button onClick={handleStartNewQuote} icon={<Plus size={20} />} className="w-full sm:w-auto shadow-lg shadow-blue-500/20">
+                    Novo Orçamento
+                  </Button>
+                </div>
               </div>
 
               {quotes.length === 0 ? (
@@ -256,12 +326,26 @@ const App: React.FC = () => {
                   <h3 className="text-lg font-semibold text-slate-800">Nenhum orçamento ainda</h3>
                   <p className="text-slate-500 mt-1 max-w-xs">Crie seu primeiro orçamento profissional clicando no botão acima.</p>
                 </div>
+              ) : filteredQuotes.length === 0 ? (
+                <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center">
+                  <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-300">
+                    <Filter size={32} />
+                  </div>
+                  <h3 className="text-lg font-semibold text-slate-800">Nenhum resultado</h3>
+                  <p className="text-slate-500">Não encontramos orçamentos para "{searchTerm}"</p>
+                  <button 
+                    onClick={() => setSearchTerm('')}
+                    className="mt-4 text-blue-600 font-medium hover:underline"
+                  >
+                    Limpar filtros
+                  </button>
+                </div>
               ) : (
                 <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-                  {quotes.map(quote => (
+                  {filteredQuotes.map(quote => (
                     <div 
                       key={quote.id} 
-                      className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer group"
+                      className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-all cursor-pointer group hover:-translate-y-1"
                       onClick={() => setSelectedQuote(quote)}
                     >
                       <div className="flex justify-between items-start mb-3">
@@ -270,22 +354,29 @@ const App: React.FC = () => {
                         </span>
                         <span className="text-xs text-gray-400">{new Date(quote.date).toLocaleDateString()}</span>
                       </div>
-                      <h3 className="text-lg font-bold text-slate-800 mb-1 truncate">{quote.customerName || 'Cliente sem nome'}</h3>
-                      <p className="text-sm text-gray-500 mb-4 truncate">{quote.customerPhone || 'Sem contato'}</p>
+                      <h3 className="text-lg font-bold text-slate-800 mb-1 truncate group-hover:text-blue-600 transition-colors">
+                        {quote.customerName || 'Cliente sem nome'}
+                      </h3>
+                      <p className="text-sm text-gray-500 mb-4 truncate flex items-center">
+                        <MessageCircle size={14} className="mr-1.5 opacity-40" />
+                        {quote.customerPhone || 'Sem contato'}
+                      </p>
                       <div className="flex items-center justify-between pt-4 border-t border-gray-100">
                         <span className="text-xl font-bold text-slate-900">
                           {formatCurrency(quote.total)}
                         </span>
-                        <div className="flex space-x-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex space-x-1">
                           <Button 
                             variant="ghost" 
                             size="sm" 
-                            className="p-1" 
+                            className="p-1.5 hover:bg-red-50 hover:text-red-500" 
                             onClick={(e) => { e.stopPropagation(); handleDeleteQuote(quote.id); }}
                           >
-                            <Trash2 size={18} className="text-red-400" />
+                            <Trash2 size={18} />
                           </Button>
-                          <ChevronRight size={20} className="text-gray-300" />
+                          <div className="p-1.5 bg-gray-50 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                            <ChevronRight size={18} />
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -826,20 +917,39 @@ const App: React.FC = () => {
             <div className="space-y-8 animate-in fade-in zoom-in-95 duration-300">
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4 no-print">
                 <Button variant="secondary" onClick={() => setSelectedQuote(null)} className="w-full sm:w-auto">
-                  <ChevronLeft size={20} className="mr-2" /> Lista
+                  <ChevronLeft size={20} className="mr-2" /> Voltar
                 </Button>
-                <div className="flex gap-2 w-full sm:w-auto">
-                  <Button variant="secondary" onClick={() => setIsEditingQuote(true)} className="flex-1 sm:flex-none">
+                <div className="flex flex-wrap justify-center gap-2 w-full sm:w-auto">
+                  <Button variant="secondary" onClick={() => setIsEditingQuote(true)}>
                     Editar
                   </Button>
-                  <Button onClick={() => window.print()} icon={<Printer size={20} />} className="flex-1 sm:flex-none">
+                  <Button 
+                    variant="primary" 
+                    className="bg-green-600 hover:bg-green-700 border-none" 
+                    icon={<MessageCircle size={20} />} 
+                    onClick={() => handleWhatsAppShare(selectedQuote)}
+                  >
+                    WhatsApp
+                  </Button>
+                  <Button 
+                    variant="secondary" 
+                    icon={<Share2 size={20} />} 
+                    onClick={() => handleNativeShare(selectedQuote)}
+                    className="hidden md:inline-flex"
+                  >
+                    Compartilhar
+                  </Button>
+                  <Button 
+                    onClick={handlePrint} 
+                    icon={<Printer size={20} />}
+                  >
                     Imprimir / PDF
                   </Button>
                 </div>
               </div>
 
               {/* Printable Document Design */}
-              <div className="bg-white p-6 md:p-12 rounded-lg shadow-sm max-w-[210mm] mx-auto min-h-[297mm] border border-gray-100 overflow-x-auto overflow-y-hidden">
+              <div id="printable-quote" className="bg-white p-6 md:p-12 rounded-lg shadow-sm max-w-[210mm] mx-auto min-h-[297mm] border border-gray-100 overflow-x-auto overflow-y-hidden">
                 <div className="min-w-[600px] md:min-w-0">
                   {/* Header */}
                   <div className="flex justify-between items-start border-b-2 border-slate-100 pb-8 mb-8">
