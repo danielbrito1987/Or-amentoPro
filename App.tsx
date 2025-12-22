@@ -13,7 +13,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { FileText, Menu, X, Loader2 } from 'lucide-react';
 
 const AppContent: React.FC = () => {
-  const { isAuthenticated, isLoading, logout } = useAuth();
+  const { user, isAuthenticated, isLoading, logout } = useAuth();
   
   const [activeTab, setActiveTab] = useState<'quotes' | 'catalog' | 'settings'>('quotes');
   const [quotes, setQuotes] = useState<Quote[]>([]);
@@ -36,9 +36,9 @@ const AppContent: React.FC = () => {
         setIsFetchingData(true);
         try {
           const [fetchedQuotes, fetchedCatalog, fetchedProvider] = await Promise.all([
-            storageService.getQuotes(),
-            storageService.getCatalog(),
-            storageService.getProviderInfo()
+            storageService.getQuotes(user!.id),
+            storageService.getCatalog(user!.id),
+            storageService.getProviderInfo(user!.id)
           ]);
           setQuotes(fetchedQuotes);
           setCatalog(fetchedCatalog);
@@ -82,7 +82,7 @@ const AppContent: React.FC = () => {
       } else {
         await storageService.saveCatalogItem(item as CatalogItem);
       }
-      const updated = await storageService.getCatalog();
+      const updated = await storageService.getCatalog(user!.id);
       setCatalog(updated);
     } catch (error) {
       alert("Erro ao salvar no catálogo: " + error);
@@ -117,7 +117,7 @@ const AppContent: React.FC = () => {
     setIsFetchingData(true);
     try {
       await storageService.saveQuote(q);
-      const updated = await storageService.getQuotes();
+      const updated = await storageService.getQuotes(user!.id);
       setQuotes(updated);
       setIsEditingQuote(false);
       setSelectedQuote(null);

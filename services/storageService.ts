@@ -4,8 +4,8 @@ import { apiService } from './api.service';
 
 export const storageService = {
   // Catalog
-  getCatalog: async (): Promise<CatalogItem[]> => {
-    return apiService.get<CatalogItem[]>('/catalog');
+  getCatalog: async (companyId: string): Promise<CatalogItem[]> => {
+    return apiService.get<CatalogItem[]>(`/catalog/${companyId}`);
   },
   
   saveCatalogItem: async (item: CatalogItem): Promise<CatalogItem> => {
@@ -22,27 +22,27 @@ export const storageService = {
   },
 
   // Quotes
-  getQuotes: async (): Promise<Quote[]> => {
-    return apiService.get<Quote[]>('/quotes');
+  getQuotes: async (companyId: string): Promise<Quote[]> => {
+    return apiService.get<Quote[]>(`/budgets/${companyId}`);
   },
   
   saveQuote: async (quote: Quote): Promise<Quote> => {
     // Decide se é criação ou atualização com base na existência remota
     // Assumindo que o backend trata o POST como create/update ou tem rotas específicas
     if (quote.id.length > 20) { // Exemplo simples para diferenciar novos IDs de existentes se necessário
-       return apiService.post<Quote>('/quotes', quote);
+       return apiService.post<Quote>('/budgets', quote);
     }
-    return apiService.put<Quote>(`/quotes/${quote.id}`, quote);
+    return apiService.put<Quote>(`/budgets/${quote.id}`, quote);
   },
   
   deleteQuote: async (id: string): Promise<void> => {
-    return apiService.delete(`/quotes/${id}`);
+    return apiService.delete(`/budgets/${id}`);
   },
 
   // Provider Info
-  getProviderInfo: async (): Promise<ProviderInfo> => {
+  getProviderInfo: async (companyId: string): Promise<ProviderInfo> => {
     try {
-      return await apiService.get<ProviderInfo>('/provider');
+      return await apiService.get<ProviderInfo>(`/companies/${companyId}`);
     } catch (e) {
       // Fallback para dados locais se o perfil não estiver no banco ainda
       const local = localStorage.getItem('orcafacil_provider');
