@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Quote, CatalogItem, ProviderInfo, ItemType } from './types';
 import { storageService } from './services/storageService';
 import { Button } from './components/Button';
@@ -18,9 +18,43 @@ import {
   Briefcase,
   Menu,
   X,
-  MapPin
+  MapPin,
+  Upload,
+  Image as ImageIcon
 } from 'lucide-react';
 import { generateQuoteNotes } from './services/geminiService';
+
+// Mask Utilities
+const maskPhone = (value: string) => {
+  const digits = value.replace(/\D/g, '');
+  if (digits.length <= 10) {
+    return digits.replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3').substring(0, 14);
+  }
+  return digits.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3').substring(0, 15);
+};
+
+const maskCPF_CNPJ = (value: string) => {
+  const digits = value.replace(/\D/g, '');
+  if (digits.length <= 11) {
+    return digits
+      .replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
+      .substring(0, 14);
+  }
+  return digits
+    .replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')
+    .substring(0, 18);
+};
+
+const formatCurrency = (value: number) => {
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+};
+
+const maskCurrencyInput = (value: string) => {
+  const digits = value.replace(/\D/g, '');
+  const amount = parseFloat(digits) / 100;
+  if (isNaN(amount)) return '';
+  return amount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'quotes' | 'catalog' | 'settings'>('quotes');
@@ -30,9 +64,12 @@ const App: React.FC = () => {
   const [selectedQuote, setSelectedQuote] = useState<Quote | null>(null);
   const [isEditingQuote, setIsEditingQuote] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   // New item states
   const [newItem, setNewItem] = useState<Partial<CatalogItem>>({ type: ItemType.SERVICE, price: 0 });
+  const [currencyInput, setCurrencyInput] = useState('');
   const [editingCatalogItem, setEditingCatalogItem] = useState<string | null>(null);
 
   useEffect(() => {
@@ -63,6 +100,7 @@ const App: React.FC = () => {
     setCatalog(updatedCatalog);
     storageService.saveCatalog(updatedCatalog);
     setNewItem({ type: ItemType.SERVICE, price: 0 });
+    setCurrencyInput('');
     setEditingCatalogItem(null);
   };
 
@@ -104,6 +142,17 @@ const App: React.FC = () => {
   const handleSaveProvider = () => {
     storageService.saveProviderInfo(providerInfo);
     alert('Dados salvos com sucesso!');
+  };
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProviderInfo({ ...providerInfo, logo: reader.result as string });
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const NavButtons = () => (
@@ -162,9 +211,13 @@ const App: React.FC = () => {
 
         <div className="p-4 border-t border-slate-800">
           <div className="flex items-center space-x-3 p-2">
-            <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center font-bold text-xs">
-              {providerInfo.name.charAt(0).toUpperCase()}
-            </div>
+            {providerInfo.logo ? (
+              <img src={providerInfo.logo} className="w-8 h-8 rounded-full object-cover border border-slate-700" alt="Logo" />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center font-bold text-xs uppercase">
+                {providerInfo.name.charAt(0)}
+              </div>
+            )}
             <div className="text-sm overflow-hidden">
               <p className="font-medium truncate">{providerInfo.name}</p>
               <p className="text-slate-500 text-xs truncate">Configurações</p>
@@ -221,7 +274,7 @@ const App: React.FC = () => {
                       <p className="text-sm text-gray-500 mb-4 truncate">{quote.customerPhone || 'Sem contato'}</p>
                       <div className="flex items-center justify-between pt-4 border-t border-gray-100">
                         <span className="text-xl font-bold text-slate-900">
-                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(quote.total)}
+                          {formatCurrency(quote.total)}
                         </span>
                         <div className="flex space-x-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
                           <Button 
@@ -299,10 +352,16 @@ const App: React.FC = () => {
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Preço (R$)</label>
                           <input 
-                            type="number" 
-                            value={newItem.price || ''} 
-                            onChange={e => setNewItem({ ...newItem, price: parseFloat(e.target.value) })}
+                            type="text" 
+                            value={currencyInput || (newItem.price ? maskCurrencyInput((newItem.price * 100).toString()) : '')} 
+                            onChange={e => {
+                                const masked = maskCurrencyInput(e.target.value);
+                                setCurrencyInput(masked);
+                                const numeric = parseFloat(e.target.value.replace(/\D/g, '')) / 100;
+                                setNewItem({ ...newItem, price: numeric });
+                            }}
                             className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none"
+                            placeholder="0,00"
                           />
                         </div>
                         <div>
@@ -321,7 +380,7 @@ const App: React.FC = () => {
                           {editingCatalogItem ? 'Atualizar' : 'Salvar'}
                         </Button>
                         {editingCatalogItem && (
-                          <Button variant="secondary" onClick={() => { setEditingCatalogItem(null); setNewItem({ type: ItemType.SERVICE, price: 0 }); }}>
+                          <Button variant="secondary" onClick={() => { setEditingCatalogItem(null); setNewItem({ type: ItemType.SERVICE, price: 0 }); setCurrencyInput(''); }}>
                             Cancelar
                           </Button>
                         )}
@@ -364,14 +423,14 @@ const App: React.FC = () => {
                               </td>
                               <td className="px-6 py-4 text-right">
                                 <p className="font-bold text-slate-900">
-                                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.price)}
+                                  {formatCurrency(item.price)}
                                 </p>
                                 <p className="text-xs text-gray-400">por {item.unit || 'un'}</p>
                               </td>
                               <td className="px-6 py-4">
                                 <div className="flex items-center justify-center space-x-2">
                                   <button 
-                                    onClick={() => { setEditingCatalogItem(item.id); setNewItem(item); }}
+                                    onClick={() => { setEditingCatalogItem(item.id); setNewItem(item); setCurrencyInput(maskCurrencyInput((item.price * 100).toString())); }}
                                     className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
                                   >
                                     <Settings size={18} />
@@ -405,11 +464,11 @@ const App: React.FC = () => {
                           </div>
                           <div>
                             <p className="font-semibold text-slate-800">{item.name}</p>
-                            <p className="text-xs text-gray-400">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.price)} / {item.unit}</p>
+                            <p className="text-xs text-gray-400">{formatCurrency(item.price)} / {item.unit}</p>
                           </div>
                         </div>
                         <div className="flex space-x-2">
-                           <button onClick={() => { setEditingCatalogItem(item.id); setNewItem(item); }} className="p-2 text-blue-500"><Settings size={18} /></button>
+                           <button onClick={() => { setEditingCatalogItem(item.id); setNewItem(item); setCurrencyInput(maskCurrencyInput((item.price * 100).toString())); }} className="p-2 text-blue-500"><Settings size={18} /></button>
                            <button onClick={() => {
                               const updated = catalog.filter(i => i.id !== item.id);
                               setCatalog(updated);
@@ -427,12 +486,52 @@ const App: React.FC = () => {
           {/* Settings Tab */}
           {activeTab === 'settings' && (
             <div className="max-w-2xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <div>
-                <h2 className="text-2xl font-bold text-slate-800">Meus Dados Profissionais</h2>
-                <p className="text-slate-500">Estas informações aparecerão no cabeçalho dos seus orçamentos</p>
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-2xl font-bold text-slate-800">Meus Dados Profissionais</h2>
+                  <p className="text-slate-500">Estas informações aparecerão no cabeçalho dos seus orçamentos</p>
+                </div>
               </div>
 
-              <div className="bg-white p-6 md:p-8 rounded-2xl border border-gray-200 shadow-sm space-y-6">
+              <div className="bg-white p-6 md:p-8 rounded-2xl border border-gray-200 shadow-sm space-y-8">
+                {/* Logo Section */}
+                <div className="flex flex-col items-center sm:flex-row sm:items-start gap-6 pb-6 border-b border-gray-100">
+                  <div className="relative group">
+                    <div className="w-24 h-24 md:w-32 md:h-32 rounded-2xl bg-gray-50 border-2 border-dashed border-gray-200 flex items-center justify-center overflow-hidden transition-all group-hover:border-blue-300">
+                      {providerInfo.logo ? (
+                        <img src={providerInfo.logo} className="w-full h-full object-contain" alt="Logo Preview" />
+                      ) : (
+                        <ImageIcon className="w-8 h-8 text-gray-300" />
+                      )}
+                    </div>
+                    <button 
+                      onClick={() => logoInputRef.current?.click()}
+                      className="absolute -bottom-2 -right-2 bg-blue-600 text-white p-2 rounded-lg shadow-lg hover:bg-blue-700 transition-colors"
+                    >
+                      <Upload size={16} />
+                    </button>
+                    <input 
+                      type="file" 
+                      ref={logoInputRef}
+                      className="hidden" 
+                      accept="image/*"
+                      onChange={handleLogoUpload}
+                    />
+                  </div>
+                  <div className="flex-1 text-center sm:text-left">
+                    <h3 className="font-bold text-slate-800 text-lg">Logomarca</h3>
+                    <p className="text-sm text-gray-500 mb-3">Envie uma imagem JPG ou PNG. Recomendamos um fundo transparente.</p>
+                    {providerInfo.logo && (
+                      <button 
+                        onClick={() => setProviderInfo({...providerInfo, logo: undefined})}
+                        className="text-red-500 text-xs font-bold uppercase tracking-wider hover:underline"
+                      >
+                        Remover Logo
+                      </button>
+                    )}
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <div className="sm:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-1">Nome da Empresa ou Profissional</label>
@@ -444,21 +543,23 @@ const App: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">CPF/CNPJ</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">CPF ou CNPJ</label>
                     <input 
                       type="text" 
                       value={providerInfo.document} 
-                      onChange={e => setProviderInfo({...providerInfo, document: e.target.value})}
+                      onChange={e => setProviderInfo({...providerInfo, document: maskCPF_CNPJ(e.target.value)})}
                       className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none"
+                      placeholder="000.000.000-00"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Telefone / WhatsApp</label>
                     <input 
                       type="text" 
                       value={providerInfo.phone} 
-                      onChange={e => setProviderInfo({...providerInfo, phone: e.target.value})}
+                      onChange={e => setProviderInfo({...providerInfo, phone: maskPhone(e.target.value)})}
                       className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none"
+                      placeholder="(00) 00000-0000"
                     />
                   </div>
                   <div className="sm:col-span-2">
@@ -471,7 +572,7 @@ const App: React.FC = () => {
                     />
                   </div>
                   <div className="sm:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Endereço</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Endereço Completo</label>
                     <textarea 
                       value={providerInfo.address} 
                       onChange={e => setProviderInfo({...providerInfo, address: e.target.value})}
@@ -504,7 +605,7 @@ const App: React.FC = () => {
                 <div className="lg:col-span-2 space-y-6">
                   {/* Customer Info */}
                   <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
-                    <h3 className="font-bold text-lg mb-4 flex items-center">
+                    <h3 className="font-bold text-lg mb-4 flex items-center text-slate-800">
                       <Search size={20} className="mr-2 text-blue-500" /> Dados do Cliente
                     </h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -523,7 +624,7 @@ const App: React.FC = () => {
                         <input 
                           type="text" 
                           value={selectedQuote.customerPhone} 
-                          onChange={e => setSelectedQuote({...selectedQuote, customerPhone: e.target.value})}
+                          onChange={e => setSelectedQuote({...selectedQuote, customerPhone: maskPhone(e.target.value)})}
                           className="w-full px-4 py-2 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-blue-500"
                           placeholder="(00) 00000-0000"
                         />
@@ -582,7 +683,7 @@ const App: React.FC = () => {
                   {/* Items List */}
                   <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
                     <div className="flex items-center justify-between mb-4">
-                      <h3 className="font-bold text-lg">Itens do Orçamento</h3>
+                      <h3 className="font-bold text-lg text-slate-800">Itens do Orçamento</h3>
                       <p className="text-sm text-gray-400">{selectedQuote.items.length} itens</p>
                     </div>
                     
@@ -593,13 +694,14 @@ const App: React.FC = () => {
                     ) : (
                       <div className="space-y-3">
                         {selectedQuote.items.map((item, idx) => (
-                          <div key={idx} className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 rounded-xl border border-gray-100">
+                          <div key={idx} className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 rounded-xl border border-gray-100 bg-gray-50/50">
                             <div className="flex-1 w-full">
                               <p className="font-semibold text-slate-800">{item.name}</p>
                               <p className="text-xs text-gray-400">{item.unit || 'un'}</p>
                             </div>
                             <div className="flex items-center justify-between w-full sm:w-auto gap-4">
                               <div className="w-20">
+                                <label className="block text-[10px] text-gray-400 uppercase font-bold text-center mb-1">Qtd</label>
                                 <input 
                                   type="number" 
                                   value={item.quantity}
@@ -610,12 +712,13 @@ const App: React.FC = () => {
                                     const newTotal = newItems.reduce((acc, i) => acc + (i.price * i.quantity), 0);
                                     setSelectedQuote({...selectedQuote, items: newItems, total: newTotal});
                                   }}
-                                  className="w-full px-2 py-1 border rounded-lg text-center font-medium"
+                                  className="w-full px-2 py-1 border border-gray-200 rounded-lg text-center font-medium outline-none focus:ring-2 focus:ring-blue-500"
                                 />
                               </div>
                               <div className="w-24 text-right">
+                                <label className="block text-[10px] text-gray-400 uppercase font-bold mb-1">Total</label>
                                 <p className="font-bold text-slate-900 text-sm">
-                                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.price * item.quantity)}
+                                  {formatCurrency(item.price * item.quantity)}
                                 </p>
                               </div>
                               <button 
@@ -624,7 +727,7 @@ const App: React.FC = () => {
                                   const newTotal = newItems.reduce((acc, i) => acc + (i.price * i.quantity), 0);
                                   setSelectedQuote({...selectedQuote, items: newItems, total: newTotal});
                                 }}
-                                className="text-red-400 p-1"
+                                className="text-red-400 hover:text-red-600 transition-colors mt-4 sm:mt-0"
                               >
                                 <Trash2 size={18} />
                               </button>
@@ -638,7 +741,7 @@ const App: React.FC = () => {
                   {/* Notes & AI Generation */}
                   <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
                     <div className="flex items-center justify-between mb-4">
-                      <h3 className="font-bold text-lg">Observações</h3>
+                      <h3 className="font-bold text-lg text-slate-800">Observações</h3>
                       <button 
                         onClick={async () => {
                           const suggestion = await generateQuoteNotes(selectedQuote.items, selectedQuote.customerName);
@@ -662,8 +765,8 @@ const App: React.FC = () => {
                 <div className="space-y-6">
                   {/* Catalog Quick Search */}
                   <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
-                    <h3 className="font-bold text-lg mb-4">Catálogo</h3>
-                    <div className="space-y-2 max-h-[300px] lg:max-h-[400px] overflow-y-auto pr-2">
+                    <h3 className="font-bold text-lg mb-4 text-slate-800">Catálogo</h3>
+                    <div className="space-y-2 max-h-[300px] lg:max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
                       {catalog.length === 0 ? (
                         <p className="text-sm text-gray-400 text-center py-4 italic">Sem itens.</p>
                       ) : (
@@ -686,7 +789,7 @@ const App: React.FC = () => {
                           >
                             <div className="overflow-hidden">
                               <p className="text-sm font-semibold text-slate-700 truncate">{item.name}</p>
-                              <p className="text-xs text-gray-400">R$ {item.price.toFixed(2)} / {item.unit}</p>
+                              <p className="text-xs text-gray-400">{formatCurrency(item.price)} / {item.unit}</p>
                             </div>
                             <Plus size={18} className="text-gray-300 group-hover:text-blue-600 flex-shrink-0" />
                           </div>
@@ -700,13 +803,13 @@ const App: React.FC = () => {
                     <div>
                       <p className="text-slate-400 text-xs font-medium uppercase tracking-wider mb-2">Total Geral</p>
                       <h3 className="text-3xl md:text-4xl font-bold">
-                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedQuote.total)}
+                        {formatCurrency(selectedQuote.total)}
                       </h3>
                     </div>
                     
                     <div className="space-y-3 pt-4">
                       <Button className="w-full py-4 rounded-2xl bg-blue-500 hover:bg-blue-600 border-none text-lg font-bold" onClick={() => handleSaveQuote(selectedQuote)}>
-                        Salvar
+                        Salvar Orçamento
                       </Button>
                       <Button variant="ghost" className="w-full text-slate-400 hover:bg-slate-800 border-none" onClick={() => { setIsEditingQuote(false); setSelectedQuote(null); }}>
                         Cancelar
@@ -740,13 +843,20 @@ const App: React.FC = () => {
                 <div className="min-w-[600px] md:min-w-0">
                   {/* Header */}
                   <div className="flex justify-between items-start border-b-2 border-slate-100 pb-8 mb-8">
-                    <div>
-                      <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 mb-1">{providerInfo.name}</h1>
-                      <div className="text-xs md:text-sm text-gray-500 space-y-0.5">
-                        <p>CPF/CNPJ: {providerInfo.document}</p>
-                        <p>Fone: {providerInfo.phone}</p>
-                        <p>{providerInfo.email}</p>
-                        <p className="max-w-xs">{providerInfo.address}</p>
+                    <div className="flex gap-6">
+                      {providerInfo.logo && (
+                        <div className="flex-shrink-0">
+                          <img src={providerInfo.logo} className="h-20 max-w-[160px] object-contain" alt="Provider Logo" />
+                        </div>
+                      )}
+                      <div>
+                        <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 mb-1">{providerInfo.name}</h1>
+                        <div className="text-xs md:text-sm text-gray-500 space-y-0.5">
+                          {providerInfo.document && <p>CPF/CNPJ: {providerInfo.document}</p>}
+                          {providerInfo.phone && <p>Fone: {providerInfo.phone}</p>}
+                          {providerInfo.email && <p>{providerInfo.email}</p>}
+                          {providerInfo.address && <p className="max-w-xs">{providerInfo.address}</p>}
+                        </div>
                       </div>
                     </div>
                     <div className="text-right">
@@ -761,8 +871,8 @@ const App: React.FC = () => {
                     <div>
                       <p className="text-[10px] md:text-xs font-bold text-gray-400 uppercase mb-2">Para o Cliente</p>
                       <h3 className="text-lg md:text-xl font-bold text-slate-800 mb-1">{selectedQuote.customerName || '(Não informado)'}</h3>
-                      <p className="text-xs md:text-sm text-slate-600">{selectedQuote.customerPhone}</p>
-                      <p className="text-xs md:text-sm text-slate-600">{selectedQuote.customerEmail}</p>
+                      {selectedQuote.customerPhone && <p className="text-xs md:text-sm text-slate-600">{selectedQuote.customerPhone}</p>}
+                      {selectedQuote.customerEmail && <p className="text-xs md:text-sm text-slate-600">{selectedQuote.customerEmail}</p>}
                       {(selectedQuote.customerAddress || selectedQuote.customerCity) && (
                         <div className="mt-2 pt-2 border-t border-gray-200">
                           <p className="text-xs text-slate-500 leading-tight">
@@ -795,10 +905,10 @@ const App: React.FC = () => {
                             </td>
                             <td className="py-4 px-4 text-center text-slate-600 text-sm">{item.quantity} {item.unit}</td>
                             <td className="py-4 px-4 text-right text-slate-600 text-sm">
-                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.price)}
+                              {formatCurrency(item.price)}
                             </td>
                             <td className="py-4 text-right font-bold text-slate-900 text-sm">
-                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.price * item.quantity)}
+                              {formatCurrency(item.price * item.quantity)}
                             </td>
                           </tr>
                         ))}
@@ -807,7 +917,7 @@ const App: React.FC = () => {
                         <tr>
                           <td colSpan={3} className="pt-8 text-right font-medium text-slate-500 text-sm">Valor Total</td>
                           <td className="pt-8 text-right text-2xl md:text-3xl font-extrabold text-blue-600">
-                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedQuote.total)}
+                            {formatCurrency(selectedQuote.total)}
                           </td>
                         </tr>
                       </tfoot>
@@ -827,10 +937,10 @@ const App: React.FC = () => {
                   {/* Footer Signature Area */}
                   <div className="mt-20 flex justify-center gap-12 md:gap-24 text-center">
                     <div className="w-40 md:w-48">
-                      <div className="border-t border-slate-300 pt-2 text-[10px] text-gray-400 font-medium uppercase">Assinatura do Prestador</div>
+                      <div className="border-t border-slate-300 pt-2 text-[10px] text-gray-400 font-medium uppercase tracking-tighter">Assinatura do Prestador</div>
                     </div>
                     <div className="w-40 md:w-48">
-                      <div className="border-t border-slate-300 pt-2 text-[10px] text-gray-400 font-medium uppercase">Aceite do Cliente</div>
+                      <div className="border-t border-slate-300 pt-2 text-[10px] text-gray-400 font-medium uppercase tracking-tighter">Aceite do Cliente</div>
                     </div>
                   </div>
                 </div>

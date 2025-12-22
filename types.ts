@@ -39,4 +39,5 @@ export interface ProviderInfo {
   phone: string;
   email: string;
   address: string;
+  logo?: string; // Base64 string
 }
