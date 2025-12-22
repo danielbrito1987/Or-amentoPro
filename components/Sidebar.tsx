@@ -2,6 +2,7 @@
 import React from 'react';
 import { FileText, TrendingUp, Package, Settings, LogOut } from 'lucide-react';
 import { ProviderInfo } from '../types';
+import { useAuth } from '../contexts/AuthContext';
 
 interface SidebarProps {
   activeTab: string;
@@ -13,6 +14,8 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, providerInfo, isOpen, onClose, onLogout }) => {
+  const { user } = useAuth();
+
   const NavButton = ({ tab, icon: Icon, label }: any) => (
     <button 
       onClick={() => { onTabChange(tab); onClose(); }}
@@ -40,17 +43,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, provid
         </div>
 
         <div className="p-4 border-t border-slate-800 space-y-2">
-          <div className="flex items-center space-x-3 p-2 mb-2">
-            {providerInfo.logo ? (
-              <img src={providerInfo.logo} className="w-8 h-8 rounded-full object-cover border border-slate-700" alt="Logo" />
-            ) : (
-              <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center font-bold text-xs">
-                {providerInfo.name.charAt(0)}
+          <div className="flex flex-col p-2 mb-2">
+            <div className="flex items-center space-x-3 mb-1">
+              {providerInfo.logo ? (
+                <img src={providerInfo.logo} className="w-8 h-8 rounded-full object-cover border border-slate-700" alt="Logo" />
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center font-bold text-xs">
+                  {providerInfo.name.charAt(0)}
+                </div>
+              )}
+              <div className="text-sm overflow-hidden">
+                <p className="font-medium truncate">{providerInfo.name}</p>
               </div>
-            )}
-            <div className="text-sm overflow-hidden">
-              <p className="font-medium truncate">{providerInfo.name}</p>
             </div>
+            {user && (
+              <p className="text-[10px] text-slate-500 truncate ml-11">Logado como: {user.name}</p>
+            )}
           </div>
           
           <button 

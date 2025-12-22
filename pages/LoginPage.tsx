@@ -1,15 +1,11 @@
 
 import React, { useState } from 'react';
-import { authService } from '../services/authService';
 import { Button } from '../components/Button';
 import { FileText, Mail, Lock, Loader2, AlertCircle } from 'lucide-react';
-import { User } from '../types';
+import { useAuth } from '../contexts/AuthContext';
 
-interface LoginPageProps {
-  onLoginSuccess: (user: User) => void;
-}
-
-export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
+export const LoginPage: React.FC = () => {
+  const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -21,8 +17,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     setError(null);
 
     try {
-      const { user } = await authService.login(email, password);
-      onLoginSuccess(user);
+      await login(email, password);
     } catch (err: any) {
       setError(err.message || 'Erro ao realizar login. Tente novamente.');
     } finally {
