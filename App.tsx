@@ -13,7 +13,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { FileText, Menu, X, Loader2 } from 'lucide-react';
 
 const AppContent: React.FC = () => {
-  const { isAuthenticated, isLoading, logout } = useAuth();
+  const { user, isAuthenticated, isLoading, logout } = useAuth();
   
   const [activeTab, setActiveTab] = useState<'quotes' | 'catalog' | 'settings'>('quotes');
   const [quotes, setQuotes] = useState<Quote[]>([]);
@@ -25,10 +25,20 @@ const AppContent: React.FC = () => {
 
   useEffect(() => {
     if (isAuthenticated) {
-      setQuotes(storageService.getQuotes());
-      setCatalog(storageService.getCatalog());
+      getQuotes();
+      getCatalog();
     }
   }, [isAuthenticated]);
+
+  const getQuotes = async () => {
+    const quotes = await storageService.getQuotes(user!.id);
+    setQuotes(quotes);
+  }
+
+  const getCatalog = async () => {
+    const catalog = await storageService.getCatalog(user!.id);
+    setCatalog(catalog);
+  }
 
   const handleStartNewQuote = () => {
     const newQuote: Quote = {
@@ -58,13 +68,13 @@ const AppContent: React.FC = () => {
       updatedCatalog = [...catalog, { ...item, id: crypto.randomUUID() } as CatalogItem];
     }
     setCatalog(updatedCatalog);
-    storageService.saveCatalog(updatedCatalog);
+    storageService.saveCatalog(user!.id, item as CatalogItem);
   };
 
   const deleteCatalogItem = (id: string) => {
     const updated = catalog.filter(i => i.id !== id);
     setCatalog(updated);
-    storageService.saveCatalog(updated);
+    //storageService.saveCatalog(user!.id, updated as CatalogItem);
   };
 
   if (isLoading) {
@@ -108,7 +118,7 @@ const AppContent: React.FC = () => {
               quotes={quotes} 
               onNewQuote={handleStartNewQuote} 
               onSelectQuote={setSelectedQuote} 
-              onDeleteQuote={(id) => { storageService.deleteQuote(id); setQuotes(storageService.getQuotes()); }} 
+              onDeleteQuote={(id) => { storageService.deleteQuote(id, user!.id); getQuotes(); }} 
             />
           )}
 
@@ -134,7 +144,7 @@ const AppContent: React.FC = () => {
               catalog={catalog} 
               onBack={() => { setIsEditingQuote(false); setSelectedQuote(null); }} 
               onUpdateQuote={setSelectedQuote}
-              onSave={(q) => { storageService.saveQuote(q); setQuotes(storageService.getQuotes()); setIsEditingQuote(false); setSelectedQuote(null); }} 
+              onSave={(q) => { storageService.saveQuote(q, user!.id); getQuotes(); setIsEditingQuote(false); setSelectedQuote(null); }} 
             />
           )}
 

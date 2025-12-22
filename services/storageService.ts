@@ -1,29 +1,40 @@
 
 import { CatalogItem, Quote, ProviderInfo } from '../types';
+import { api } from './api.service';
 
 const KEYS = {
   CATALOG: 'orcafacil_catalog',
   QUOTES: 'orcafacil_quotes',
-  PROVIDER: 'orcafacil_provider'
+  PROVIDER: 'orcafacil_user'
 };
 
 export const storageService = {
   // Catalog
-  getCatalog: (): CatalogItem[] => {
-    const data = localStorage.getItem(KEYS.CATALOG);
-    return data ? JSON.parse(data) : [];
+  getCatalog: async (companyId: string): Promise<CatalogItem[]> => {
+    const data = await api.get<CatalogItem[]>(`api/products/${companyId}`);
+    return data ? data : [];
   },
-  saveCatalog: (items: CatalogItem[]) => {
-    localStorage.setItem(KEYS.CATALOG, JSON.stringify(items));
+  saveCatalog: async (companyId: string, item: CatalogItem) => {
+    var product = {
+      companyId: companyId,
+      name: item.name,
+      description: item.description,
+      type: item.type,
+      value: item.price,
+      unit: item.unit
+    }
+
+    await api.post('api/products', product);
   },
 
   // Quotes
-  getQuotes: (): Quote[] => {
-    const data = localStorage.getItem(KEYS.QUOTES);
-    return data ? JSON.parse(data) : [];
+  getQuotes: async (companyId: string): Promise<Quote[]> => {
+    const response = await api.get<Quote[]>(`api/budgets/${companyId}`);
+
+    return response ? response : [];
   },
-  saveQuote: (quote: Quote) => {
-    const quotes = storageService.getQuotes();
+  saveQuote: async (quote: Quote, companyId: string) => {
+    const quotes = await storageService.getQuotes(companyId);
     const index = quotes.findIndex(q => q.id === quote.id);
     if (index >= 0) {
       quotes[index] = quote;
@@ -32,8 +43,9 @@ export const storageService = {
     }
     localStorage.setItem(KEYS.QUOTES, JSON.stringify(quotes));
   },
-  deleteQuote: (id: string) => {
-    const quotes = storageService.getQuotes().filter(q => q.id !== id);
+  deleteQuote: async (id: string, companyId: string) => {
+    const response = await storageService.getQuotes(companyId);
+    const quotes = response.filter(q => q.id !== id);
     localStorage.setItem(KEYS.QUOTES, JSON.stringify(quotes));
   },
 
