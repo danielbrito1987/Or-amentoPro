@@ -33,7 +33,7 @@ export const storageService = {
   getCatalog: async (companyId: string): Promise<CatalogItem[]> => {
     try {
       // O companyId é obrigatório para garantir multi-tenancy e filtragem correta
-      const response = await apiService.get<any>(`/products?companyId=${companyId}`);
+      const response = await apiService.get<any>(`/products/${companyId}`);
       const items = extractArray(response, ['products', 'data', 'items', 'results', 'content']);
       return items.map(mapId);
     } catch (error) {

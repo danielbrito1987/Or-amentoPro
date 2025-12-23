@@ -86,28 +86,28 @@ const AppContent: React.FC = () => {
     setIsEditingQuote(false);
     setIsSidebarOpen(false);
 
-    const compId = user?.companyId || (authService.getCurrentUser()?.companyId);
+    const compId = user?.sub || (authService.getCurrentUser()?.sub);
     if (!compId) return;
 
     // Dispara a busca apenas se a seção ainda não estiver carregada
-    if (tab === 'quotes' && !loadedSections.quotes) {
+    if (tab === 'quotes') {
       fetchQuotes(compId);
-    } else if (tab === 'catalog' && !loadedSections.catalog) {
+    } else if (tab === 'catalog') {
       fetchCatalog(compId);
-    } else if (tab === 'settings' && !loadedSections.provider) {
+    } else if (tab === 'settings') {
       fetchProvider(compId);
     }
   };
 
   // Carregamento inicial de segurança para a aba padrão
   useEffect(() => {
-    if (isAuthenticated && user?.companyId && !loadedSections.quotes && activeTab === 'quotes') {
-      fetchQuotes(user.companyId);
+    if (isAuthenticated && user!.sub && !loadedSections.quotes && activeTab === 'quotes') {
+      fetchQuotes(user!.sub);
     }
   }, [isAuthenticated, user, activeTab, loadedSections.quotes, fetchQuotes]);
 
   const handleStartNewQuote = async () => {
-    const compId = user?.companyId;
+    const compId = user!.sub;
     if (!compId) return;
 
     let currentProvider = providerInfo;
@@ -143,7 +143,7 @@ const AppContent: React.FC = () => {
   };
 
   const saveCatalogItem = async (item: Partial<CatalogItem>, isEditing: boolean) => {
-    const compId = user?.companyId;
+    const compId = user!.sub;
     if (!compId) return;
     setIsFetchingData(true);
     try {
@@ -163,7 +163,7 @@ const AppContent: React.FC = () => {
   };
 
   const deleteCatalogItem = async (id: string) => {
-    const compId = user?.companyId;
+    const compId = user!.sub;
     if (!compId) return;
     if (confirm("Deseja remover este item?")) {
       setIsFetchingData(true);
@@ -193,7 +193,7 @@ const AppContent: React.FC = () => {
   };
 
   const handleSaveQuote = async (q: Quote) => {
-    const compId = user?.companyId;
+    const compId = user!.sub;
     if (!compId) return;
     setIsFetchingData(true);
     try {
@@ -214,7 +214,7 @@ const AppContent: React.FC = () => {
   };
 
   const handleSaveSettings = async () => {
-    const compId = user?.companyId;
+    const compId = user!.sub;
     if (!compId) return;
     setIsFetchingData(true);
     try {
