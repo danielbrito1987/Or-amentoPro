@@ -19,8 +19,12 @@ export const maskCPF_CNPJ = (value: string) => {
     .substring(0, 18);
 };
 
-export const formatCurrency = (value: number) => {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+export const formatCurrency = (value: any) => {
+  // Converte para número caso venha como string da API
+  const amount = typeof value === 'string' ? parseFloat(value) : value;
+  if (isNaN(amount)) return 'R$ 0,00';
+  
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(amount);
 };
 
 export const maskCurrencyInput = (value: string) => {

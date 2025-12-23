@@ -36,9 +36,9 @@ const AppContent: React.FC = () => {
         setIsFetchingData(true);
         try {
           const [fetchedQuotes, fetchedCatalog, fetchedProvider] = await Promise.all([
-            storageService.getQuotes(user!.sub),
-            storageService.getCatalog(user!.sub),
-            storageService.getProviderInfo(user!.sub)
+            storageService.getQuotes(),
+            storageService.getCatalog(),
+            storageService.getProviderInfo()
           ]);
           setQuotes(fetchedQuotes);
           setCatalog(fetchedCatalog);
@@ -69,7 +69,7 @@ const AppContent: React.FC = () => {
       total: 0,
       notes: '',
       providerInfo: providerInfo,
-      companyId: user?.companyId // Injeta ID da empresa
+      companyId: user?.companyId
     };
     setSelectedQuote(newQuote);
     setIsEditingQuote(true);
@@ -79,8 +79,8 @@ const AppContent: React.FC = () => {
     setIsFetchingData(true);
     try {
       const itemToSave = {
-        companyId: user?.sub,
-        ...item
+        ...item,
+        companyId: user?.companyId
       } as CatalogItem;
 
       if (isEditing) {
@@ -89,7 +89,7 @@ const AppContent: React.FC = () => {
         await storageService.saveCatalogItem(itemToSave);
       }
       
-      const updated = await storageService.getCatalog(user!.sub);
+      const updated = await storageService.getCatalog();
       setCatalog(updated);
     } catch (error) {
       alert("Erro ao salvar no catálogo: " + error);
@@ -103,7 +103,8 @@ const AppContent: React.FC = () => {
       setIsFetchingData(true);
       try {
         await storageService.deleteCatalogItem(id);
-        setCatalog(prev => prev.filter(i => i.id !== id));
+        const updated = await storageService.getCatalog();
+        setCatalog(updated);
       } catch (error) {
         alert("Erro ao remover item.");
       } finally {
@@ -129,8 +130,13 @@ const AppContent: React.FC = () => {
   const handleSaveQuote = async (q: Quote) => {
     setIsFetchingData(true);
     try {
-      await storageService.saveQuote(q);
-      const updated = await storageService.getQuotes(user!.sub);
+      const quoteWithCompany = { 
+        ...q, 
+        companyId: user?.companyId,
+        providerInfo: { ...q.providerInfo, companyId: user?.companyId }
+      };
+      await storageService.saveQuote(quoteWithCompany);
+      const updated = await storageService.getQuotes();
       setQuotes(updated);
       setIsEditingQuote(false);
       setSelectedQuote(null);
@@ -146,6 +152,7 @@ const AppContent: React.FC = () => {
     try {
       const infoWithCompany = { ...providerInfo, companyId: user?.companyId };
       await storageService.saveProviderInfo(infoWithCompany); 
+      setProviderInfo(infoWithCompany);
       alert('Dados profissionais salvos com sucesso!'); 
     } catch (error) {
       alert("Erro ao salvar configurações.");

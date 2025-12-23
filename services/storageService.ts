@@ -2,13 +2,41 @@
 import { CatalogItem, Quote, ProviderInfo } from '../types';
 import { apiService } from './api.service';
 
+// Função auxiliar para extrair arrays de respostas de API que podem vir embrulhadas
+const extractArray = (response: any, keys: string[]): any[] => {
+  if (Array.isArray(response)) return response;
+  if (!response || typeof response !== 'object') return [];
+  
+  for (const key of keys) {
+    if (Array.isArray(response[key])) return response[key];
+  }
+  
+  // Se não encontrou em chaves conhecidas, tenta procurar qualquer chave que contenha um array
+  const firstArrayKey = Object.keys(response).find(key => Array.isArray(response[key]));
+  if (firstArrayKey) return response[firstArrayKey];
+  
+  return [];
+};
+
+// Garante que o item tenha um campo 'id' mesmo que a API retorne '_id'
+const mapId = (item: any): any => {
+  if (item._id && !item.id) {
+    return { ...item, id: item._id };
+  }
+  return item;
+};
+
 export const storageService = {
   // Catalog (Produtos e Serviços)
-  getCatalog: async (companyId: string): Promise<CatalogItem[]> => {
-    const response = await apiService.get<CatalogItem[]>(`/products/${companyId}`);
-    console.log("Retorno API: ", response);
-    
-    return response;
+  getCatalog: async (): Promise<CatalogItem[]> => {
+    try {
+      const response = await apiService.get<any>('/products');
+      const items = extractArray(response, ['products', 'data', 'items', 'results', 'content']);
+      return items.map(mapId);
+    } catch (error) {
+      console.error("Erro ao buscar catálogo:", error);
+      return [];
+    }
   },
   
   saveCatalogItem: async (item: CatalogItem): Promise<CatalogItem> => {
@@ -28,21 +56,20 @@ export const storageService = {
   },
 
   // Quotes (Orçamentos)
-  getQuotes: async (comapnyId: string): Promise<Quote[]> => {
-    const response = await apiService.get<any>(`/quotes/${comapnyId}`);
-    
-    if (Array.isArray(response)) return response;
-    if (response && typeof response === 'object') {
-      if (Array.isArray(response.quotes)) return response.quotes;
-      if (Array.isArray(response.data)) return response.data;
+  getQuotes: async (): Promise<Quote[]> => {
+    try {
+      const response = await apiService.get<any>('/quotes');
+      const quotes = extractArray(response, ['quotes', 'data', 'items', 'results']);
+      return quotes.map(mapId);
+    } catch (error) {
+      console.error("Erro ao buscar orçamentos:", error);
+      return [];
     }
-    
-    return [];
   },
   
   saveQuote: async (quote: Quote): Promise<Quote> => {
-    // Se o ID for um UUID recém gerado (36 chars), enviamos como POST
-    if (quote.id.length > 20) { 
+    // Se o ID for longo (UUID v4), tratamos como novo
+    if (quote.id && quote.id.length > 20) { 
        return apiService.post<Quote>('/quotes', quote);
     }
     return apiService.put<Quote>(`/quotes/${quote.id}`, quote);
@@ -53,9 +80,12 @@ export const storageService = {
   },
 
   // Provider Info (Dados do Profissional)
-  getProviderInfo: async (companyId: string): Promise<ProviderInfo> => {
+  getProviderInfo: async (): Promise<ProviderInfo> => {
     try {
-      return await apiService.get<ProviderInfo>(`/companies/${companyId}`);
+      const response = await apiService.get<any>('/provider');
+      // Se a resposta for um array (o que acontece em algumas APIs de busca), pega o primeiro
+      if (Array.isArray(response)) return mapId(response[0]);
+      return mapId(response);
     } catch (e) {
       const local = localStorage.getItem('orcafacil_provider');
       return local ? JSON.parse(local) : {

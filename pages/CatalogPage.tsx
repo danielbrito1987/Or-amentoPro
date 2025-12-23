@@ -4,7 +4,6 @@ import { CatalogItem, ItemType } from '../types';
 import { Button } from '../components/Button';
 import { Briefcase, Box, Settings, Trash2 } from 'lucide-react';
 import { formatCurrency, maskCurrencyInput } from '../utils/formatters';
-import { useAuth } from '../contexts/AuthContext';
 
 interface CatalogPageProps {
   catalog: CatalogItem[];
@@ -13,14 +12,13 @@ interface CatalogPageProps {
 }
 
 export const CatalogPage: React.FC<CatalogPageProps> = ({ catalog, onSaveItem, onDeleteItem }) => {
-  const { user } = useAuth();
-  const [newItem, setNewItem] = useState<Partial<CatalogItem>>({ companyId: user!.sub, type: ItemType.SERVICE, value: 0 });
+  const [newItem, setNewItem] = useState<Partial<CatalogItem>>({ type: ItemType.SERVICE, price: 0 });
   const [currencyInput, setCurrencyInput] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const handleSave = () => {
     onSaveItem(newItem, !!editingId);
-    setNewItem({ companyId: user!.sub, type: ItemType.SERVICE, value: 0 });
+    setNewItem({ type: ItemType.SERVICE, price: 0 });
     setCurrencyInput('');
     setEditingId(null);
   };
@@ -28,7 +26,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({ catalog, onSaveItem, o
   const startEdit = (item: CatalogItem) => {
     setEditingId(item.id);
     setNewItem(item);
-    setCurrencyInput(maskCurrencyInput((item.value * 100).toString()));
+    setCurrencyInput(maskCurrencyInput((item.price * 100).toString()));
   };
 
   return (
@@ -62,10 +60,17 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({ catalog, onSaveItem, o
               </div>
               <input 
                 type="text" 
+                value={newItem.name || ''} 
+                onChange={e => setNewItem({ ...newItem, name: e.target.value })}
+                className="w-full px-4 py-2 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Nome do item"
+              />
+              <textarea 
                 value={newItem.description || ''} 
                 onChange={e => setNewItem({ ...newItem, description: e.target.value })}
                 className="w-full px-4 py-2 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Descrição"
+                rows={2}
+                placeholder="Descrição opcional"
               />
               <div className="grid grid-cols-2 gap-4">
                 <input 
@@ -74,7 +79,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({ catalog, onSaveItem, o
                   onChange={e => {
                     const masked = maskCurrencyInput(e.target.value);
                     setCurrencyInput(masked);
-                    setNewItem({ ...newItem, value: parseFloat(e.target.value.replace(/\D/g, '')) / 100 });
+                    setNewItem({ ...newItem, price: parseFloat(e.target.value.replace(/\D/g, '')) / 100 });
                   }}
                   className="w-full px-4 py-2 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Preço R$"
@@ -89,7 +94,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({ catalog, onSaveItem, o
               </div>
               <div className="flex gap-2 pt-2">
                 <Button className="flex-1" onClick={handleSave}>{editingId ? 'Atualizar' : 'Salvar'}</Button>
-                {editingId && <Button variant="secondary" onClick={() => {setEditingId(null); setNewItem({ companyId: user!.sub, type:ItemType.SERVICE, value: 0}); setCurrencyInput('');}}>Cancelar</Button>}
+                {editingId && <Button variant="secondary" onClick={() => {setEditingId(null); setNewItem({type:ItemType.SERVICE, price: 0}); setCurrencyInput('');}}>Cancelar</Button>}
               </div>
             </div>
           </div>
@@ -114,11 +119,12 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({ catalog, onSaveItem, o
                           {item.type === ItemType.SERVICE ? <Briefcase size={18} /> : <Box size={18} />}
                         </div>
                         <div>
+                          <p className="font-semibold text-slate-800">{item.name}</p>
                           <p className="text-xs text-gray-400">{item.description}</p>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-right font-bold">{formatCurrency(item.value)} <span className="text-xs text-gray-400 font-normal">/{item.unit}</span></td>
+                    <td className="px-6 py-4 text-right font-bold">{formatCurrency(item.price)} <span className="text-xs text-gray-400 font-normal">/{item.unit}</span></td>
                     <td className="px-6 py-4 text-center space-x-2">
                       <button onClick={() => startEdit(item)} className="p-2 text-gray-400 hover:text-blue-600"><Settings size={18} /></button>
                       <button onClick={() => onDeleteItem(item.id)} className="p-2 text-gray-400 hover:text-red-500"><Trash2 size={18} /></button>
@@ -137,8 +143,8 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({ catalog, onSaveItem, o
                     {item.type === ItemType.SERVICE ? <Briefcase size={18} /> : <Box size={18} />}
                   </div>
                   <div>
-                    <p className="font-semibold text-slate-800">{item.description}</p>
-                    <p className="text-xs text-gray-400">{formatCurrency(item.value)} / {item.unit}</p>
+                    <p className="font-semibold text-slate-800">{item.name}</p>
+                    <p className="text-xs text-gray-400">{formatCurrency(item.price)} / {item.unit}</p>
                   </div>
                 </div>
                 <div className="flex space-x-2">
