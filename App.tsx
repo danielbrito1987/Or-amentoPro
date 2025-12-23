@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Quote, CatalogItem, ProviderInfo } from './types';
 import { storageService } from './services/storageService';
 import { Sidebar } from './components/Sidebar';
@@ -25,37 +25,90 @@ const AppContent: React.FC = () => {
     email: '',
     address: ''
   });
+  
   const [selectedQuote, setSelectedQuote] = useState<Quote | null>(null);
   const [isEditingQuote, setIsEditingQuote] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isFetchingData, setIsFetchingData] = useState(false);
 
-  // Carregar dados quando autenticado e o companyId estiver disponível
-  useEffect(() => {
-    const loadInitialData = async () => {
-      if (isAuthenticated && user?.companyId) {
-        setIsFetchingData(true);
-        try {
-          const [fetchedQuotes, fetchedCatalog, fetchedProvider] = await Promise.all([
-            storageService.getQuotes(user.companyId),
-            storageService.getCatalog(user.companyId),
-            storageService.getProviderInfo(user.companyId)
-          ]);
-          setQuotes(fetchedQuotes);
-          setCatalog(fetchedCatalog);
-          if (fetchedProvider) setProviderInfo(fetchedProvider);
-        } catch (error) {
-          console.error("Erro ao carregar dados da API:", error);
-        } finally {
-          setIsFetchingData(false);
-        }
-      }
-    };
-    
-    loadInitialData();
-  }, [isAuthenticated, user?.companyId]);
+  // Estados para controlar se os dados já foram carregados uma vez
+  const [loadedSections, setLoadedSections] = useState({
+    quotes: false,
+    catalog: false,
+    provider: false
+  });
 
-  const handleStartNewQuote = () => {
+  // Funções de busca individuais
+  const fetchQuotes = useCallback(async () => {
+    if (!user?.companyId) return;
+    setIsFetchingData(true);
+    try {
+      const data = await storageService.getQuotes(user.companyId);
+      setQuotes(data);
+      setLoadedSections(prev => ({ ...prev, quotes: true }));
+    } catch (error) {
+      console.error("Erro ao carregar orçamentos:", error);
+    } finally {
+      setIsFetchingData(false);
+    }
+  }, [user?.companyId]);
+
+  const fetchCatalog = useCallback(async () => {
+    if (!user?.companyId) return;
+    setIsFetchingData(true);
+    try {
+      const data = await storageService.getCatalog(user.companyId);
+      setCatalog(data);
+      setLoadedSections(prev => ({ ...prev, catalog: true }));
+    } catch (error) {
+      console.error("Erro ao carregar catálogo:", error);
+    } finally {
+      setIsFetchingData(false);
+    }
+  }, [user?.companyId]);
+
+  const fetchProvider = useCallback(async () => {
+    if (!user?.companyId) return;
+    setIsFetchingData(true);
+    try {
+      const data = await storageService.getProviderInfo(user.companyId);
+      if (data) setProviderInfo(data);
+      setLoadedSections(prev => ({ ...prev, provider: true }));
+      return data;
+    } catch (error) {
+      console.error("Erro ao carregar dados do profissional:", error);
+    } finally {
+      setIsFetchingData(false);
+    }
+  }, [user?.companyId]);
+
+  // Carregamento sob demanda baseado na aba ativa
+  useEffect(() => {
+    if (!isAuthenticated || !user?.companyId) return;
+
+    if (activeTab === 'quotes' && !loadedSections.quotes) {
+      fetchQuotes();
+    } else if (activeTab === 'catalog' && !loadedSections.catalog) {
+      fetchCatalog();
+    } else if (activeTab === 'settings' && !loadedSections.provider) {
+      fetchProvider();
+    }
+  }, [activeTab, isAuthenticated, user?.companyId, loadedSections, fetchQuotes, fetchCatalog, fetchProvider]);
+
+  const handleStartNewQuote = async () => {
+    let currentProvider = providerInfo;
+    
+    // Se for iniciar um orçamento e os dados do prestador ainda não foram carregados, carrega agora
+    if (!loadedSections.provider || providerInfo.name === 'Carregando...') {
+      const fetched = await fetchProvider();
+      if (fetched) currentProvider = fetched;
+    }
+
+    // Se o catálogo não estiver carregado, carrega para o Quick Select do editor
+    if (!loadedSections.catalog) {
+      fetchCatalog();
+    }
+
     const newQuote: Quote = {
       id: crypto.randomUUID(),
       number: `ORC-${String(quotes.length + 1).padStart(4, '0')}`,
@@ -69,7 +122,7 @@ const AppContent: React.FC = () => {
       items: [],
       total: 0,
       notes: '',
-      providerInfo: providerInfo,
+      providerInfo: currentProvider,
       companyId: user?.companyId
     };
     setSelectedQuote(newQuote);
@@ -79,17 +132,13 @@ const AppContent: React.FC = () => {
   const saveCatalogItem = async (item: Partial<CatalogItem>, isEditing: boolean) => {
     setIsFetchingData(true);
     try {
-      const itemToSave = {
-        ...item,
-        companyId: user?.companyId
-      } as CatalogItem;
-
+      const itemToSave = { ...item, companyId: user?.companyId } as CatalogItem;
       if (isEditing) {
         await storageService.updateCatalogItem(itemToSave);
       } else {
         await storageService.saveCatalogItem(itemToSave);
       }
-      
+      // Refresh local
       const updated = await storageService.getCatalog(user?.companyId);
       setCatalog(updated);
     } catch (error) {
@@ -104,8 +153,7 @@ const AppContent: React.FC = () => {
       setIsFetchingData(true);
       try {
         await storageService.deleteCatalogItem(id);
-        const updated = await storageService.getCatalog(user?.companyId);
-        setCatalog(updated);
+        setCatalog(prev => prev.filter(i => i.id !== id));
       } catch (error) {
         alert("Erro ao remover item.");
       } finally {
@@ -137,8 +185,8 @@ const AppContent: React.FC = () => {
         providerInfo: { ...q.providerInfo, companyId: user?.companyId }
       };
       await storageService.saveQuote(quoteWithCompany);
-      const updated = await storageService.getQuotes(user?.companyId);
-      setQuotes(updated);
+      // Recarrega a lista para manter sincronia
+      await fetchQuotes();
       setIsEditingQuote(false);
       setSelectedQuote(null);
     } catch (error) {
@@ -170,9 +218,6 @@ const AppContent: React.FC = () => {
     );
   }
 
-  // Se não estiver autenticado, mostra login. 
-  // O uso do "isAuthenticated" aqui garante que assim que o login for bem sucedido,
-  // esta condição falhe e o resto do App seja renderizado.
   if (!isAuthenticated) {
     return <LoginPage />;
   }
