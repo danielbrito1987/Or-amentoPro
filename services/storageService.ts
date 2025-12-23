@@ -34,8 +34,8 @@ export const storageService = {
   },
 
   // Quotes (Orçamentos)
-  getQuotes: async (): Promise<Quote[]> => {
-    const response = await apiService.get<any>('/quotes');
+  getQuotes: async (comapnyId: string): Promise<Quote[]> => {
+    const response = await apiService.get<any>(`/quotes/${comapnyId}`);
     
     if (Array.isArray(response)) return response;
     if (response && typeof response === 'object') {
