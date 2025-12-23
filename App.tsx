@@ -113,7 +113,7 @@ const AppContent: React.FC = () => {
   }, [isAuthenticated, user, activeTab, loadedSections.quotes, fetchQuotes]);
 
   const handleStartNewQuote = async () => {
-    const currentCompId = user?.companyId || authService.getCurrentUser()?.companyId;
+    const currentCompId = user?.sub || authService.getCurrentUser()?.sub;
     if (!currentCompId) return;
 
     let currentProvider = providerInfo;
@@ -304,8 +304,7 @@ const AppContent: React.FC = () => {
 
           {isEditingQuote && selectedQuote && (
             <QuoteEditorPage 
-              quote={selectedQuote} 
-              catalog={[]} 
+              quote={selectedQuote}
               onBack={() => { setIsEditingQuote(false); setSelectedQuote(null); }} 
               onUpdateQuote={setSelectedQuote}
               onSave={handleSaveQuote} 
