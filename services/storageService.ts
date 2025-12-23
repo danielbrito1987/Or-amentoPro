@@ -7,11 +7,12 @@ const extractArray = (response: any, keys: string[]): any[] => {
   if (Array.isArray(response)) return response;
   if (!response || typeof response !== 'object') return [];
   
+  // Procura nas chaves conhecidas
   for (const key of keys) {
     if (Array.isArray(response[key])) return response[key];
   }
   
-  // Se não encontrou em chaves conhecidas, tenta procurar qualquer chave que contenha um array
+  // Se não encontrou, procura qualquer chave que contenha um array (profundidade 1)
   const firstArrayKey = Object.keys(response).find(key => Array.isArray(response[key]));
   if (firstArrayKey) return response[firstArrayKey];
   
@@ -29,10 +30,10 @@ const mapId = (item: any): any => {
 
 export const storageService = {
   // Catalog (Produtos e Serviços)
-  getCatalog: async (companyId?: string): Promise<CatalogItem[]> => {
+  getCatalog: async (companyId: string): Promise<CatalogItem[]> => {
     try {
-      // Adiciona o companyId como filtro na query string se fornecido
-      const endpoint = companyId ? `/products?companyId=${companyId}` : '/products';
+      // O companyId é obrigatório para garantir multi-tenancy
+      const endpoint = `/products?companyId=${companyId}`;
       const response = await apiService.get<any>(endpoint);
       const items = extractArray(response, ['products', 'data', 'items', 'results', 'content']);
       return items.map(mapId);
@@ -55,9 +56,9 @@ export const storageService = {
   },
 
   // Quotes (Orçamentos)
-  getQuotes: async (companyId?: string): Promise<Quote[]> => {
+  getQuotes: async (companyId: string): Promise<Quote[]> => {
     try {
-      const endpoint = companyId ? `/quotes?companyId=${companyId}` : '/quotes';
+      const endpoint = `/quotes?companyId=${companyId}`;
       const response = await apiService.get<any>(endpoint);
       const quotes = extractArray(response, ['quotes', 'data', 'items', 'results']);
       return quotes.map(mapId);
@@ -80,12 +81,13 @@ export const storageService = {
   },
 
   // Provider Info (Dados do Profissional)
-  getProviderInfo: async (companyId?: string): Promise<ProviderInfo> => {
+  getProviderInfo: async (companyId: string): Promise<ProviderInfo> => {
     try {
-      const endpoint = companyId ? `/provider?companyId=${companyId}` : '/provider';
+      const endpoint = `/provider?companyId=${companyId}`;
       const response = await apiService.get<any>(endpoint);
-      if (Array.isArray(response)) return mapId(response[0]);
-      return mapId(response);
+      // Se a resposta for um array, pega o primeiro registro da empresa
+      const data = Array.isArray(response) ? response[0] : response;
+      return mapId(data);
     } catch (e) {
       const local = localStorage.getItem('orcafacil_provider');
       return local ? JSON.parse(local) : {

@@ -31,19 +31,18 @@ const AppContent: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isFetchingData, setIsFetchingData] = useState(false);
 
-  // Estados para controlar se os dados já foram carregados uma vez
+  // Controle de carregamento único por seção
   const [loadedSections, setLoadedSections] = useState({
     quotes: false,
     catalog: false,
     provider: false
   });
 
-  // Funções de busca individuais
-  const fetchQuotes = useCallback(async () => {
-    if (!user?.companyId) return;
+  // Funções de busca com companyId obrigatório
+  const fetchQuotes = useCallback(async (compId: string) => {
     setIsFetchingData(true);
     try {
-      const data = await storageService.getQuotes(user.companyId);
+      const data = await storageService.getQuotes(compId);
       setQuotes(data);
       setLoadedSections(prev => ({ ...prev, quotes: true }));
     } catch (error) {
@@ -51,13 +50,12 @@ const AppContent: React.FC = () => {
     } finally {
       setIsFetchingData(false);
     }
-  }, [user?.companyId]);
+  }, []);
 
-  const fetchCatalog = useCallback(async () => {
-    if (!user?.companyId) return;
+  const fetchCatalog = useCallback(async (compId: string) => {
     setIsFetchingData(true);
     try {
-      const data = await storageService.getCatalog(user.companyId);
+      const data = await storageService.getCatalog(compId);
       setCatalog(data);
       setLoadedSections(prev => ({ ...prev, catalog: true }));
     } catch (error) {
@@ -65,13 +63,12 @@ const AppContent: React.FC = () => {
     } finally {
       setIsFetchingData(false);
     }
-  }, [user?.companyId]);
+  }, []);
 
-  const fetchProvider = useCallback(async () => {
-    if (!user?.companyId) return;
+  const fetchProvider = useCallback(async (compId: string) => {
     setIsFetchingData(true);
     try {
-      const data = await storageService.getProviderInfo(user.companyId);
+      const data = await storageService.getProviderInfo(compId);
       if (data) setProviderInfo(data);
       setLoadedSections(prev => ({ ...prev, provider: true }));
       return data;
@@ -80,33 +77,47 @@ const AppContent: React.FC = () => {
     } finally {
       setIsFetchingData(false);
     }
-  }, [user?.companyId]);
+  }, []);
 
-  // Carregamento sob demanda baseado na aba ativa
-  useEffect(() => {
-    if (!isAuthenticated || !user?.companyId) return;
+  // Handler para troca de abas que dispara as buscas sob demanda
+  const handleTabChange = (tab: 'quotes' | 'catalog' | 'settings') => {
+    setActiveTab(tab);
+    setSelectedQuote(null);
+    setIsEditingQuote(false);
+    setIsSidebarOpen(false);
 
-    if (activeTab === 'quotes' && !loadedSections.quotes) {
-      fetchQuotes();
-    } else if (activeTab === 'catalog' && !loadedSections.catalog) {
-      fetchCatalog();
-    } else if (activeTab === 'settings' && !loadedSections.provider) {
-      fetchProvider();
+    if (!user?.companyId) return;
+
+    // Busca apenas se ainda não foi carregado
+    if (tab === 'quotes' && !loadedSections.quotes) {
+      fetchQuotes(user.companyId);
+    } else if (tab === 'catalog' && !loadedSections.catalog) {
+      fetchCatalog(user.companyId);
+    } else if (tab === 'settings' && !loadedSections.provider) {
+      fetchProvider(user.companyId);
     }
-  }, [activeTab, isAuthenticated, user?.companyId, loadedSections, fetchQuotes, fetchCatalog, fetchProvider]);
+  };
+
+  // Carregamento inicial (apenas orçamentos)
+  useEffect(() => {
+    if (isAuthenticated && user?.companyId && !loadedSections.quotes) {
+      fetchQuotes(user.companyId);
+    }
+  }, [isAuthenticated, user?.companyId, loadedSections.quotes, fetchQuotes]);
 
   const handleStartNewQuote = async () => {
+    if (!user?.companyId) return;
+
     let currentProvider = providerInfo;
     
-    // Se for iniciar um orçamento e os dados do prestador ainda não foram carregados, carrega agora
-    if (!loadedSections.provider || providerInfo.name === 'Carregando...') {
-      const fetched = await fetchProvider();
+    // Garante que temos os dados do prestador e catálogo para o editor
+    if (!loadedSections.provider) {
+      const fetched = await fetchProvider(user.companyId);
       if (fetched) currentProvider = fetched;
     }
 
-    // Se o catálogo não estiver carregado, carrega para o Quick Select do editor
     if (!loadedSections.catalog) {
-      fetchCatalog();
+      await fetchCatalog(user.companyId);
     }
 
     const newQuote: Quote = {
@@ -130,6 +141,7 @@ const AppContent: React.FC = () => {
   };
 
   const saveCatalogItem = async (item: Partial<CatalogItem>, isEditing: boolean) => {
+    if (!user?.companyId) return;
     setIsFetchingData(true);
     try {
       const itemToSave = { ...item, companyId: user?.companyId } as CatalogItem;
@@ -138,17 +150,17 @@ const AppContent: React.FC = () => {
       } else {
         await storageService.saveCatalogItem(itemToSave);
       }
-      // Refresh local
       const updated = await storageService.getCatalog(user?.companyId);
       setCatalog(updated);
     } catch (error) {
-      alert("Erro ao salvar no catálogo: " + error);
+      alert("Erro ao salvar: " + error);
     } finally {
       setIsFetchingData(false);
     }
   };
 
   const deleteCatalogItem = async (id: string) => {
+    if (!user?.companyId) return;
     if (confirm("Deseja remover este item?")) {
       setIsFetchingData(true);
       try {
@@ -177,6 +189,7 @@ const AppContent: React.FC = () => {
   };
 
   const handleSaveQuote = async (q: Quote) => {
+    if (!user?.companyId) return;
     setIsFetchingData(true);
     try {
       const quoteWithCompany = { 
@@ -185,8 +198,7 @@ const AppContent: React.FC = () => {
         providerInfo: { ...q.providerInfo, companyId: user?.companyId }
       };
       await storageService.saveQuote(quoteWithCompany);
-      // Recarrega a lista para manter sincronia
-      await fetchQuotes();
+      await fetchQuotes(user.companyId);
       setIsEditingQuote(false);
       setSelectedQuote(null);
     } catch (error) {
@@ -197,14 +209,15 @@ const AppContent: React.FC = () => {
   };
 
   const handleSaveSettings = async () => {
+    if (!user?.companyId) return;
     setIsFetchingData(true);
     try {
       const infoWithCompany = { ...providerInfo, companyId: user?.companyId };
       await storageService.saveProviderInfo(infoWithCompany); 
       setProviderInfo(infoWithCompany);
-      alert('Dados profissionais salvos com sucesso!'); 
+      alert('Dados profissionais salvos!'); 
     } catch (error) {
-      alert("Erro ao salvar configurações.");
+      alert("Erro ao salvar.");
     } finally {
       setIsFetchingData(false);
     }
@@ -225,8 +238,11 @@ const AppContent: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col md:flex-row">
       {isFetchingData && (
-        <div className="fixed inset-0 bg-white/50 z-[100] flex items-center justify-center backdrop-blur-[1px] no-print">
-          <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+        <div className="fixed inset-0 bg-white/40 z-[100] flex items-center justify-center backdrop-blur-[2px] no-print">
+          <div className="bg-white p-6 rounded-2xl shadow-xl flex flex-col items-center border border-slate-100">
+            <Loader2 className="w-8 h-8 text-blue-600 animate-spin mb-2" />
+            <p className="text-sm font-medium text-slate-600">Sincronizando...</p>
+          </div>
         </div>
       )}
 
@@ -242,7 +258,7 @@ const AppContent: React.FC = () => {
 
       <Sidebar 
         activeTab={activeTab} 
-        onTabChange={(tab) => { setActiveTab(tab); setSelectedQuote(null); setIsEditingQuote(false); }} 
+        onTabChange={handleTabChange} 
         providerInfo={providerInfo} 
         isOpen={isSidebarOpen} 
         onClose={() => setIsSidebarOpen(false)}
