@@ -28,9 +28,9 @@ const mapId = (item: any): any => {
 
 export const storageService = {
   // Catalog (Produtos e Serviços)
-  getCatalog: async (): Promise<CatalogItem[]> => {
+  getCatalog: async (companyId: string): Promise<CatalogItem[]> => {
     try {
-      const response = await apiService.get<any>('/products');
+      const response = await apiService.get<any>(`/products/${companyId}`);
       const items = extractArray(response, ['products', 'data', 'items', 'results', 'content']);
       return items.map(mapId);
     } catch (error) {

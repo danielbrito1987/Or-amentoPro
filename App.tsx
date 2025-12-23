@@ -37,7 +37,7 @@ const AppContent: React.FC = () => {
         try {
           const [fetchedQuotes, fetchedCatalog, fetchedProvider] = await Promise.all([
             storageService.getQuotes(),
-            storageService.getCatalog(),
+            storageService.getCatalog(user!.id),
             storageService.getProviderInfo()
           ]);
           setQuotes(fetchedQuotes);
@@ -89,7 +89,7 @@ const AppContent: React.FC = () => {
         await storageService.saveCatalogItem(itemToSave);
       }
       
-      const updated = await storageService.getCatalog();
+      const updated = await storageService.getCatalog(user!.id);
       setCatalog(updated);
     } catch (error) {
       alert("Erro ao salvar no catálogo: " + error);
@@ -103,7 +103,7 @@ const AppContent: React.FC = () => {
       setIsFetchingData(true);
       try {
         await storageService.deleteCatalogItem(id);
-        const updated = await storageService.getCatalog();
+        const updated = await storageService.getCatalog(user!.id);
         setCatalog(updated);
       } catch (error) {
         alert("Erro ao remover item.");
