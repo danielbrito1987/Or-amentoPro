@@ -39,6 +39,10 @@ const AppContent: React.FC = () => {
     provider: false
   });
 
+  useEffect(() => {
+    fetchProvider(user != null ? user!.sub : "")
+  }, [])
+
   // Funções de busca individuais
   const fetchQuotes = useCallback(async (compId: string) => {
     setIsFetchingData(true);
