@@ -5,16 +5,10 @@ import { apiService } from './api.service';
 export const storageService = {
   // Catalog (Produtos e Serviços)
   getCatalog: async (companyId: string): Promise<CatalogItem[]> => {
-    const response = await apiService.get<any>(`/products/${companyId}`);
+    const response = await apiService.get<CatalogItem[]>(`/products/${companyId}`);
+    console.log("Retorno API: ", response);
     
-    // Tratamento para diferentes formatos de resposta da API
-    if (Array.isArray(response)) return response;
-    if (response && typeof response === 'object') {
-      if (Array.isArray(response.products)) return response.products;
-      if (Array.isArray(response.data)) return response.data;
-    }
-    
-    return [];
+    return response;
   },
   
   saveCatalogItem: async (item: CatalogItem): Promise<CatalogItem> => {
