@@ -11,16 +11,16 @@ export const apiService = {
   },
 
   handleResponse: async (response: Response) => {
-    if (response.status === 401) {
-      // Token expirado ou inválido - opcionalmente forçar logout aqui
-      localStorage.removeItem('orcafacil_jwt_token');
-      localStorage.removeItem('orcafacil_user');
-      window.location.reload();
-    }
-    
     if (!response.ok) {
+      if (response.status === 401) {
+        // Apenas limpa se realmente não estiver autorizado, mas não recarrega a página aqui
+        // O redirecionamento será tratado pelo estado de autenticação do React
+        localStorage.removeItem('orcafacil_jwt_token');
+        localStorage.removeItem('orcafacil_user');
+      }
+      
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || `Erro na requisição: ${response.status}`);
+      throw new Error(errorData.message || `Erro ${response.status}: O servidor pode estar iniciando.`);
     }
     
     return response.json();

@@ -31,14 +31,14 @@ const AppContent: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isFetchingData, setIsFetchingData] = useState(false);
 
-  // Controle de carregamento único por seção
+  // Estados para controlar se os dados já foram carregados com sucesso
   const [loadedSections, setLoadedSections] = useState({
     quotes: false,
     catalog: false,
     provider: false
   });
 
-  // Funções de busca com companyId obrigatório
+  // Funções de busca individuais
   const fetchQuotes = useCallback(async (compId: string) => {
     setIsFetchingData(true);
     try {
@@ -56,6 +56,7 @@ const AppContent: React.FC = () => {
     setIsFetchingData(true);
     try {
       const data = await storageService.getCatalog(compId);
+      setCatalog(data);
       setLoadedSections(prev => ({ ...prev, catalog: true }));
     } catch (error) {
       console.error("Erro ao carregar catálogo:", error);
@@ -78,45 +79,47 @@ const AppContent: React.FC = () => {
     }
   }, []);
 
-  // Handler para troca de abas que dispara as buscas sob demanda
+  // Handler para troca de abas (CARREGAMENTO SOB DEMANDA AQUI)
   const handleTabChange = (tab: 'quotes' | 'catalog' | 'settings') => {
     setActiveTab(tab);
     setSelectedQuote(null);
     setIsEditingQuote(false);
     setIsSidebarOpen(false);
 
-    if (!user?.sub) return;
+    const compId = user?.companyId || (authService.getCurrentUser()?.companyId);
+    if (!compId) return;
 
-    // Busca apenas se ainda não foi carregado
-    if (tab === 'quotes') {
-      fetchQuotes(user.sub);
-    } else if (tab === 'catalog') {
-      fetchCatalog(user.sub);
-    } else if (tab === 'settings') {
-      fetchProvider(user.sub);
+    // Dispara a busca apenas se a seção ainda não estiver carregada
+    if (tab === 'quotes' && !loadedSections.quotes) {
+      fetchQuotes(compId);
+    } else if (tab === 'catalog' && !loadedSections.catalog) {
+      fetchCatalog(compId);
+    } else if (tab === 'settings' && !loadedSections.provider) {
+      fetchProvider(compId);
     }
   };
 
-  // Carregamento inicial (apenas orçamentos)
+  // Carregamento inicial de segurança para a aba padrão
   useEffect(() => {
-    if (isAuthenticated && user?.sub && !loadedSections.quotes) {
-      fetchQuotes(user.sub);
+    if (isAuthenticated && user?.companyId && !loadedSections.quotes && activeTab === 'quotes') {
+      fetchQuotes(user.companyId);
     }
-  }, [isAuthenticated, user?.sub, loadedSections.quotes, fetchQuotes]);
+  }, [isAuthenticated, user, activeTab, loadedSections.quotes, fetchQuotes]);
 
   const handleStartNewQuote = async () => {
-    if (!user?.sub) return;
+    const compId = user?.companyId;
+    if (!compId) return;
 
     let currentProvider = providerInfo;
     
-    // Garante que temos os dados do prestador e catálogo para o editor
+    // Garante que temos os dados antes de abrir o editor
     if (!loadedSections.provider) {
-      const fetched = await fetchProvider(user.sub);
+      const fetched = await fetchProvider(compId);
       if (fetched) currentProvider = fetched;
     }
 
     if (!loadedSections.catalog) {
-      await fetchCatalog(user.sub);
+      await fetchCatalog(compId);
     }
 
     const newQuote: Quote = {
@@ -133,23 +136,24 @@ const AppContent: React.FC = () => {
       total: 0,
       notes: '',
       providerInfo: currentProvider,
-      companyId: user?.sub
+      companyId: compId
     };
     setSelectedQuote(newQuote);
     setIsEditingQuote(true);
   };
 
   const saveCatalogItem = async (item: Partial<CatalogItem>, isEditing: boolean) => {
-    if (!user?.sub) return;
+    const compId = user?.companyId;
+    if (!compId) return;
     setIsFetchingData(true);
     try {
-      const itemToSave = { ...item, companyId: user?.sub } as CatalogItem;
+      const itemToSave = { ...item, companyId: compId } as CatalogItem;
       if (isEditing) {
         await storageService.updateCatalogItem(itemToSave);
       } else {
         await storageService.saveCatalogItem(itemToSave);
       }
-      const updated = await storageService.getCatalog(user?.sub);
+      const updated = await storageService.getCatalog(compId);
       setCatalog(updated);
     } catch (error) {
       alert("Erro ao salvar: " + error);
@@ -159,7 +163,8 @@ const AppContent: React.FC = () => {
   };
 
   const deleteCatalogItem = async (id: string) => {
-    if (!user?.sub) return;
+    const compId = user?.companyId;
+    if (!compId) return;
     if (confirm("Deseja remover este item?")) {
       setIsFetchingData(true);
       try {
@@ -188,16 +193,17 @@ const AppContent: React.FC = () => {
   };
 
   const handleSaveQuote = async (q: Quote) => {
-    if (!user?.sub) return;
+    const compId = user?.companyId;
+    if (!compId) return;
     setIsFetchingData(true);
     try {
       const quoteWithCompany = { 
         ...q, 
-        companyId: user?.sub,
-        providerInfo: { ...q.providerInfo, companyId: user?.sub }
+        companyId: compId,
+        providerInfo: { ...q.providerInfo, companyId: compId }
       };
       await storageService.saveQuote(quoteWithCompany);
-      await fetchQuotes(user.sub);
+      await fetchQuotes(compId);
       setIsEditingQuote(false);
       setSelectedQuote(null);
     } catch (error) {
@@ -208,10 +214,11 @@ const AppContent: React.FC = () => {
   };
 
   const handleSaveSettings = async () => {
-    if (!user?.sub) return;
+    const compId = user?.companyId;
+    if (!compId) return;
     setIsFetchingData(true);
     try {
-      const infoWithCompany = { ...providerInfo, companyId: user?.sub };
+      const infoWithCompany = { ...providerInfo, companyId: compId };
       await storageService.saveProviderInfo(infoWithCompany); 
       setProviderInfo(infoWithCompany);
       alert('Dados profissionais salvos!'); 
@@ -314,6 +321,9 @@ const AppContent: React.FC = () => {
     </div>
   );
 };
+
+// Import necessário para o compId de segurança no handleTabChange
+import { authService } from './services/authService';
 
 const App: React.FC = () => {
   return (

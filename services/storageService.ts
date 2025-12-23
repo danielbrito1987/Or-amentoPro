@@ -32,9 +32,8 @@ export const storageService = {
   // Catalog (Produtos e Serviços)
   getCatalog: async (companyId: string): Promise<CatalogItem[]> => {
     try {
-      // O companyId é obrigatório para garantir multi-tenancy
-      const endpoint = `/products/${companyId}`;
-      const response = await apiService.get<any>(endpoint);
+      // O companyId é obrigatório para garantir multi-tenancy e filtragem correta
+      const response = await apiService.get<any>(`/products?companyId=${companyId}`);
       const items = extractArray(response, ['products', 'data', 'items', 'results', 'content']);
       return items.map(mapId);
     } catch (error) {
@@ -58,8 +57,7 @@ export const storageService = {
   // Quotes (Orçamentos)
   getQuotes: async (companyId: string): Promise<Quote[]> => {
     try {
-      const endpoint = `/quotes?companyId=${companyId}`;
-      const response = await apiService.get<any>(endpoint);
+      const response = await apiService.get<any>(`/quotes?companyId=${companyId}`);
       const quotes = extractArray(response, ['quotes', 'data', 'items', 'results']);
       return quotes.map(mapId);
     } catch (error) {
@@ -83,8 +81,7 @@ export const storageService = {
   // Provider Info (Dados do Profissional)
   getProviderInfo: async (companyId: string): Promise<ProviderInfo> => {
     try {
-      const endpoint = `/provider?companyId=${companyId}`;
-      const response = await apiService.get<any>(endpoint);
+      const response = await apiService.get<any>(`/provider?companyId=${companyId}`);
       // Se a resposta for um array, pega o primeiro registro da empresa
       const data = Array.isArray(response) ? response[0] : response;
       return mapId(data);

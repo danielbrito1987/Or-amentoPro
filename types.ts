@@ -46,7 +46,7 @@ export interface ProviderInfo {
 }
 
 export interface User {
-  sub: string;
+  id: string;
   email: string;
   name: string;
   companyId?: string;
