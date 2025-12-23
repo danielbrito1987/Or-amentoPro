@@ -3,48 +3,66 @@ import { CatalogItem, Quote, ProviderInfo } from '../types';
 import { apiService } from './api.service';
 
 export const storageService = {
-  // Catalog
-  getCatalog: async (companyId: string): Promise<CatalogItem[]> => {
-    return apiService.get<CatalogItem[]>(`/catalog/${companyId}`);
+  // Catalog (Produtos e Serviços)
+  getCatalog: async (): Promise<CatalogItem[]> => {
+    const response = await apiService.get<any>('/products');
+    
+    // Tratamento para diferentes formatos de resposta da API
+    if (Array.isArray(response)) return response;
+    if (response && typeof response === 'object') {
+      if (Array.isArray(response.products)) return response.products;
+      if (Array.isArray(response.data)) return response.data;
+    }
+    
+    return [];
   },
   
   saveCatalogItem: async (item: CatalogItem): Promise<CatalogItem> => {
-    return apiService.post<CatalogItem>('/catalog', item);
+    return apiService.post<CatalogItem>('/products', item);
   },
   
   updateCatalogItem: async (item: CatalogItem): Promise<CatalogItem> => {
-    return apiService.put<CatalogItem>(`/catalog/${item.id}`, item);
+    return apiService.put<CatalogItem>(`/products/${item.id}`, item);
+  },
+
+  deleteCatalogItem: async (id: string): Promise<void> => {
+    return apiService.delete(`/products/${id}`);
   },
 
   saveCatalog: async (items: CatalogItem[]) => {
-    // Mantemos compatibilidade local se necessário, mas a API é a fonte da verdade
     localStorage.setItem('orcafacil_catalog', JSON.stringify(items));
   },
 
-  // Quotes
-  getQuotes: async (companyId: string): Promise<Quote[]> => {
-    return apiService.get<Quote[]>(`/budgets/${companyId}`);
+  // Quotes (Orçamentos)
+  getQuotes: async (): Promise<Quote[]> => {
+    const response = await apiService.get<any>('/quotes');
+    
+    if (Array.isArray(response)) return response;
+    if (response && typeof response === 'object') {
+      if (Array.isArray(response.quotes)) return response.quotes;
+      if (Array.isArray(response.data)) return response.data;
+    }
+    
+    return [];
   },
   
   saveQuote: async (quote: Quote): Promise<Quote> => {
-    // Decide se é criação ou atualização com base na existência remota
-    // Assumindo que o backend trata o POST como create/update ou tem rotas específicas
-    if (quote.id.length > 20) { // Exemplo simples para diferenciar novos IDs de existentes se necessário
-       return apiService.post<Quote>('/budgets', quote);
+    // Se o ID for um UUID recém gerado (36 chars), enviamos como POST
+    if (quote.id.length > 20) { 
+       return apiService.post<Quote>('/quotes', quote);
     }
-    return apiService.put<Quote>(`/budgets/${quote.id}`, quote);
+    return apiService.put<Quote>(`/quotes/${quote.id}`, quote);
   },
   
   deleteQuote: async (id: string): Promise<void> => {
-    return apiService.delete(`/budgets/${id}`);
+    return apiService.delete(`/quotes/${id}`);
   },
 
-  // Provider Info
-  getProviderInfo: async (companyId: string): Promise<ProviderInfo> => {
+  // Provider Info (Dados do Profissional)
+  getProviderInfo: async (): Promise<ProviderInfo> => {
     try {
-      return await apiService.get<ProviderInfo>(`/companies/${companyId}`);
+      return await apiService.get<ProviderInfo>('/provider');
     } catch (e) {
-      // Fallback para dados locais se o perfil não estiver no banco ainda
       const local = localStorage.getItem('orcafacil_provider');
       return local ? JSON.parse(local) : {
         name: 'Minha Empresa',

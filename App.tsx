@@ -36,9 +36,9 @@ const AppContent: React.FC = () => {
         setIsFetchingData(true);
         try {
           const [fetchedQuotes, fetchedCatalog, fetchedProvider] = await Promise.all([
-            storageService.getQuotes(user!.id),
-            storageService.getCatalog(user!.id),
-            storageService.getProviderInfo(user!.id)
+            storageService.getQuotes(),
+            storageService.getCatalog(),
+            storageService.getProviderInfo()
           ]);
           setQuotes(fetchedQuotes);
           setCatalog(fetchedCatalog);
@@ -68,7 +68,8 @@ const AppContent: React.FC = () => {
       items: [],
       total: 0,
       notes: '',
-      providerInfo: providerInfo
+      providerInfo: providerInfo,
+      companyId: user?.companyId // Injeta ID da empresa
     };
     setSelectedQuote(newQuote);
     setIsEditingQuote(true);
@@ -77,12 +78,20 @@ const AppContent: React.FC = () => {
   const saveCatalogItem = async (item: Partial<CatalogItem>, isEditing: boolean) => {
     setIsFetchingData(true);
     try {
+      // Sempre garante que o item salvo tenha o companyId do usuário atual
+      const itemToSave = {
+        ...item,
+        companyId: user?.companyId
+      } as CatalogItem;
+
       if (isEditing) {
-        await storageService.updateCatalogItem(item as CatalogItem);
+        await storageService.updateCatalogItem(itemToSave);
       } else {
-        await storageService.saveCatalogItem(item as CatalogItem);
+        await storageService.saveCatalogItem(itemToSave);
       }
-      const updated = await storageService.getCatalog(user!.id);
+      
+      // Recarrega do backend para garantir sincronia
+      const updated = await storageService.getCatalog();
       setCatalog(updated);
     } catch (error) {
       alert("Erro ao salvar no catálogo: " + error);
@@ -92,11 +101,17 @@ const AppContent: React.FC = () => {
   };
 
   const deleteCatalogItem = async (id: string) => {
-    // Assumindo que a API tenha um delete para catalog
-    // Caso não tenha, apenas filtramos localmente e enviamos o lote (saveCatalog)
-    const updated = catalog.filter(i => i.id !== id);
-    setCatalog(updated);
-    await storageService.saveCatalog(updated);
+    if (confirm("Deseja remover este item?")) {
+      setIsFetchingData(true);
+      try {
+        await storageService.deleteCatalogItem(id);
+        setCatalog(prev => prev.filter(i => i.id !== id));
+      } catch (error) {
+        alert("Erro ao remover item.");
+      } finally {
+        setIsFetchingData(false);
+      }
+    }
   };
 
   const handleDeleteQuote = async (id: string) => {
@@ -116,13 +131,27 @@ const AppContent: React.FC = () => {
   const handleSaveQuote = async (q: Quote) => {
     setIsFetchingData(true);
     try {
-      await storageService.saveQuote(q);
-      const updated = await storageService.getQuotes(user!.id);
+      const quoteWithCompany = { ...q, companyId: user?.companyId };
+      await storageService.saveQuote(quoteWithCompany);
+      const updated = await storageService.getQuotes();
       setQuotes(updated);
       setIsEditingQuote(false);
       setSelectedQuote(null);
     } catch (error) {
       alert("Erro ao salvar orçamento.");
+    } finally {
+      setIsFetchingData(false);
+    }
+  };
+
+  const handleSaveSettings = async () => {
+    setIsFetchingData(true);
+    try {
+      const infoWithCompany = { ...providerInfo, companyId: user?.companyId };
+      await storageService.saveProviderInfo(infoWithCompany); 
+      alert('Dados profissionais salvos com sucesso!'); 
+    } catch (error) {
+      alert("Erro ao salvar configurações.");
     } finally {
       setIsFetchingData(false);
     }
@@ -142,14 +171,12 @@ const AppContent: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row">
-      {/* Loading Overlay for API Actions */}
       {isFetchingData && (
         <div className="fixed inset-0 bg-white/50 z-[100] flex items-center justify-center backdrop-blur-[1px] no-print">
           <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
         </div>
       )}
 
-      {/* Mobile Header */}
       <div className="md:hidden flex items-center justify-between p-4 bg-slate-900 text-white no-print">
         <div className="flex items-center space-x-3">
           <div className="bg-blue-600 p-1.5 rounded-lg"><FileText className="w-5 h-5 text-white" /></div>
@@ -192,12 +219,7 @@ const AppContent: React.FC = () => {
             <SettingsPage 
               providerInfo={providerInfo} 
               onUpdate={setProviderInfo} 
-              onSave={async () => { 
-                setIsFetchingData(true);
-                await storageService.saveProviderInfo(providerInfo); 
-                setIsFetchingData(false);
-                alert('Dados salvos com sucesso!'); 
-              }} 
+              onSave={handleSaveSettings} 
             />
           )}
 

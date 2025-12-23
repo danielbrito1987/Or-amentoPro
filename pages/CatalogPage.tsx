@@ -4,7 +4,6 @@ import { CatalogItem, ItemType } from '../types';
 import { Button } from '../components/Button';
 import { Briefcase, Box, Settings, Trash2 } from 'lucide-react';
 import { formatCurrency, maskCurrencyInput } from '../utils/formatters';
-import { useAuth } from '../contexts/AuthContext';
 
 interface CatalogPageProps {
   catalog: CatalogItem[];
@@ -13,14 +12,13 @@ interface CatalogPageProps {
 }
 
 export const CatalogPage: React.FC<CatalogPageProps> = ({ catalog, onSaveItem, onDeleteItem }) => {
-  const { user } = useAuth();
-  const [newItem, setNewItem] = useState<Partial<CatalogItem>>({ companyId: user!.id, type: ItemType.SERVICE, price: 0 });
+  const [newItem, setNewItem] = useState<Partial<CatalogItem>>({ type: ItemType.SERVICE, price: 0 });
   const [currencyInput, setCurrencyInput] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const handleSave = () => {
     onSaveItem(newItem, !!editingId);
-    setNewItem({ companyId: user!.id, type: ItemType.SERVICE, price: 0 });
+    setNewItem({ type: ItemType.SERVICE, price: 0 });
     setCurrencyInput('');
     setEditingId(null);
   };
@@ -96,7 +94,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({ catalog, onSaveItem, o
               </div>
               <div className="flex gap-2 pt-2">
                 <Button className="flex-1" onClick={handleSave}>{editingId ? 'Atualizar' : 'Salvar'}</Button>
-                {editingId && <Button variant="secondary" onClick={() => {setEditingId(null); setNewItem({ companyId: user!.id, type:ItemType.SERVICE, price: 0}); setCurrencyInput('');}}>Cancelar</Button>}
+                {editingId && <Button variant="secondary" onClick={() => {setEditingId(null); setNewItem({type:ItemType.SERVICE, price: 0}); setCurrencyInput('');}}>Cancelar</Button>}
               </div>
             </div>
           </div>

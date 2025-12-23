@@ -34,7 +34,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const login = async (email: string, password: string) => {
     const result = await authService.login(email, password);
     setUser(result.user);
-    setToken(result.access_token);
+    setToken(result.token);
   };
 
   const logout = () => {
