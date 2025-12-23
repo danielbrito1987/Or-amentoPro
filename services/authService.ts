@@ -13,7 +13,7 @@ export const authService = {
     });
 
     // Extração resiliente do token: busca em campos comuns caso 'token' não exista na raiz
-    const token = response.token || response.accessToken || response.jwt || (response.data && (response.data.token || response.data.accessToken));
+    const token = response.access_token || response.accessToken || response.jwt || (response.data && (response.data.token || response.data.accessToken));
     const user = response.user || response.data?.user || response;
 
     if (!token) {

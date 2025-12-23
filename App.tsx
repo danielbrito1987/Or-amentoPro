@@ -18,7 +18,7 @@ const AppContent: React.FC = () => {
   
   const [activeTab, setActiveTab] = useState<'quotes' | 'catalog' | 'settings'>('quotes');
   const [quotes, setQuotes] = useState<Quote[]>([]);
-  const [catalog, setCatalog] = useState<CatalogItem[]>([]);
+  
   const [providerInfo, setProviderInfo] = useState<ProviderInfo>({
     name: 'Carregando...',
     document: '',
@@ -53,18 +53,18 @@ const AppContent: React.FC = () => {
     }
   }, []);
 
-  const fetchCatalog = useCallback(async (compId: string) => {
-    setIsFetchingData(true);
-    try {
-      const data = await storageService.getCatalog(compId);
-      setCatalog(data);
-      setLoadedSections(prev => ({ ...prev, catalog: true }));
-    } catch (error) {
-      console.error("Erro ao carregar catálogo:", error);
-    } finally {
-      setIsFetchingData(false);
-    }
-  }, []);
+  // const fetchCatalog = useCallback(async (compId: string) => {
+  //   setIsFetchingData(true);
+  //   try {
+  //     const data = await storageService.getCatalog(compId);
+  //     setCatalog(data);
+  //     setLoadedSections(prev => ({ ...prev, catalog: true }));
+  //   } catch (error) {
+  //     console.error("Erro ao carregar catálogo:", error);
+  //   } finally {
+  //     setIsFetchingData(false);
+  //   }
+  // }, []);
 
   const fetchProvider = useCallback(async (compId: string) => {
     setIsFetchingData(true);
@@ -94,7 +94,7 @@ const AppContent: React.FC = () => {
     if (tab === 'quotes' && !loadedSections.quotes) {
       fetchQuotes(currentCompId);
     } else if (tab === 'catalog' && !loadedSections.catalog) {
-      fetchCatalog(currentCompId);
+      //fetchCatalog(currentCompId);
     } else if (tab === 'settings' && !loadedSections.provider) {
       fetchProvider(currentCompId);
     }
@@ -121,7 +121,7 @@ const AppContent: React.FC = () => {
     }
 
     if (!loadedSections.catalog) {
-      await fetchCatalog(currentCompId);
+      //await fetchCatalog(currentCompId);
     }
 
     const newQuote: Quote = {
@@ -156,7 +156,7 @@ const AppContent: React.FC = () => {
         await storageService.saveCatalogItem(itemToSave);
       }
       const updated = await storageService.getCatalog(currentCompId);
-      setCatalog(updated);
+      //setCatalog(updated);
     } catch (error) {
       alert("Erro ao salvar no catálogo: " + error);
     } finally {
@@ -169,7 +169,7 @@ const AppContent: React.FC = () => {
       setIsFetchingData(true);
       try {
         await storageService.deleteCatalogItem(id);
-        setCatalog(prev => prev.filter(i => i.id !== id));
+        //setCatalog(prev => prev.filter(i => i.id !== id));
       } catch (error) {
         alert("Erro ao remover.");
       } finally {
@@ -284,8 +284,7 @@ const AppContent: React.FC = () => {
           )}
 
           {activeTab === 'catalog' && (
-            <CatalogPage 
-              catalog={catalog} 
+            <CatalogPage
               onSaveItem={saveCatalogItem} 
               onDeleteItem={deleteCatalogItem} 
             />
@@ -302,7 +301,7 @@ const AppContent: React.FC = () => {
           {isEditingQuote && selectedQuote && (
             <QuoteEditorPage 
               quote={selectedQuote} 
-              catalog={catalog} 
+              catalog={[]} 
               onBack={() => { setIsEditingQuote(false); setSelectedQuote(null); }} 
               onUpdateQuote={setSelectedQuote}
               onSave={handleSaveQuote} 

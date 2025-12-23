@@ -81,7 +81,7 @@ export const storageService = {
   // Provider Info (Dados do Profissional)
   getProviderInfo: async (companyId: string): Promise<ProviderInfo> => {
     try {
-      const response = await apiService.get<any>(`/provider?companyId=${companyId}`);
+      const response = await apiService.get<any>(`/companies?companyId=${companyId}`);
       // Se a resposta for um array, pega o primeiro registro da empresa
       const data = Array.isArray(response) ? response[0] : response;
       return mapId(data);

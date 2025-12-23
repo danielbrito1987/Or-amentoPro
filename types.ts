@@ -8,7 +8,7 @@ export interface CatalogItem {
   id: string;
   name: string;
   description: string;
-  price: number;
+  value: number;
   type: ItemType;
   unit?: string; // e.g., "un", "m", "h"
   companyId?: string;
@@ -46,7 +46,7 @@ export interface ProviderInfo {
 }
 
 export interface User {
-  id: string;
+  sub: string;
   email: string;
   name: string;
   companyId?: string;
