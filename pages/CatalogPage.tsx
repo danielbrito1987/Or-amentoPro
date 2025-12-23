@@ -6,13 +6,13 @@ import { Briefcase, Box, Settings, Trash2 } from 'lucide-react';
 import { formatCurrency, maskCurrencyInput } from '../utils/formatters';
 import { useAuth } from '../contexts/AuthContext';
 import { apiService } from '../services/api.service';
+import { storageService } from '../services/storageService';
 
 interface CatalogPageProps {
-  onSaveItem: (item: Partial<CatalogItem>, isEditing: boolean) => void;
   onDeleteItem: (id: string) => void;
 }
 
-export const CatalogPage: React.FC<CatalogPageProps> = ({ onSaveItem, onDeleteItem }) => {
+export const CatalogPage: React.FC<CatalogPageProps> = ({ onDeleteItem }) => {
   const { user } = useAuth();
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
   const [newItem, setNewItem] = useState<Partial<CatalogItem>>({ type: ItemType.SERVICE, value: 0 });
@@ -32,8 +32,26 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({ onSaveItem, onDeleteIt
     loadCatalog()
   }, [])
 
+  const saveCatalogItem = async (item: Partial<CatalogItem>, isEditing: boolean) => {
+    const currentCompId = user?.sub;
+    if (!currentCompId) return;
+    
+    try {
+      const itemToSave = { ...item, companyId: currentCompId } as CatalogItem;
+      if (isEditing) {
+        await storageService.updateCatalogItem(itemToSave);
+      } else {
+        await storageService.saveCatalogItem(itemToSave);
+      }
+      const updated = await storageService.getCatalog(currentCompId);
+      setCatalog(updated);
+    } catch (error) {
+      alert("Erro ao salvar no catálogo: " + error);
+    }
+  };
+
   const handleSave = () => {
-    onSaveItem(newItem, !!editingId);
+    saveCatalogItem(newItem, !!editingId);
     setNewItem({ type: ItemType.SERVICE, value: 0 });
     setCurrencyInput('');
     setEditingId(null);
@@ -76,17 +94,10 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({ onSaveItem, onDeleteIt
               </div>
               <input
                 type="text"
-                value={newItem.name || ''}
-                onChange={e => setNewItem({ ...newItem, name: e.target.value })}
-                className="w-full px-4 py-2 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Nome do item"
-              />
-              <textarea
                 value={newItem.description || ''}
                 onChange={e => setNewItem({ ...newItem, description: e.target.value })}
                 className="w-full px-4 py-2 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-blue-500"
-                rows={2}
-                placeholder="Descrição opcional"
+                placeholder="Nome do item"
               />
               <div className="grid grid-cols-2 gap-4">
                 <input
@@ -135,8 +146,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({ onSaveItem, onDeleteIt
                           {item.type === ItemType.SERVICE ? <Briefcase size={18} /> : <Box size={18} />}
                         </div>
                         <div>
-                          <p className="font-semibold text-slate-800">{item.name}</p>
-                          <p className="text-xs text-gray-400">{item.description}</p>
+                          <p className="font-semibold text-slate-800">{item.description}</p>
                         </div>
                       </div>
                     </td>
@@ -159,7 +169,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({ onSaveItem, onDeleteIt
                     {item.type === ItemType.SERVICE ? <Briefcase size={18} /> : <Box size={18} />}
                   </div>
                   <div>
-                    <p className="font-semibold text-slate-800">{item.name}</p>
+                    <p className="font-semibold text-slate-800">{item.description}</p>
                     <p className="text-xs text-gray-400">{formatCurrency(item.value)} / {item.unit}</p>
                   </div>
                 </div>

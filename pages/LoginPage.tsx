@@ -36,7 +36,7 @@ export const LoginPage: React.FC = () => {
           <div className="inline-flex items-center justify-center p-3 bg-blue-600 rounded-2xl shadow-xl shadow-blue-500/20 mb-4">
             <FileText className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-3xl font-extrabold text-white tracking-tight">OrçaFácil</h1>
+          <h1 className="text-3xl font-extrabold text-white tracking-tight">OrçamentoPro</h1>
           <p className="text-slate-400 mt-2">Acesse sua conta para gerenciar orçamentos</p>
         </div>
 

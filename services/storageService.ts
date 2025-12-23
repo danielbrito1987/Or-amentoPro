@@ -33,7 +33,7 @@ export const storageService = {
   getCatalog: async (companyId: string): Promise<CatalogItem[]> => {
     try {
       // O companyId é obrigatório para garantir multi-tenancy e filtragem correta
-      const response = await apiService.get<any>(`/products?companyId=${companyId}`);
+      const response = await apiService.get<any>(`/products/${companyId}`);
       const items = extractArray(response, ['products', 'data', 'items', 'results', 'content']);
       return items.map(mapId);
     } catch (error) {
@@ -54,28 +54,28 @@ export const storageService = {
     return apiService.delete(`/products/${id}`);
   },
 
-  // Quotes (Orçamentos)
-  getQuotes: async (companyId: string): Promise<Quote[]> => {
+  // Budgets (Orçamentos)
+  getBudgets: async (companyId: string): Promise<Quote[]> => {
     try {
-      const response = await apiService.get<any>(`/quotes?companyId=${companyId}`);
-      const quotes = extractArray(response, ['quotes', 'data', 'items', 'results']);
-      return quotes.map(mapId);
+      const response = await apiService.get<any>(`/budgets/${companyId}`);
+      const budgets = extractArray(response, ['budgets', 'data', 'items', 'results']);
+      return budgets.map(mapId);
     } catch (error) {
       console.error("Erro ao buscar orçamentos:", error);
       return [];
     }
   },
   
-  saveQuote: async (quote: Quote): Promise<Quote> => {
+  saveBudget: async (quote: Quote): Promise<Quote> => {
     // Se o ID for longo (UUID v4), tratamos como novo
     if (quote.id && quote.id.length > 20) { 
-       return apiService.post<Quote>('/quotes', quote);
+       return apiService.post<Quote>('/budgets', quote);
     }
-    return apiService.put<Quote>(`/quotes/${quote.id}`, quote);
+    return apiService.put<Quote>(`/budgets/${quote.id}`, quote);
   },
   
-  deleteQuote: async (id: string): Promise<void> => {
-    return apiService.delete(`/quotes/${id}`);
+  deleteBudget: async (id: string): Promise<void> => {
+    return apiService.delete(`/budgets/${id}`);
   },
 
   // Provider Info (Dados do Profissional)

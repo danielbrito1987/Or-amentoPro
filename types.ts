@@ -6,7 +6,6 @@ export enum ItemType {
 
 export interface CatalogItem {
   id: string;
-  name: string;
   description: string;
   value: number;
   type: ItemType;

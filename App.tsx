@@ -47,7 +47,7 @@ const AppContent: React.FC = () => {
   const fetchQuotes = useCallback(async (compId: string) => {
     setIsFetchingData(true);
     try {
-      const data = await storageService.getQuotes(compId);
+      const data = await storageService.getBudgets(compId);
       setQuotes(data);
       setLoadedSections(prev => ({ ...prev, quotes: true }));
     } catch (error) {
@@ -92,7 +92,7 @@ const AppContent: React.FC = () => {
     setIsSidebarOpen(false);
 
     // Tenta pegar o ID do estado ou direto do storage (fallback para logo após login)
-    const currentCompId = user?.companyId || authService.getCurrentUser()?.companyId;
+    const currentCompId = user?.sub;
     if (!currentCompId) return;
 
     if (tab === 'quotes' && !loadedSections.quotes) {
@@ -148,26 +148,6 @@ const AppContent: React.FC = () => {
     setIsEditingQuote(true);
   };
 
-  const saveCatalogItem = async (item: Partial<CatalogItem>, isEditing: boolean) => {
-    const currentCompId = user?.companyId || authService.getCurrentUser()?.companyId;
-    if (!currentCompId) return;
-    setIsFetchingData(true);
-    try {
-      const itemToSave = { ...item, companyId: currentCompId } as CatalogItem;
-      if (isEditing) {
-        await storageService.updateCatalogItem(itemToSave);
-      } else {
-        await storageService.saveCatalogItem(itemToSave);
-      }
-      const updated = await storageService.getCatalog(currentCompId);
-      //setCatalog(updated);
-    } catch (error) {
-      alert("Erro ao salvar no catálogo: " + error);
-    } finally {
-      setIsFetchingData(false);
-    }
-  };
-
   const deleteCatalogItem = async (id: string) => {
     if (confirm("Deseja remover este item?")) {
       setIsFetchingData(true);
@@ -186,7 +166,7 @@ const AppContent: React.FC = () => {
     if (confirm("Excluir este orçamento definitivamente?")) {
       setIsFetchingData(true);
       try {
-        await storageService.deleteQuote(id);
+        await storageService.deleteBudget(id);
         setQuotes(prev => prev.filter(q => q.id !== id));
       } catch (error) {
         alert("Erro ao excluir.");
@@ -197,7 +177,7 @@ const AppContent: React.FC = () => {
   };
 
   const handleSaveQuote = async (q: Quote) => {
-    const currentCompId = user?.companyId || authService.getCurrentUser()?.companyId;
+    const currentCompId = user?.sub || authService.getCurrentUser()?.companyId;
     if (!currentCompId) return;
     setIsFetchingData(true);
     try {
@@ -206,8 +186,8 @@ const AppContent: React.FC = () => {
         companyId: currentCompId,
         providerInfo: { ...q.providerInfo, companyId: currentCompId }
       };
-      await storageService.saveQuote(quoteWithCompany);
-      const updatedQuotes = await storageService.getQuotes(currentCompId);
+      await storageService.saveBudget(quoteWithCompany);
+      const updatedQuotes = await storageService.getBudgets(currentCompId);
       setQuotes(updatedQuotes);
       setIsEditingQuote(false);
       setSelectedQuote(null);
@@ -260,7 +240,7 @@ const AppContent: React.FC = () => {
       <div className="md:hidden flex items-center justify-between p-4 bg-slate-900 text-white no-print">
         <div className="flex items-center space-x-3">
           <div className="bg-blue-600 p-1.5 rounded-lg"><FileText className="w-5 h-5 text-white" /></div>
-          <h1 className="text-lg font-bold">OrçaFácil</h1>
+          <h1 className="text-lg font-bold">OrçamentoPro</h1>
         </div>
         <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 text-slate-400">
           {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
@@ -289,7 +269,6 @@ const AppContent: React.FC = () => {
 
           {activeTab === 'catalog' && (
             <CatalogPage
-              onSaveItem={saveCatalogItem} 
               onDeleteItem={deleteCatalogItem} 
             />
           )}
