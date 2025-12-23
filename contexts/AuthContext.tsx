@@ -33,14 +33,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const login = async (email: string, password: string) => {
     const result = await authService.login(email, password);
-    setUser(result.user);
+    // Definindo o token primeiro para garantir que o estado isAuthenticated mude o mais rápido possível
     setToken(result.token);
+    setUser(result.user);
   };
 
   const logout = () => {
     authService.logout();
-    setUser(null);
     setToken(null);
+    setUser(null);
   };
 
   const value = {

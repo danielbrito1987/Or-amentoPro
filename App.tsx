@@ -30,19 +30,20 @@ const AppContent: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isFetchingData, setIsFetchingData] = useState(false);
 
+  // Carregar dados quando autenticado e o companyId estiver disponível
   useEffect(() => {
     const loadInitialData = async () => {
-      if (isAuthenticated) {
+      if (isAuthenticated && user?.companyId) {
         setIsFetchingData(true);
         try {
           const [fetchedQuotes, fetchedCatalog, fetchedProvider] = await Promise.all([
-            storageService.getQuotes(),
-            storageService.getCatalog(user!.id),
-            storageService.getProviderInfo()
+            storageService.getQuotes(user.companyId),
+            storageService.getCatalog(user.companyId),
+            storageService.getProviderInfo(user.companyId)
           ]);
           setQuotes(fetchedQuotes);
           setCatalog(fetchedCatalog);
-          setProviderInfo(fetchedProvider);
+          if (fetchedProvider) setProviderInfo(fetchedProvider);
         } catch (error) {
           console.error("Erro ao carregar dados da API:", error);
         } finally {
@@ -52,7 +53,7 @@ const AppContent: React.FC = () => {
     };
     
     loadInitialData();
-  }, [isAuthenticated]);
+  }, [isAuthenticated, user?.companyId]);
 
   const handleStartNewQuote = () => {
     const newQuote: Quote = {
@@ -89,7 +90,7 @@ const AppContent: React.FC = () => {
         await storageService.saveCatalogItem(itemToSave);
       }
       
-      const updated = await storageService.getCatalog(user!.id);
+      const updated = await storageService.getCatalog(user?.companyId);
       setCatalog(updated);
     } catch (error) {
       alert("Erro ao salvar no catálogo: " + error);
@@ -103,7 +104,7 @@ const AppContent: React.FC = () => {
       setIsFetchingData(true);
       try {
         await storageService.deleteCatalogItem(id);
-        const updated = await storageService.getCatalog(user!.id);
+        const updated = await storageService.getCatalog(user?.companyId);
         setCatalog(updated);
       } catch (error) {
         alert("Erro ao remover item.");
@@ -136,7 +137,7 @@ const AppContent: React.FC = () => {
         providerInfo: { ...q.providerInfo, companyId: user?.companyId }
       };
       await storageService.saveQuote(quoteWithCompany);
-      const updated = await storageService.getQuotes();
+      const updated = await storageService.getQuotes(user?.companyId);
       setQuotes(updated);
       setIsEditingQuote(false);
       setSelectedQuote(null);
@@ -169,6 +170,9 @@ const AppContent: React.FC = () => {
     );
   }
 
+  // Se não estiver autenticado, mostra login. 
+  // O uso do "isAuthenticated" aqui garante que assim que o login for bem sucedido,
+  // esta condição falhe e o resto do App seja renderizado.
   if (!isAuthenticated) {
     return <LoginPage />;
   }

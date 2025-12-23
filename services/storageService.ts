@@ -20,6 +20,7 @@ const extractArray = (response: any, keys: string[]): any[] => {
 
 // Garante que o item tenha um campo 'id' mesmo que a API retorne '_id'
 const mapId = (item: any): any => {
+  if (!item) return item;
   if (item._id && !item.id) {
     return { ...item, id: item._id };
   }
@@ -28,9 +29,11 @@ const mapId = (item: any): any => {
 
 export const storageService = {
   // Catalog (Produtos e Serviços)
-  getCatalog: async (companyId: string): Promise<CatalogItem[]> => {
+  getCatalog: async (companyId?: string): Promise<CatalogItem[]> => {
     try {
-      const response = await apiService.get<any>(`/products/${companyId}`);
+      // Adiciona o companyId como filtro na query string se fornecido
+      const endpoint = companyId ? `/products?companyId=${companyId}` : '/products';
+      const response = await apiService.get<any>(endpoint);
       const items = extractArray(response, ['products', 'data', 'items', 'results', 'content']);
       return items.map(mapId);
     } catch (error) {
@@ -51,14 +54,11 @@ export const storageService = {
     return apiService.delete(`/products/${id}`);
   },
 
-  saveCatalog: async (items: CatalogItem[]) => {
-    localStorage.setItem('orcafacil_catalog', JSON.stringify(items));
-  },
-
   // Quotes (Orçamentos)
-  getQuotes: async (): Promise<Quote[]> => {
+  getQuotes: async (companyId?: string): Promise<Quote[]> => {
     try {
-      const response = await apiService.get<any>('/quotes');
+      const endpoint = companyId ? `/quotes?companyId=${companyId}` : '/quotes';
+      const response = await apiService.get<any>(endpoint);
       const quotes = extractArray(response, ['quotes', 'data', 'items', 'results']);
       return quotes.map(mapId);
     } catch (error) {
@@ -80,10 +80,10 @@ export const storageService = {
   },
 
   // Provider Info (Dados do Profissional)
-  getProviderInfo: async (): Promise<ProviderInfo> => {
+  getProviderInfo: async (companyId?: string): Promise<ProviderInfo> => {
     try {
-      const response = await apiService.get<any>('/provider');
-      // Se a resposta for um array (o que acontece em algumas APIs de busca), pega o primeiro
+      const endpoint = companyId ? `/provider?companyId=${companyId}` : '/provider';
+      const response = await apiService.get<any>(endpoint);
       if (Array.isArray(response)) return mapId(response[0]);
       return mapId(response);
     } catch (e) {
