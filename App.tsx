@@ -56,7 +56,6 @@ const AppContent: React.FC = () => {
     setIsFetchingData(true);
     try {
       const data = await storageService.getCatalog(compId);
-      setCatalog(data);
       setLoadedSections(prev => ({ ...prev, catalog: true }));
     } catch (error) {
       console.error("Erro ao carregar catálogo:", error);
@@ -86,38 +85,38 @@ const AppContent: React.FC = () => {
     setIsEditingQuote(false);
     setIsSidebarOpen(false);
 
-    if (!user?.companyId) return;
+    if (!user?.sub) return;
 
     // Busca apenas se ainda não foi carregado
-    if (tab === 'quotes' && !loadedSections.quotes) {
-      fetchQuotes(user.companyId);
-    } else if (tab === 'catalog' && !loadedSections.catalog) {
-      fetchCatalog(user.companyId);
-    } else if (tab === 'settings' && !loadedSections.provider) {
-      fetchProvider(user.companyId);
+    if (tab === 'quotes') {
+      fetchQuotes(user.sub);
+    } else if (tab === 'catalog') {
+      fetchCatalog(user.sub);
+    } else if (tab === 'settings') {
+      fetchProvider(user.sub);
     }
   };
 
   // Carregamento inicial (apenas orçamentos)
   useEffect(() => {
-    if (isAuthenticated && user?.companyId && !loadedSections.quotes) {
-      fetchQuotes(user.companyId);
+    if (isAuthenticated && user?.sub && !loadedSections.quotes) {
+      fetchQuotes(user.sub);
     }
-  }, [isAuthenticated, user?.companyId, loadedSections.quotes, fetchQuotes]);
+  }, [isAuthenticated, user?.sub, loadedSections.quotes, fetchQuotes]);
 
   const handleStartNewQuote = async () => {
-    if (!user?.companyId) return;
+    if (!user?.sub) return;
 
     let currentProvider = providerInfo;
     
     // Garante que temos os dados do prestador e catálogo para o editor
     if (!loadedSections.provider) {
-      const fetched = await fetchProvider(user.companyId);
+      const fetched = await fetchProvider(user.sub);
       if (fetched) currentProvider = fetched;
     }
 
     if (!loadedSections.catalog) {
-      await fetchCatalog(user.companyId);
+      await fetchCatalog(user.sub);
     }
 
     const newQuote: Quote = {
@@ -134,23 +133,23 @@ const AppContent: React.FC = () => {
       total: 0,
       notes: '',
       providerInfo: currentProvider,
-      companyId: user?.companyId
+      companyId: user?.sub
     };
     setSelectedQuote(newQuote);
     setIsEditingQuote(true);
   };
 
   const saveCatalogItem = async (item: Partial<CatalogItem>, isEditing: boolean) => {
-    if (!user?.companyId) return;
+    if (!user?.sub) return;
     setIsFetchingData(true);
     try {
-      const itemToSave = { ...item, companyId: user?.companyId } as CatalogItem;
+      const itemToSave = { ...item, companyId: user?.sub } as CatalogItem;
       if (isEditing) {
         await storageService.updateCatalogItem(itemToSave);
       } else {
         await storageService.saveCatalogItem(itemToSave);
       }
-      const updated = await storageService.getCatalog(user?.companyId);
+      const updated = await storageService.getCatalog(user?.sub);
       setCatalog(updated);
     } catch (error) {
       alert("Erro ao salvar: " + error);
@@ -160,7 +159,7 @@ const AppContent: React.FC = () => {
   };
 
   const deleteCatalogItem = async (id: string) => {
-    if (!user?.companyId) return;
+    if (!user?.sub) return;
     if (confirm("Deseja remover este item?")) {
       setIsFetchingData(true);
       try {
@@ -189,16 +188,16 @@ const AppContent: React.FC = () => {
   };
 
   const handleSaveQuote = async (q: Quote) => {
-    if (!user?.companyId) return;
+    if (!user?.sub) return;
     setIsFetchingData(true);
     try {
       const quoteWithCompany = { 
         ...q, 
-        companyId: user?.companyId,
-        providerInfo: { ...q.providerInfo, companyId: user?.companyId }
+        companyId: user?.sub,
+        providerInfo: { ...q.providerInfo, companyId: user?.sub }
       };
       await storageService.saveQuote(quoteWithCompany);
-      await fetchQuotes(user.companyId);
+      await fetchQuotes(user.sub);
       setIsEditingQuote(false);
       setSelectedQuote(null);
     } catch (error) {
@@ -209,10 +208,10 @@ const AppContent: React.FC = () => {
   };
 
   const handleSaveSettings = async () => {
-    if (!user?.companyId) return;
+    if (!user?.sub) return;
     setIsFetchingData(true);
     try {
-      const infoWithCompany = { ...providerInfo, companyId: user?.companyId };
+      const infoWithCompany = { ...providerInfo, companyId: user?.sub };
       await storageService.saveProviderInfo(infoWithCompany); 
       setProviderInfo(infoWithCompany);
       alert('Dados profissionais salvos!'); 

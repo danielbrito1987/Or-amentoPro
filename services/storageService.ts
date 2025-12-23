@@ -33,7 +33,7 @@ export const storageService = {
   getCatalog: async (companyId: string): Promise<CatalogItem[]> => {
     try {
       // O companyId é obrigatório para garantir multi-tenancy
-      const endpoint = `/products?companyId=${companyId}`;
+      const endpoint = `/products/${companyId}`;
       const response = await apiService.get<any>(endpoint);
       const items = extractArray(response, ['products', 'data', 'items', 'results', 'content']);
       return items.map(mapId);
