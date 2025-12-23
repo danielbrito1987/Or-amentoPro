@@ -6,14 +6,14 @@ const TOKEN_KEY = 'orcafacil_jwt_token';
 const USER_KEY = 'orcafacil_user';
 
 export const authService = {
-  login: async (email: string, password: string): Promise<{ access_token: string; user: User }> => {
+  login: async (email: string, password: string): Promise<{ token: string; user: User }> => {
     // Agora faz a chamada real para o backend
-    const result = await apiService.post<{ access_token: string; user: User }>('/auth/login', { 
+    const result = await apiService.post<{ token: string; user: User }>('/auth/login', { 
       email, 
       password 
     });
 
-    localStorage.setItem(TOKEN_KEY, result.access_token);
+    localStorage.setItem(TOKEN_KEY, result.token);
     localStorage.setItem(USER_KEY, JSON.stringify(result.user));
     
     return result;

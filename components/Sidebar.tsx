@@ -32,7 +32,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, provid
         <div className="p-6 hidden md:flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="bg-blue-600 p-2 rounded-lg"><FileText className="w-6 h-6 text-white" /></div>
-            <h1 className="text-xl font-bold tracking-tight">OrçamentoPro</h1>
+            <h1 className="text-xl font-bold tracking-tight">OrçaFácil</h1>
           </div>
         </div>
         

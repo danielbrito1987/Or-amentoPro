@@ -6,11 +6,12 @@ export enum ItemType {
 
 export interface CatalogItem {
   id: string;
-  companyId: string;
+  name: string;
   description: string;
   value: number;
   type: ItemType;
   unit?: string; // e.g., "un", "m", "h"
+  companyId?: string;
 }
 
 export interface QuoteItem extends CatalogItem {
@@ -31,6 +32,7 @@ export interface Quote {
   total: number;
   notes: string;
   providerInfo: ProviderInfo;
+  companyId?: string;
 }
 
 export interface ProviderInfo {
@@ -40,12 +42,14 @@ export interface ProviderInfo {
   email: string;
   address: string;
   logo?: string; // Base64 string
+  companyId?: string;
 }
 
 export interface User {
   sub: string;
   email: string;
   name: string;
+  companyId?: string;
 }
 
 export interface AuthState {
