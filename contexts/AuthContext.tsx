@@ -20,7 +20,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Inicialização: verifica se há sessão ativa no localStorage
     const savedUser = authService.getCurrentUser();
     const savedToken = authService.getToken();
 
@@ -33,9 +32,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const login = async (email: string, password: string) => {
     const result = await authService.login(email, password);
-    // Definindo o token primeiro para garantir que o estado isAuthenticated mude o mais rápido possível
-    setToken(result.token);
+    // O authService já salva no localStorage, agora atualizamos o estado do React
     setUser(result.user);
+    setToken(result.token);
   };
 
   const logout = () => {

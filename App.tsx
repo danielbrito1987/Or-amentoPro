@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Quote, CatalogItem, ProviderInfo } from './types';
 import { storageService } from './services/storageService';
+import { authService } from './services/authService';
 import { Sidebar } from './components/Sidebar';
 import { QuotesPage } from './pages/QuotesPage';
 import { CatalogPage } from './pages/CatalogPage';
@@ -31,14 +32,14 @@ const AppContent: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isFetchingData, setIsFetchingData] = useState(false);
 
-  // Estados para controlar se os dados já foram carregados com sucesso
+  // Controle de estado para saber o que já foi carregado
   const [loadedSections, setLoadedSections] = useState({
     quotes: false,
     catalog: false,
     provider: false
   });
 
-  // Funções de busca individuais
+  // Funções de busca com injeção de companyId
   const fetchQuotes = useCallback(async (compId: string) => {
     setIsFetchingData(true);
     try {
@@ -73,13 +74,13 @@ const AppContent: React.FC = () => {
       setLoadedSections(prev => ({ ...prev, provider: true }));
       return data;
     } catch (error) {
-      console.error("Erro ao carregar dados do profissional:", error);
+      console.error("Erro ao carregar dados profissionais:", error);
     } finally {
       setIsFetchingData(false);
     }
   }, []);
 
-  // Handler para troca de abas (CARREGAMENTO SOB DEMANDA AQUI)
+  // Handler central para troca de abas - DISPARA CHAMADAS SOB DEMANDA
   const handleTabChange = (tab: 'quotes' | 'catalog' | 'settings') => {
     setActiveTab(tab);
     setSelectedQuote(null);
@@ -99,12 +100,12 @@ const AppContent: React.FC = () => {
     }
   };
 
-  // Carregamento inicial de segurança para a aba padrão
+  // Carregamento inicial ao entrar no app (Apenas Orçamentos)
   useEffect(() => {
     if (isAuthenticated && user!.sub && !loadedSections.quotes && activeTab === 'quotes') {
       fetchQuotes(user!.sub);
     }
-  }, [isAuthenticated, user, activeTab, loadedSections.quotes, fetchQuotes]);
+  }, [isAuthenticated, user, loadedSections.quotes, fetchQuotes]);
 
   const handleStartNewQuote = async () => {
     const compId = user!.sub;
@@ -112,12 +113,13 @@ const AppContent: React.FC = () => {
 
     let currentProvider = providerInfo;
     
-    // Garante que temos os dados antes de abrir o editor
+    // Se for criar orçamento e não tiver dados do prestador, carrega agora
     if (!loadedSections.provider) {
       const fetched = await fetchProvider(compId);
       if (fetched) currentProvider = fetched;
     }
 
+    // Se o catálogo não estiver carregado, carrega para o seletor rápido
     if (!loadedSections.catalog) {
       await fetchCatalog(compId);
     }
@@ -142,6 +144,7 @@ const AppContent: React.FC = () => {
     setIsEditingQuote(true);
   };
 
+  // Funções de salvamento (Mantidas com companyId)
   const saveCatalogItem = async (item: Partial<CatalogItem>, isEditing: boolean) => {
     const compId = user!.sub;
     if (!compId) return;
@@ -156,7 +159,7 @@ const AppContent: React.FC = () => {
       const updated = await storageService.getCatalog(compId);
       setCatalog(updated);
     } catch (error) {
-      alert("Erro ao salvar: " + error);
+      alert("Erro ao salvar no catálogo: " + error);
     } finally {
       setIsFetchingData(false);
     }
@@ -171,7 +174,7 @@ const AppContent: React.FC = () => {
         await storageService.deleteCatalogItem(id);
         setCatalog(prev => prev.filter(i => i.id !== id));
       } catch (error) {
-        alert("Erro ao remover item.");
+        alert("Erro ao remover.");
       } finally {
         setIsFetchingData(false);
       }
@@ -179,13 +182,13 @@ const AppContent: React.FC = () => {
   };
 
   const handleDeleteQuote = async (id: string) => {
-    if (confirm("Tem certeza que deseja excluir este orçamento?")) {
+    if (confirm("Excluir este orçamento definitivamente?")) {
       setIsFetchingData(true);
       try {
         await storageService.deleteQuote(id);
         setQuotes(prev => prev.filter(q => q.id !== id));
       } catch (error) {
-        alert("Erro ao excluir orçamento.");
+        alert("Erro ao excluir.");
       } finally {
         setIsFetchingData(false);
       }
@@ -203,7 +206,8 @@ const AppContent: React.FC = () => {
         providerInfo: { ...q.providerInfo, companyId: compId }
       };
       await storageService.saveQuote(quoteWithCompany);
-      await fetchQuotes(compId);
+      const updatedQuotes = await storageService.getQuotes(compId);
+      setQuotes(updatedQuotes);
       setIsEditingQuote(false);
       setSelectedQuote(null);
     } catch (error) {
@@ -221,9 +225,9 @@ const AppContent: React.FC = () => {
       const infoWithCompany = { ...providerInfo, companyId: compId };
       await storageService.saveProviderInfo(infoWithCompany); 
       setProviderInfo(infoWithCompany);
-      alert('Dados profissionais salvos!'); 
+      alert('Configurações salvas!'); 
     } catch (error) {
-      alert("Erro ao salvar.");
+      alert("Erro ao salvar configurações.");
     } finally {
       setIsFetchingData(false);
     }
@@ -247,7 +251,7 @@ const AppContent: React.FC = () => {
         <div className="fixed inset-0 bg-white/40 z-[100] flex items-center justify-center backdrop-blur-[2px] no-print">
           <div className="bg-white p-6 rounded-2xl shadow-xl flex flex-col items-center border border-slate-100">
             <Loader2 className="w-8 h-8 text-blue-600 animate-spin mb-2" />
-            <p className="text-sm font-medium text-slate-600">Sincronizando...</p>
+            <p className="text-sm font-medium text-slate-600">Atualizando dados...</p>
           </div>
         </div>
       )}
@@ -321,9 +325,6 @@ const AppContent: React.FC = () => {
     </div>
   );
 };
-
-// Import necessário para o compId de segurança no handleTabChange
-import { authService } from './services/authService';
 
 const App: React.FC = () => {
   return (
