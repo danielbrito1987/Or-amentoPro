@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User } from '../types';
 import { authService } from '../services/authService';
 
@@ -19,20 +19,24 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Carrega estado inicial de forma síncrona do localStorage para evitar telas de login piscando
   useEffect(() => {
     const savedUser = authService.getCurrentUser();
     const savedToken = authService.getToken();
 
-    if (savedUser && savedToken) {
+    if (savedUser && savedToken && savedToken !== 'undefined') {
       setUser(savedUser);
       setToken(savedToken);
+    } else {
+      // Limpa lixo se houver algo corrompido
+      authService.logout();
     }
     setIsLoading(false);
   }, []);
 
   const login = async (email: string, password: string) => {
     const result = await authService.login(email, password);
-    // O authService já salva no localStorage, agora atualizamos o estado do React
+    // Atualiza o estado do React imediatamente para desencadear re-render
     setUser(result.user);
     setToken(result.token);
   };
@@ -46,7 +50,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const value = {
     user,
     token,
-    isAuthenticated: !!token,
+    isAuthenticated: !!token && token !== 'undefined',
     isLoading,
     login,
     logout,
