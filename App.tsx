@@ -36,9 +36,9 @@ const AppContent: React.FC = () => {
         setIsFetchingData(true);
         try {
           const [fetchedQuotes, fetchedCatalog, fetchedProvider] = await Promise.all([
-            storageService.getQuotes(user!.id),
-            storageService.getCatalog(user!.id),
-            storageService.getProviderInfo(user!.id)
+            storageService.getQuotes(user!.sub),
+            storageService.getCatalog(user!.sub),
+            storageService.getProviderInfo(user!.sub)
           ]);
           setQuotes(fetchedQuotes);
           setCatalog(fetchedCatalog);
@@ -77,12 +77,18 @@ const AppContent: React.FC = () => {
   const saveCatalogItem = async (item: Partial<CatalogItem>, isEditing: boolean) => {
     setIsFetchingData(true);
     try {
+      const itemToSave = {
+        companyId: user?.sub,
+        ...item
+      } as CatalogItem;
+
       if (isEditing) {
-        await storageService.updateCatalogItem(item as CatalogItem);
+        await storageService.updateCatalogItem(itemToSave);
       } else {
-        await storageService.saveCatalogItem(item as CatalogItem);
+        await storageService.saveCatalogItem(itemToSave);
       }
-      const updated = await storageService.getCatalog(user!.id);
+      
+      const updated = await storageService.getCatalog(user!.sub);
       setCatalog(updated);
     } catch (error) {
       alert("Erro ao salvar no catálogo: " + error);
@@ -117,7 +123,7 @@ const AppContent: React.FC = () => {
     setIsFetchingData(true);
     try {
       await storageService.saveQuote(q);
-      const updated = await storageService.getQuotes(user!.id);
+      const updated = await storageService.getQuotes(user!.sub);
       setQuotes(updated);
       setIsEditingQuote(false);
       setSelectedQuote(null);

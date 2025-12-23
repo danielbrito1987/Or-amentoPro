@@ -1,5 +1,6 @@
 
-const BASE_URL = 'https://orcamentopro-backend.onrender.com/api';
+// const BASE_URL = 'https://orcamentopro-backend.onrender.com/api';
+const BASE_URL = 'http://localhost:3000/api';
 
 export const apiService = {
   getHeaders: () => {
@@ -11,6 +12,8 @@ export const apiService = {
   },
 
   handleResponse: async (response: Response) => {
+    console.log("--> handleResponse");
+    console.log(response);
     if (response.status === 401) {
       // Token expirado ou inválido - opcionalmente forçar logout aqui
       localStorage.removeItem('orcafacil_jwt_token');
@@ -31,6 +34,7 @@ export const apiService = {
       method: 'GET',
       headers: apiService.getHeaders(),
     });
+    console.log("Retorno: ", response);
     return apiService.handleResponse(response);
   },
 

@@ -7,9 +7,8 @@ export enum ItemType {
 export interface CatalogItem {
   id: string;
   companyId: string;
-  name: string;
   description: string;
-  price: number;
+  value: number;
   type: ItemType;
   unit?: string; // e.g., "un", "m", "h"
 }
@@ -44,7 +43,7 @@ export interface ProviderInfo {
 }
 
 export interface User {
-  id: string;
+  sub: string;
   email: string;
   name: string;
 }

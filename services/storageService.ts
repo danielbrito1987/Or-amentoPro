@@ -5,15 +5,15 @@ import { apiService } from './api.service';
 export const storageService = {
   // Catalog
   getCatalog: async (companyId: string): Promise<CatalogItem[]> => {
-    return apiService.get<CatalogItem[]>(`/catalog/${companyId}`);
+    return await apiService.get<CatalogItem[]>(`/products/${companyId}`);
   },
   
   saveCatalogItem: async (item: CatalogItem): Promise<CatalogItem> => {
-    return apiService.post<CatalogItem>('/catalog', item);
+    return apiService.post<CatalogItem>('/products', item);
   },
   
   updateCatalogItem: async (item: CatalogItem): Promise<CatalogItem> => {
-    return apiService.put<CatalogItem>(`/catalog/${item.id}`, item);
+    return apiService.put<CatalogItem>(`/products/${item.id}`, item);
   },
 
   saveCatalog: async (items: CatalogItem[]) => {
@@ -42,10 +42,11 @@ export const storageService = {
   // Provider Info
   getProviderInfo: async (companyId: string): Promise<ProviderInfo> => {
     try {
-      return await apiService.get<ProviderInfo>(`/companies/${companyId}`);
+      const company = await apiService.get<ProviderInfo>(`/companies/${companyId}`);
+      return company;
     } catch (e) {
       // Fallback para dados locais se o perfil não estiver no banco ainda
-      const local = localStorage.getItem('orcafacil_provider');
+      const local = localStorage.getItem('orcafacil_user');
       return local ? JSON.parse(local) : {
         name: 'Minha Empresa',
         document: '',
