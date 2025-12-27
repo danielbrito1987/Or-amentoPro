@@ -5,7 +5,7 @@ import { QuoteItem } from "../types";
 export const generateQuoteNotes = async (items: QuoteItem[], customerName: string) => {
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    const itemsList = items.map(i => `${i.quantity}x ${i.name}`).join(', ');
+    const itemsList = items.map(i => `${i.quantity}x ${i.description}`).join(', ');
     
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",

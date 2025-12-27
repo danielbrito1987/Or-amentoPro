@@ -16,13 +16,13 @@ export const QuoteViewPage: React.FC<QuoteViewPageProps> = ({ quote, providerInf
   const handlePrint = () => { setTimeout(() => window.print(), 100); };
 
   const generateShareText = () => {
-    const itemsList = quote.items.map(i => `• ${i.quantity}${i.unit || 'un'} x ${i.name}: ${formatCurrency(i.price * i.quantity)}`).join('\n');
-    return `*Orçamento ${quote.number}*\n\nOlá, ${quote.customerName}!\nSegue o resumo do orçamento solicitado:\n\n${itemsList}\n\n*Total: ${formatCurrency(quote.total)}*\n\n${quote.notes ? `_Obs: ${quote.notes}_` : ''}\n\nAtenciosamente,\n*${providerInfo.name}*`;
+    const itemsList = quote.items.map(i => `• ${i.quantity}${i.unit || 'un'} x ${i.description}: ${formatCurrency(i.price * i.quantity)}`).join('\n');
+    return `*Orçamento ${quote.number}*\n\nOlá, ${quote.clientName}!\nSegue o resumo do orçamento solicitado:\n\n${itemsList}\n\n*Total: ${formatCurrency(quote.total)}*\n\n${quote.notes ? `_Obs: ${quote.notes}_` : ''}\n\nAtenciosamente,\n*${providerInfo.name}*`;
   };
 
   const handleWhatsAppShare = () => {
     const text = encodeURIComponent(generateShareText());
-    const phone = quote.customerPhone.replace(/\D/g, '');
+    const phone = quote.clientPhone.replace(/\D/g, '');
     window.open(`https://wa.me/${phone.startsWith('55') ? phone : '55' + phone}?text=${text}`, '_blank');
   };
 
@@ -63,15 +63,15 @@ export const QuoteViewPage: React.FC<QuoteViewPageProps> = ({ quote, providerInf
             <div className="text-right">
               <h2 className="text-blue-600 text-lg md:text-xl font-bold uppercase tracking-widest mb-1">Orçamento</h2>
               <p className="text-slate-800 font-bold text-lg">{quote.number}</p>
-              <p className="text-sm text-gray-400">Emissão: {new Date(quote.date).toLocaleDateString('pt-BR')}</p>
+              <p className="text-sm text-gray-400">Emissão: {new Date(quote.createdAt).toLocaleDateString('pt-BR')}</p>
             </div>
           </div>
 
           <div className="bg-gray-50 rounded-xl p-4 md:p-6 mb-8">
             <p className="text-[10px] md:text-xs font-bold text-gray-400 uppercase mb-2">Para o Cliente</p>
-            <h3 className="text-lg md:text-xl font-bold text-slate-800 mb-1">{quote.customerName || '(Não informado)'}</h3>
-            <p className="text-xs md:text-sm text-slate-600">{quote.customerPhone} • {quote.customerEmail}</p>
-            <p className="text-xs text-slate-500 mt-2 leading-tight">{quote.customerAddress} • {quote.customerCity}/{quote.customerState}</p>
+            <h3 className="text-lg md:text-xl font-bold text-slate-800 mb-1">{quote.clientName || '(Não informado)'}</h3>
+            <p className="text-xs md:text-sm text-slate-600">{quote.clientPhone} • {quote.clientEmail}</p>
+            <p className="text-xs text-slate-500 mt-2 leading-tight">{quote.address} • {quote.city}/{quote.state}</p>
           </div>
 
           <table className="w-full text-left mb-12">
@@ -86,7 +86,7 @@ export const QuoteViewPage: React.FC<QuoteViewPageProps> = ({ quote, providerInf
             <tbody className="divide-y divide-slate-100">
               {quote.items.map((item, idx) => (
                 <tr key={idx}>
-                  <td className="py-4"><p className="font-semibold text-slate-800 text-sm">{item.name}</p></td>
+                  <td className="py-4"><p className="font-semibold text-slate-800 text-sm">{item.description}</p></td>
                   <td className="py-4 px-4 text-center text-slate-600 text-sm">{item.quantity} {item.unit}</td>
                   <td className="py-4 px-4 text-right text-slate-600 text-sm">{formatCurrency(item.price)}</td>
                   <td className="py-4 text-right font-bold text-slate-900 text-sm">{formatCurrency(item.price * item.quantity)}</td>

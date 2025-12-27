@@ -12,13 +12,12 @@ import { QuoteViewPage } from './pages/QuoteViewPage';
 import { LoginPage } from './pages/LoginPage';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { FileText, Menu, X, Loader2 } from 'lucide-react';
+import { mapQuoteToCreateBudgetDto } from './utils/budget.mapper';
 
 const AppContent: React.FC = () => {
   const { user, isAuthenticated, isLoading, logout } = useAuth();
   
-  const [activeTab, setActiveTab] = useState<'quotes' | 'catalog' | 'settings'>('quotes');
-  const [quotes, setQuotes] = useState<Quote[]>([]);
-  
+  const [activeTab, setActiveTab] = useState<'quotes' | 'catalog' | 'settings'>('quotes');  
   const [providerInfo, setProviderInfo] = useState<ProviderInfo>({
     name: 'Carregando...',
     document: '',
@@ -44,18 +43,18 @@ const AppContent: React.FC = () => {
   }, [])
 
   // Funções de busca individuais
-  const fetchQuotes = useCallback(async (compId: string) => {
-    setIsFetchingData(true);
-    try {
-      const data = await storageService.getBudgets(compId);
-      setQuotes(data);
-      setLoadedSections(prev => ({ ...prev, quotes: true }));
-    } catch (error) {
-      console.error("Erro ao carregar orçamentos:", error);
-    } finally {
-      setIsFetchingData(false);
-    }
-  }, []);
+  // const fetchQuotes = useCallback(async (compId: string) => {
+  //   setIsFetchingData(true);
+  //   try {
+  //     const data = await storageService.getBudgets(compId);
+  //     setQuotes(data);
+  //     setLoadedSections(prev => ({ ...prev, quotes: true }));
+  //   } catch (error) {
+  //     console.error("Erro ao carregar orçamentos:", error);
+  //   } finally {
+  //     setIsFetchingData(false);
+  //   }
+  // }, []);
 
   // const fetchCatalog = useCallback(async (compId: string) => {
   //   setIsFetchingData(true);
@@ -96,7 +95,7 @@ const AppContent: React.FC = () => {
     if (!currentCompId) return;
 
     if (tab === 'quotes' && !loadedSections.quotes) {
-      fetchQuotes(currentCompId);
+      //fetchQuotes(currentCompId);
     } else if (tab === 'catalog' && !loadedSections.catalog) {
       //fetchCatalog(currentCompId);
     } else if (tab === 'settings' && !loadedSections.provider) {
@@ -108,9 +107,9 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     if (isAuthenticated && !loadedSections.quotes && activeTab === 'quotes') {
       const currentCompId = user?.companyId || authService.getCurrentUser()?.companyId;
-      if (currentCompId) fetchQuotes(currentCompId);
+      //if (currentCompId) fetchQuotes(currentCompId);
     }
-  }, [isAuthenticated, user, activeTab, loadedSections.quotes, fetchQuotes]);
+  }, [isAuthenticated, user, activeTab, loadedSections.quotes]);
 
   const handleStartNewQuote = async () => {
     const currentCompId = user?.sub || authService.getCurrentUser()?.sub;
@@ -130,14 +129,15 @@ const AppContent: React.FC = () => {
 
     const newQuote: Quote = {
       id: crypto.randomUUID(),
-      number: `ORC-${String(quotes.length + 1).padStart(4, '0')}`,
-      date: new Date().toISOString().split('T')[0],
-      customerName: '',
-      customerPhone: '',
-      customerEmail: '',
-      customerAddress: '',
-      customerCity: '',
-      customerState: '',
+      //number: `ORC-${String(quotes.length + 1).padStart(4, '0')}`,
+      number: `ORC-${String(1).padStart(4, '0')}`,
+      createdAt: new Date().toISOString().split('T')[0],
+      clientName: '',
+      clientPhone: '',
+      clientEmail: '',
+      address: '',
+      city: '',
+      state: '',
       items: [],
       total: 0,
       notes: '',
@@ -167,7 +167,7 @@ const AppContent: React.FC = () => {
       setIsFetchingData(true);
       try {
         await storageService.deleteBudget(id);
-        setQuotes(prev => prev.filter(q => q.id !== id));
+        //setQuotes(prev => prev.filter(q => q.id !== id));
       } catch (error) {
         alert("Erro ao excluir.");
       } finally {
@@ -178,17 +178,17 @@ const AppContent: React.FC = () => {
 
   const handleSaveQuote = async (q: Quote) => {
     const currentCompId = user?.sub || authService.getCurrentUser()?.companyId;
+
     if (!currentCompId) return;
+    
     setIsFetchingData(true);
+    
     try {
-      const quoteWithCompany = { 
-        ...q, 
-        companyId: currentCompId,
-        providerInfo: { ...q.providerInfo, companyId: currentCompId }
-      };
-      await storageService.saveBudget(quoteWithCompany);
+      const payload = mapQuoteToCreateBudgetDto(q, currentCompId);
+      
+      await storageService.saveBudget(payload);
       const updatedQuotes = await storageService.getBudgets(currentCompId);
-      setQuotes(updatedQuotes);
+      //setQuotes(updatedQuotes);
       setIsEditingQuote(false);
       setSelectedQuote(null);
     } catch (error) {
@@ -260,7 +260,6 @@ const AppContent: React.FC = () => {
         <div className="max-w-6xl mx-auto p-4 md:p-8">
           {activeTab === 'quotes' && !isEditingQuote && !selectedQuote && (
             <QuotesPage 
-              quotes={quotes} 
               onNewQuote={handleStartNewQuote} 
               onSelectQuote={setSelectedQuote} 
               onDeleteQuote={handleDeleteQuote} 

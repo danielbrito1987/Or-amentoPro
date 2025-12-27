@@ -66,12 +66,12 @@ export const storageService = {
     }
   },
   
-  saveBudget: async (quote: Quote): Promise<Quote> => {
+  saveBudget: async (quote: any): Promise<Quote> => {
     // Se o ID for longo (UUID v4), tratamos como novo
     if (quote.id && quote.id.length > 20) { 
-       return apiService.post<Quote>('/budgets', quote);
+       return apiService.put<Quote>(`/budgets/${quote.id}`, quote);
     }
-    return apiService.put<Quote>(`/budgets/${quote.id}`, quote);
+    return apiService.post<Quote>('/budgets', quote);
   },
   
   deleteBudget: async (id: string): Promise<void> => {

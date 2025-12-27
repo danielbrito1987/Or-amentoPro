@@ -1,26 +1,42 @@
 
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Quote } from '../types';
 import { Button } from '../components/Button';
 import { Plus, Search, X, Filter, TrendingUp, MessageCircle, ChevronRight, Trash2, FileText } from 'lucide-react';
 import { formatCurrency } from '../utils/formatters';
+import { storageService } from '../services/storageService';
+import { useAuth } from '../contexts/AuthContext';
 
 interface QuotesPageProps {
-  quotes: Quote[];
   onNewQuote: () => void;
   onSelectQuote: (quote: Quote) => void;
   onDeleteQuote: (id: string) => void;
 }
 
-export const QuotesPage: React.FC<QuotesPageProps> = ({ quotes, onNewQuote, onSelectQuote, onDeleteQuote }) => {
+export const QuotesPage: React.FC<QuotesPageProps> = ({ onNewQuote, onSelectQuote, onDeleteQuote }) => {
+  const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
+  const [quotes, setQuotes] = useState<Quote[]>([]);
+
+  useEffect(() => {
+    fetchQuotes(user!.sub)
+  }, [])
+
+  const fetchQuotes = useCallback(async (compId: string) => {
+    try {
+      const data = await storageService.getBudgets(compId);
+      setQuotes(data);
+    } catch (error) {
+      console.error("Erro ao carregar orçamentos:", error);
+    }
+  }, []);
 
   const filteredQuotes = quotes.filter(quote => {
     const term = searchTerm.toLowerCase();
     const rawTerm = searchTerm.replace(/\D/g, '');
-    const nameMatch = quote.customerName.toLowerCase().includes(term);
-    const phoneMatch = quote.customerPhone.replace(/\D/g, '').includes(rawTerm);
-    const numberMatch = quote.number.toLowerCase().includes(term);
+    const nameMatch = quotes ?? quote.clientName.toLowerCase().includes(term);
+    const phoneMatch = quotes ?? quote.clientPhone.replace(/\D/g, '').includes(rawTerm);
+    const numberMatch = quotes ?? quote.number.toLowerCase().includes(term);
     return nameMatch || (rawTerm !== '' && phoneMatch) || numberMatch;
   });
 
@@ -34,7 +50,7 @@ export const QuotesPage: React.FC<QuotesPageProps> = ({ quotes, onNewQuote, onSe
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative group min-w-[280px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors" size={20} />
-            <input 
+            <input
               type="text"
               placeholder="Buscar por cliente ou telefone..."
               value={searchTerm}
@@ -75,8 +91,8 @@ export const QuotesPage: React.FC<QuotesPageProps> = ({ quotes, onNewQuote, onSe
       ) : (
         <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
           {filteredQuotes.map(quote => (
-            <div 
-              key={quote.id} 
+            <div
+              key={quote.id}
               className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-all cursor-pointer group hover:-translate-y-1"
               onClick={() => onSelectQuote(quote)}
             >
@@ -84,24 +100,24 @@ export const QuotesPage: React.FC<QuotesPageProps> = ({ quotes, onNewQuote, onSe
                 <span className="text-xs font-bold text-blue-600 uppercase tracking-wider bg-blue-50 px-2 py-1 rounded">
                   {quote.number}
                 </span>
-                <span className="text-xs text-gray-400">{new Date(quote.date).toLocaleDateString()}</span>
+                <span className="text-xs text-gray-400">{new Date(quote.createdAt).toLocaleDateString()}</span>
               </div>
               <h3 className="text-lg font-bold text-slate-800 mb-1 truncate group-hover:text-blue-600 transition-colors">
-                {quote.customerName || 'Cliente sem nome'}
+                {quote.clientName || 'Cliente sem nome'}
               </h3>
               <p className="text-sm text-gray-500 mb-4 truncate flex items-center">
                 <MessageCircle size={14} className="mr-1.5 opacity-40" />
-                {quote.customerPhone || 'Sem contato'}
+                {quote.clientPhone || 'Sem contato'}
               </p>
               <div className="flex items-center justify-between pt-4 border-t border-gray-100">
                 <span className="text-xl font-bold text-slate-900">
                   {formatCurrency(quote.total)}
                 </span>
                 <div className="flex space-x-1">
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="p-1.5 hover:bg-red-50 hover:text-red-500" 
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="p-1.5 hover:bg-red-50 hover:text-red-500"
                     onClick={(e) => { e.stopPropagation(); onDeleteQuote(quote.id); }}
                   >
                     <Trash2 size={18} />
