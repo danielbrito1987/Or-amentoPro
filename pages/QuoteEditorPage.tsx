@@ -1,10 +1,11 @@
 
-import React from 'react';
-import { Quote, CatalogItem } from '../types';
+import React, { useState } from 'react';
+import { Quote, CatalogItem, QuoteItem, ItemType } from '../types';
 import { Button } from '../components/Button';
-import { ChevronLeft, Search, MapPin, Trash2, TrendingUp, Plus } from 'lucide-react';
+import { ChevronLeft, Search, MapPin, Trash2, TrendingUp, Plus, Sparkles } from 'lucide-react';
 import { maskPhone, formatCurrency } from '../utils/formatters';
 import { generateQuoteNotes } from '../services/geminiService';
+import { AiPriceConsultantModal } from '../components/AiPriceConsultantModal';
 
 interface QuoteEditorPageProps {
   quote: Quote;
@@ -12,9 +13,19 @@ interface QuoteEditorPageProps {
   onBack: () => void;
   onSave: (quote: Quote) => void;
   onUpdateQuote: (quote: Quote) => void;
+  onSaveCatalogItem?: (item: Partial<CatalogItem>, isEditing: boolean) => void;
 }
 
-export const QuoteEditorPage: React.FC<QuoteEditorPageProps> = ({ quote, catalog, onBack, onSave, onUpdateQuote }) => {
+export const QuoteEditorPage: React.FC<QuoteEditorPageProps> = ({ 
+  quote, 
+  catalog, 
+  onBack, 
+  onSave, 
+  onUpdateQuote,
+  onSaveCatalogItem 
+}) => {
+  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+
   const addItem = (item: CatalogItem) => {
     const alreadyExists = quote.items.findIndex(i => i.id === item.id);
     let newItems;
@@ -46,8 +57,51 @@ export const QuoteEditorPage: React.FC<QuoteEditorPageProps> = ({ quote, catalog
     onUpdateQuote({ ...quote, notes: suggestion });
   };
 
+  const handleApplyAiItem = (data: {
+    name: string;
+    price: number;
+    unit: string;
+    description?: string;
+    saveToCatalog?: boolean;
+  }) => {
+    const newItemId = 'item_' + Date.now();
+    const newQuoteItem: QuoteItem = {
+      id: newItemId,
+      name: data.name,
+      price: data.price,
+      unit: data.unit || 'un',
+      description: data.description || '',
+      type: ItemType.SERVICE,
+      quantity: 1,
+    };
+
+    const newItems = [...quote.items, newQuoteItem];
+    const newTotal = newItems.reduce((acc, i) => acc + (i.price * i.quantity), 0);
+    onUpdateQuote({ ...quote, items: newItems, total: newTotal });
+
+    if (data.saveToCatalog && onSaveCatalogItem) {
+      onSaveCatalogItem({
+        name: data.name,
+        price: data.price,
+        unit: data.unit || 'un',
+        description: data.description || '',
+        type: ItemType.SERVICE,
+      }, false);
+    }
+  };
+
+  const quoteLocation = [quote.customerCity, quote.customerState].filter(Boolean).join(' - ');
+
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+      <AiPriceConsultantModal
+        isOpen={isAiModalOpen}
+        onClose={() => setIsAiModalOpen(false)}
+        defaultLocation={quoteLocation}
+        mode="quote"
+        onApply={handleApplyAiItem}
+      />
+
       <div className="flex items-center space-x-4 mb-4">
         <Button variant="ghost" onClick={onBack}><ChevronLeft size={20} className="mr-1" /> Voltar</Button>
         <h2 className="text-xl md:text-2xl font-bold text-slate-800">{quote.number}</h2>
@@ -76,8 +130,32 @@ export const QuoteEditorPage: React.FC<QuoteEditorPageProps> = ({ quote, catalog
           </div>
 
           <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
-            <h3 className="font-bold text-lg text-slate-800 mb-4">Itens</h3>
-            {quote.items.length === 0 ? <p className="text-center py-8 text-gray-400">Adicione itens do catálogo ao lado.</p> : (
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-lg text-slate-800">Itens</h3>
+              <button
+                type="button"
+                onClick={() => setIsAiModalOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 text-blue-700 text-xs font-semibold border border-blue-200/70 transition-all shadow-sm"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                <span>Sugerir Preço com IA</span>
+              </button>
+            </div>
+            {quote.items.length === 0 ? (
+              <div className="text-center py-8 px-4 border border-dashed border-gray-200 rounded-2xl bg-gray-50/50">
+                <p className="text-gray-400 text-sm mb-3">Nenhum item adicionado ainda.</p>
+                <div className="flex flex-wrap justify-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsAiModalOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-blue-200 text-blue-600 text-xs font-semibold hover:bg-blue-50 shadow-sm transition-all"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                    Consultar Preço com IA
+                  </button>
+                </div>
+              </div>
+            ) : (
               <div className="space-y-3">
                 {quote.items.map((item, idx) => (
                   <div key={idx} className="flex flex-col sm:flex-row items-center gap-4 p-4 rounded-xl border border-gray-100 bg-gray-50/50">
@@ -101,8 +179,18 @@ export const QuoteEditorPage: React.FC<QuoteEditorPageProps> = ({ quote, catalog
 
         <div className="space-y-6">
           <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
-            <h3 className="font-bold mb-4">Catálogo Rápido</h3>
-            <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-bold">Catálogo Rápido</h3>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsAiModalOpen(true)}
+              className="w-full flex items-center justify-center gap-2 p-2.5 mb-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold text-xs shadow-sm shadow-blue-500/20 transition-all"
+            >
+              <Sparkles className="w-4 h-4 text-amber-300" />
+              <span>Calcular Preço com IA</span>
+            </button>
+            <div className="space-y-2 max-h-[360px] overflow-y-auto pr-2 custom-scrollbar">
               {catalog.map(item => (
                 <div key={item.id} onClick={() => addItem(item)} className="flex items-center justify-between p-3 rounded-xl hover:bg-blue-50 cursor-pointer border border-transparent hover:border-blue-100 transition-all group">
                   <div className="overflow-hidden"><p className="text-sm font-semibold truncate">{item.name}</p><p className="text-xs text-gray-400">{formatCurrency(item.price)}</p></div>

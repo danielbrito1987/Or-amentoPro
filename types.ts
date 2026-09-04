@@ -57,3 +57,14 @@ export interface AuthState {
   token: string | null;
   isAuthenticated: boolean;
 }
+
+export interface PriceSuggestion {
+  serviceName: string;
+  suggestedPrice: number;
+  minPrice: number;
+  maxPrice: number;
+  unit: string;
+  estimatedHours?: string;
+  justification: string;
+  tips?: string[];
+}

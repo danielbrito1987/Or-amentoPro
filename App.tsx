@@ -310,6 +310,7 @@ const AppContent: React.FC = () => {
               onBack={() => { setIsEditingQuote(false); setSelectedQuote(null); }} 
               onUpdateQuote={setSelectedQuote}
               onSave={handleSaveQuote} 
+              onSaveCatalogItem={saveCatalogItem}
             />
           )}
 

@@ -2,8 +2,9 @@
 import React, { useState } from 'react';
 import { CatalogItem, ItemType } from '../types';
 import { Button } from '../components/Button';
-import { Briefcase, Box, Settings, Trash2 } from 'lucide-react';
+import { Briefcase, Box, Settings, Trash2, Sparkles } from 'lucide-react';
 import { formatCurrency, maskCurrencyInput } from '../utils/formatters';
+import { AiPriceConsultantModal } from '../components/AiPriceConsultantModal';
 
 interface CatalogPageProps {
   catalog: CatalogItem[];
@@ -15,6 +16,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({ catalog, onSaveItem, o
   const [newItem, setNewItem] = useState<Partial<CatalogItem>>({ type: ItemType.SERVICE, price: 0 });
   const [currencyInput, setCurrencyInput] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
 
   const handleSave = () => {
     onSaveItem(newItem, !!editingId);
@@ -29,8 +31,28 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({ catalog, onSaveItem, o
     setCurrencyInput(maskCurrencyInput((item.price * 100).toString()));
   };
 
+  const handleApplyAiSuggestion = (data: { name: string; price: number; unit: string; description?: string }) => {
+    setNewItem(prev => ({
+      ...prev,
+      type: ItemType.SERVICE,
+      name: prev.name?.trim() ? prev.name : data.name,
+      price: data.price,
+      unit: data.unit || prev.unit || 'un',
+      description: prev.description?.trim() ? prev.description : (data.description || '')
+    }));
+    setCurrencyInput(maskCurrencyInput(Math.round(data.price * 100).toString()));
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <AiPriceConsultantModal
+        isOpen={isAiModalOpen}
+        onClose={() => setIsAiModalOpen(false)}
+        initialServiceName={newItem.name || ''}
+        mode="catalog"
+        onApply={handleApplyAiSuggestion}
+      />
+
       <div>
         <h2 className="text-2xl font-bold text-slate-800">Catálogo de Itens</h2>
         <p className="text-slate-500">Produtos e serviços pré-cadastrados</p>
@@ -39,7 +61,18 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({ catalog, onSaveItem, o
       <div className="grid gap-8 grid-cols-1 lg:grid-cols-3">
         <div className="lg:col-span-1 order-1">
           <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm sticky top-8">
-            <h3 className="font-bold text-lg mb-4">{editingId ? 'Editar Item' : 'Novo Item'}</h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-lg">{editingId ? 'Editar Item' : 'Novo Item'}</h3>
+              <button
+                type="button"
+                onClick={() => setIsAiModalOpen(true)}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold transition-all border border-blue-200/60"
+                title="Pedir sugestão de preço à IA"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                <span>Preço com IA</span>
+              </button>
+            </div>
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
@@ -72,6 +105,18 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({ catalog, onSaveItem, o
                 rows={2}
                 placeholder="Descrição opcional"
               />
+
+              {newItem.type === ItemType.SERVICE && (
+                <button
+                  type="button"
+                  onClick={() => setIsAiModalOpen(true)}
+                  className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 text-blue-700 text-xs font-semibold border border-blue-200/70 transition-all"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Dúvida no valor? Consultar sugestão com IA</span>
+                </button>
+              )}
+
               <div className="grid grid-cols-2 gap-4">
                 <input 
                   type="text" 
