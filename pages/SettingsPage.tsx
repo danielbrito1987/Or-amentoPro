@@ -2,8 +2,9 @@
 import React, { useRef } from 'react';
 import { ProviderInfo } from '../types';
 import { Button } from '../components/Button';
-import { ImageIcon, Upload } from 'lucide-react';
+import { ImageIcon, Upload, Database, CheckCircle2, HardDrive } from 'lucide-react';
 import { maskCPF_CNPJ, maskPhone } from '../utils/formatters';
+import { isSupabaseConfigured } from '../services/supabase';
 
 interface SettingsPageProps {
   providerInfo: ProviderInfo;
@@ -61,6 +62,29 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ providerInfo, onUpda
           </div>
         </div>
         <Button className="w-full py-4 text-lg" onClick={onSave}>Salvar Informações</Button>
+      </div>
+
+      <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-5 flex items-start gap-3.5">
+        <div className={`p-2.5 rounded-xl shrink-0 ${isSupabaseConfigured() ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>
+          {isSupabaseConfigured() ? <Database className="w-5 h-5" /> : <HardDrive className="w-5 h-5" />}
+        </div>
+        <div className="text-sm">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-slate-800">
+              {isSupabaseConfigured() ? 'Supabase Conectado' : 'Armazenamento Local Ativo'}
+            </span>
+            {isSupabaseConfigured() && (
+              <span className="inline-flex items-center gap-1 text-xs text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full font-medium border border-emerald-200">
+                <CheckCircle2 className="w-3 h-3" /> Nuvem
+              </span>
+            )}
+          </div>
+          <p className="text-slate-500 text-xs mt-1">
+            {isSupabaseConfigured()
+              ? 'Seus orçamentos, catálogo e dados profissionais são sincronizados em tempo real com o banco de dados PostgreSQL do Supabase.'
+              : 'Os dados estão salvos com segurança na memória do seu navegador. Para sincronizar na nuvem, basta configurar as variáveis VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY nas configurações.'}
+          </p>
+        </div>
       </div>
     </div>
   );

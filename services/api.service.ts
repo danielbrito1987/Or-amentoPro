@@ -1,79 +1,93 @@
 
-//const API_BASE_URL = 'https://orcamentopro-backend.onrender.com/api';
-const API_BASE_URL = 'http://localhost:3000/api';
+const BASE_URL = 'https://orcamentopro-backend.onrender.com/api';
+const DEFAULT_TIMEOUT_MS = 2500;
 
-interface RequestOptions extends RequestInit {
-  headers?: Record<string, string>;
-}
-
-class ApiService {
-  private getToken(): string | null {
-    return localStorage.getItem('orcafacil_jwt_token');
+const fetchWithTimeout = async (url: string, options: RequestInit, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<Response> => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, { ...options, signal: controller.signal });
+    clearTimeout(timer);
+    return response;
+  } catch (err: any) {
+    clearTimeout(timer);
+    if (err.name === 'AbortError') {
+      throw new Error('Tempo de conexão esgotado ao contatar o servidor.');
+    }
+    throw err;
   }
+};
 
-  private async request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
-    const token = this.getToken();
-
-    const headers: Record<string, string> = {
+export const apiService = {
+  getHeaders: () => {
+    const token = localStorage.getItem('orcafacil_jwt_token');
+    // Valida se o token é uma string válida antes de enviar
+    const isValidToken = token && token !== 'undefined' && token !== 'null';
+    
+    return {
       'Content-Type': 'application/json',
-      ...options.headers,
+      ...(isValidToken ? { 'Authorization': `Bearer ${token}` } : {}),
     };
+  },
 
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
+  handleResponse: async (response: Response) => {
+    if (!response.ok) {
+      // Tenta extrair mensagem de erro do JSON
+      let errorMessage = `Erro ${response.status}`;
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.message || errorMessage;
+      } catch {
+        // Se não for JSON, usa o statusText
+        errorMessage = response.statusText || errorMessage;
+      }
 
-    const config: RequestInit = {
-      ...options,
-      headers,
-    };
-
-    try {
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
-
-      // Tratamento para 401 (Token expirado ou inválido)
       if (response.status === 401) {
+        // Apenas limpa se o token for explicitamente inválido ou expirado
         localStorage.removeItem('orcafacil_jwt_token');
-        window.location.href = '#/login';
-        throw new Error('Sessão expirada');
+        localStorage.removeItem('orcafacil_user');
       }
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `Erro na requisição: ${response.status}`);
-      }
-
-      // Se não tiver conteúdo (ex: 204 No Content), retorna null
-      if (response.status === 204) return null as T;
-
-      return await response.json();
-    } catch (error) {
-      console.error('API Error:', error);
-      throw error;
+      
+      throw new Error(errorMessage);
     }
-  }
+    
+    // Suporte para respostas vazias (204 No Content)
+    if (response.status === 204) return {} as any;
+    
+    return response.json();
+  },
 
-  get<T>(endpoint: string) {
-    return this.request<T>(endpoint, { method: 'GET' });
-  }
+  get: async <T>(endpoint: string): Promise<T> => {
+    const response = await fetchWithTimeout(`${BASE_URL}${endpoint}`, {
+      method: 'GET',
+      headers: apiService.getHeaders(),
+    });
+    return apiService.handleResponse(response);
+  },
 
-  post<T>(endpoint: string, body: any) {
-    return this.request<T>(endpoint, {
+  post: async <T>(endpoint: string, data: any): Promise<T> => {
+    const response = await fetchWithTimeout(`${BASE_URL}${endpoint}`, {
       method: 'POST',
-      body: JSON.stringify(body)
+      headers: apiService.getHeaders(),
+      body: JSON.stringify(data),
     });
-  }
+    return apiService.handleResponse(response);
+  },
 
-  put<T>(endpoint: string, body: any) {
-    return this.request<T>(endpoint, {
+  put: async <T>(endpoint: string, data: any): Promise<T> => {
+    const response = await fetchWithTimeout(`${BASE_URL}${endpoint}`, {
       method: 'PUT',
-      body: JSON.stringify(body)
+      headers: apiService.getHeaders(),
+      body: JSON.stringify(data),
     });
-  }
+    return apiService.handleResponse(response);
+  },
 
-  delete<T>(endpoint: string) {
-    return this.request<T>(endpoint, { method: 'DELETE' });
-  }
-}
-
-export const apiService = new ApiService();
+  delete: async <T>(endpoint: string): Promise<T> => {
+    const response = await fetchWithTimeout(`${BASE_URL}${endpoint}`, {
+      method: 'DELETE',
+      headers: apiService.getHeaders(),
+    });
+    return apiService.handleResponse(response);
+  },
+};

@@ -1,58 +1,24 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { CatalogItem, ItemType } from '../types';
 import { Button } from '../components/Button';
 import { Briefcase, Box, Settings, Trash2 } from 'lucide-react';
 import { formatCurrency, maskCurrencyInput } from '../utils/formatters';
-import { useAuth } from '../contexts/AuthContext';
-import { apiService } from '../services/api.service';
-import { storageService } from '../services/storageService';
 
 interface CatalogPageProps {
+  catalog: CatalogItem[];
+  onSaveItem: (item: Partial<CatalogItem>, isEditing: boolean) => void;
   onDeleteItem: (id: string) => void;
 }
 
-export const CatalogPage: React.FC<CatalogPageProps> = ({ onDeleteItem }) => {
-  const { user } = useAuth();
-  const [catalog, setCatalog] = useState<CatalogItem[]>([]);
-  const [newItem, setNewItem] = useState<Partial<CatalogItem>>({ type: ItemType.SERVICE, value: 0 });
+export const CatalogPage: React.FC<CatalogPageProps> = ({ catalog, onSaveItem, onDeleteItem }) => {
+  const [newItem, setNewItem] = useState<Partial<CatalogItem>>({ type: ItemType.SERVICE, price: 0 });
   const [currencyInput, setCurrencyInput] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const loadCatalog = async () => {
-    try {
-      const data = await apiService.get<CatalogItem[]>(`/products/${user?.sub}`);
-      setCatalog(data);
-    } catch (error) {
-      console.error("Erro ao carregar catálogo:", error);
-    }
-  }
-
-  useEffect(() => {
-    loadCatalog()
-  }, [])
-
-  const saveCatalogItem = async (item: Partial<CatalogItem>, isEditing: boolean) => {
-    const currentCompId = user?.sub;
-    if (!currentCompId) return;
-    
-    try {
-      const itemToSave = { ...item, companyId: currentCompId } as CatalogItem;
-      if (isEditing) {
-        await storageService.updateCatalogItem(itemToSave);
-      } else {
-        await storageService.saveCatalogItem(itemToSave);
-      }
-      const updated = await storageService.getCatalog(currentCompId);
-      setCatalog(updated);
-    } catch (error) {
-      alert("Erro ao salvar no catálogo: " + error);
-    }
-  };
-
   const handleSave = () => {
-    saveCatalogItem(newItem, !!editingId);
-    setNewItem({ type: ItemType.SERVICE, value: 0 });
+    onSaveItem(newItem, !!editingId);
+    setNewItem({ type: ItemType.SERVICE, price: 0 });
     setCurrencyInput('');
     setEditingId(null);
   };
@@ -60,7 +26,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({ onDeleteItem }) => {
   const startEdit = (item: CatalogItem) => {
     setEditingId(item.id);
     setNewItem(item);
-    setCurrencyInput(maskCurrencyInput((item.value * 100).toString()));
+    setCurrencyInput(maskCurrencyInput((item.price * 100).toString()));
   };
 
   return (
@@ -78,13 +44,13 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({ onDeleteItem }) => {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
                 <div className="flex p-1 bg-gray-100 rounded-lg">
-                  <button
+                  <button 
                     onClick={() => setNewItem({ ...newItem, type: ItemType.SERVICE })}
                     className={`flex-1 flex items-center justify-center py-2 rounded-md text-sm font-medium transition-all ${newItem.type === ItemType.SERVICE ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500'}`}
                   >
                     <Briefcase size={16} className="mr-2" /> Serviço
                   </button>
-                  <button
+                  <button 
                     onClick={() => setNewItem({ ...newItem, type: ItemType.PRODUCT })}
                     className={`flex-1 flex items-center justify-center py-2 rounded-md text-sm font-medium transition-all ${newItem.type === ItemType.PRODUCT ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500'}`}
                   >
@@ -92,28 +58,35 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({ onDeleteItem }) => {
                   </button>
                 </div>
               </div>
-              <input
-                type="text"
-                value={newItem.description || ''}
-                onChange={e => setNewItem({ ...newItem, description: e.target.value })}
+              <input 
+                type="text" 
+                value={newItem.name || ''} 
+                onChange={e => setNewItem({ ...newItem, name: e.target.value })}
                 className="w-full px-4 py-2 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Nome do item"
               />
+              <textarea 
+                value={newItem.description || ''} 
+                onChange={e => setNewItem({ ...newItem, description: e.target.value })}
+                className="w-full px-4 py-2 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-blue-500"
+                rows={2}
+                placeholder="Descrição opcional"
+              />
               <div className="grid grid-cols-2 gap-4">
-                <input
-                  type="text"
-                  value={currencyInput}
+                <input 
+                  type="text" 
+                  value={currencyInput} 
                   onChange={e => {
                     const masked = maskCurrencyInput(e.target.value);
                     setCurrencyInput(masked);
-                    setNewItem({ ...newItem, value: parseFloat(e.target.value.replace(/\D/g, '')) / 100 });
+                    setNewItem({ ...newItem, price: parseFloat(e.target.value.replace(/\D/g, '')) / 100 });
                   }}
                   className="w-full px-4 py-2 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Preço R$"
                 />
-                <input
-                  type="text"
-                  value={newItem.unit || ''}
+                <input 
+                  type="text" 
+                  value={newItem.unit || ''} 
                   onChange={e => setNewItem({ ...newItem, unit: e.target.value })}
                   className="w-full px-4 py-2 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Unidade (un, m²)"
@@ -121,7 +94,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({ onDeleteItem }) => {
               </div>
               <div className="flex gap-2 pt-2">
                 <Button className="flex-1" onClick={handleSave}>{editingId ? 'Atualizar' : 'Salvar'}</Button>
-                {editingId && <Button variant="secondary" onClick={() => { setEditingId(null); setNewItem({ type: ItemType.SERVICE, value: 0 }); setCurrencyInput(''); }}>Cancelar</Button>}
+                {editingId && <Button variant="secondary" onClick={() => {setEditingId(null); setNewItem({type:ItemType.SERVICE, price: 0}); setCurrencyInput('');}}>Cancelar</Button>}
               </div>
             </div>
           </div>
@@ -146,11 +119,12 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({ onDeleteItem }) => {
                           {item.type === ItemType.SERVICE ? <Briefcase size={18} /> : <Box size={18} />}
                         </div>
                         <div>
-                          <p className="font-semibold text-slate-800">{item.description}</p>
+                          <p className="font-semibold text-slate-800">{item.name}</p>
+                          <p className="text-xs text-gray-400">{item.description}</p>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-right font-bold">{formatCurrency(item.value)} <span className="text-xs text-gray-400 font-normal">/{item.unit}</span></td>
+                    <td className="px-6 py-4 text-right font-bold">{formatCurrency(item.price)} <span className="text-xs text-gray-400 font-normal">/{item.unit}</span></td>
                     <td className="px-6 py-4 text-center space-x-2">
                       <button onClick={() => startEdit(item)} className="p-2 text-gray-400 hover:text-blue-600"><Settings size={18} /></button>
                       <button onClick={() => onDeleteItem(item.id)} className="p-2 text-gray-400 hover:text-red-500"><Trash2 size={18} /></button>
@@ -169,8 +143,8 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({ onDeleteItem }) => {
                     {item.type === ItemType.SERVICE ? <Briefcase size={18} /> : <Box size={18} />}
                   </div>
                   <div>
-                    <p className="font-semibold text-slate-800">{item.description}</p>
-                    <p className="text-xs text-gray-400">{formatCurrency(item.value)} / {item.unit}</p>
+                    <p className="font-semibold text-slate-800">{item.name}</p>
+                    <p className="text-xs text-gray-400">{formatCurrency(item.price)} / {item.unit}</p>
                   </div>
                 </div>
                 <div className="flex space-x-2">

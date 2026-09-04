@@ -6,6 +6,7 @@ export enum ItemType {
 
 export interface CatalogItem {
   id: string;
+  name: string;
   description: string;
   price: number;
   type: ItemType;
@@ -15,25 +16,23 @@ export interface CatalogItem {
 
 export interface QuoteItem extends CatalogItem {
   quantity: number;
-  unit?: string;
-  description: string;
 }
 
 export interface Quote {
   id: string;
   number: string;
-  clientName: string;
-  clientPhone: string;
-  clientEmail: string;
-  address: string;
-  city: string;
-  state: string;
+  date: string;
+  customerName: string;
+  customerPhone: string;
+  customerEmail: string;
+  customerAddress: string;
+  customerCity: string;
+  customerState: string;
   items: QuoteItem[];
   total: number;
   notes: string;
   providerInfo: ProviderInfo;
   companyId?: string;
-  createdAt: string;
 }
 
 export interface ProviderInfo {
@@ -47,7 +46,7 @@ export interface ProviderInfo {
 }
 
 export interface User {
-  sub: string;
+  id: string;
   email: string;
   name: string;
   companyId?: string;
