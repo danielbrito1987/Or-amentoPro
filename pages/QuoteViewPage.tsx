@@ -1,9 +1,10 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Quote, ProviderInfo } from '../types';
 import { Button } from '../components/Button';
-import { ChevronLeft, MessageCircle, Share2, Printer } from 'lucide-react';
+import { ChevronLeft, MessageCircle, FileDown, Loader2, Check } from 'lucide-react';
 import { formatCurrency } from '../utils/formatters';
+import { shareOrDownloadPdf } from '../utils/pdfGenerator';
 
 interface QuoteViewPageProps {
   quote: Quote;
@@ -13,7 +14,29 @@ interface QuoteViewPageProps {
 }
 
 export const QuoteViewPage: React.FC<QuoteViewPageProps> = ({ quote, providerInfo, onBack, onEdit }) => {
-  const handlePrint = () => { setTimeout(() => window.print(), 100); };
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [feedback, setFeedback] = useState<string | null>(null);
+
+  const handleSharePdf = async () => {
+    setIsGeneratingPdf(true);
+    setFeedback(null);
+    try {
+      const result = await shareOrDownloadPdf('printable-quote', quote);
+      if (result.method === 'download') {
+        setFeedback('PDF gerado e baixado no seu dispositivo!');
+        setTimeout(() => setFeedback(null), 4500);
+      } else if (result.method === 'share') {
+        setFeedback('Orçamento compartilhado com sucesso!');
+        setTimeout(() => setFeedback(null), 3500);
+      }
+    } catch (err: any) {
+      console.error('Erro ao gerar/compartilhar PDF:', err);
+      setFeedback('Não foi possível gerar o PDF. Tente novamente.');
+      setTimeout(() => setFeedback(null), 4000);
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
 
   const generateShareText = () => {
     const itemsList = quote.items.map(i => `• ${i.quantity}${i.unit || 'un'} x ${i.name}: ${formatCurrency(i.price * i.quantity)}`).join('\n');
@@ -26,24 +49,32 @@ export const QuoteViewPage: React.FC<QuoteViewPageProps> = ({ quote, providerInf
     window.open(`https://wa.me/${phone.startsWith('55') ? phone : '55' + phone}?text=${text}`, '_blank');
   };
 
-  const handleNativeShare = async () => {
-    if (navigator.share) {
-      try { await navigator.share({ title: `Orçamento ${quote.number}`, text: generateShareText() }); }
-      catch (err) { console.error(err); }
-    } else { alert('Use o WhatsApp para compartilhar.'); }
-  };
-
   return (
-    <div className="space-y-8 animate-in fade-in zoom-in-95 duration-300">
+    <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 no-print">
         <Button variant="secondary" onClick={onBack} className="w-full sm:w-auto"><ChevronLeft size={20} className="mr-2" /> Voltar</Button>
-        <div className="flex flex-wrap justify-center gap-2 w-full sm:w-auto">
+        <div className="flex flex-wrap justify-center items-center gap-2 w-full sm:w-auto">
           <Button variant="secondary" onClick={onEdit}>Editar</Button>
-          <Button variant="primary" className="bg-green-600 hover:bg-green-700 border-none" icon={<MessageCircle size={20} />} onClick={handleWhatsAppShare}>WhatsApp</Button>
-          <Button variant="secondary" icon={<Share2 size={20} />} onClick={handleNativeShare} className="hidden md:inline-flex">Compartilhar</Button>
-          <Button onClick={handlePrint} icon={<Printer size={20} />}>Imprimir / PDF</Button>
+          <Button variant="primary" className="bg-green-600 hover:bg-green-700 border-none shadow-md shadow-green-600/20" icon={<MessageCircle size={20} />} onClick={handleWhatsAppShare}>WhatsApp</Button>
+          <Button 
+            id="btn-share-pdf"
+            variant="primary"
+            onClick={handleSharePdf} 
+            disabled={isGeneratingPdf}
+            icon={isGeneratingPdf ? <Loader2 size={18} className="animate-spin" /> : <FileDown size={18} />}
+            className="bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-500/25"
+          >
+            {isGeneratingPdf ? 'Gerando PDF...' : 'Compartilhar PDF'}
+          </Button>
         </div>
       </div>
+
+      {feedback && (
+        <div className="no-print max-w-[210mm] mx-auto bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-xl text-sm flex items-center gap-2 shadow-sm animate-in fade-in slide-in-from-top-2">
+          <Check size={18} className="text-emerald-600 shrink-0" />
+          <span>{feedback}</span>
+        </div>
+      )}
 
       <div id="printable-quote" className="bg-white p-6 md:p-12 rounded-lg shadow-sm max-w-[210mm] mx-auto min-h-[297mm] border border-gray-100 overflow-x-auto overflow-y-hidden">
         <div className="min-w-[600px] md:min-w-0">

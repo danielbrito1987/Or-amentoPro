@@ -247,7 +247,7 @@ const AppContent: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row">
+    <div className="min-h-screen flex flex-col md:flex-row overflow-x-hidden">
       {isFetchingData && (
         <div className="fixed inset-0 bg-white/40 z-[100] flex items-center justify-center backdrop-blur-[2px] no-print">
           <div className="bg-white p-6 rounded-2xl shadow-xl flex flex-col items-center border border-slate-100">
