@@ -12,6 +12,7 @@ import { QuoteViewPage } from './pages/QuoteViewPage';
 import { LoginPage } from './pages/LoginPage';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { FileText, Menu, X, Loader2 } from 'lucide-react';
+import { SyncIndicator } from './components/SyncIndicator';
 
 const AppContent: React.FC = () => {
   const { user, isAuthenticated, isLoading, logout } = useAuth();
@@ -262,9 +263,12 @@ const AppContent: React.FC = () => {
           <div className="bg-blue-600 p-1.5 rounded-lg"><FileText className="w-5 h-5 text-white" /></div>
           <h1 className="text-lg font-bold">OrçaFácil</h1>
         </div>
-        <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 text-slate-400">
-          {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
-        </button>
+        <div className="flex items-center space-x-2">
+          <SyncIndicator isCollapsed={true} />
+          <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 text-slate-400">
+            {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
+        </div>
       </div>
 
       <Sidebar 

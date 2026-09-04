@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { ProviderInfo } from '../types';
 import { useAuth } from '../contexts/AuthContext';
+import { SyncIndicator } from './SyncIndicator';
 
 interface SidebarProps {
   activeTab: string;
@@ -152,6 +153,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Rodapé: Perfil e Logout */}
         <div className="p-3 border-t border-slate-800/80 space-y-2 bg-slate-900/60 overflow-hidden">
+          {/* Indicador de Conexão e Sincronização Supabase */}
+          <SyncIndicator isCollapsed={isCollapsed} />
+
           {/* Card do Prestador */}
           <div 
             title={isCollapsed ? `${providerInfo.name || 'Prestador de Serviços'}${user ? ` (${user.email})` : ''}` : undefined}

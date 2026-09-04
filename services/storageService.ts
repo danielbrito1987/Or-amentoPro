@@ -2,6 +2,7 @@
 import { CatalogItem, Quote, ProviderInfo, ItemType } from '../types';
 import { apiService } from './api.service';
 import { getSupabase } from './supabase';
+import { syncService, getQueue } from './syncService';
 
 const syncSupabase = async (fn: () => PromiseLike<any>) => {
   try {
@@ -160,8 +161,11 @@ export const storageService = {
     
     // 1. Tenta carregar do Supabase se estiver configurado
     const supabase = getSupabase();
-    if (supabase) {
+    if (supabase && typeof navigator !== 'undefined' && navigator.onLine) {
       try {
+        // Tenta processar fila pendente antes para descarregar alterações
+        syncService.processQueue().catch(() => {});
+
         const { data, error } = await supabase
           .from('products')
           .select('*')
@@ -177,8 +181,27 @@ export const storageService = {
             unit: d.unit || 'un',
             companyId: d.company_id
           }));
-          localStorage.setItem(localKey, JSON.stringify(mapped));
-          return mapped;
+
+          // Preserva itens salvos localmente que ainda estão na fila de sincronização
+          const queue = getQueue();
+          const pendingItems = queue
+            .filter(q => q.type === 'SAVE_CATALOG_ITEM' && q.payload?.companyId === companyId)
+            .map(q => q.payload as CatalogItem);
+          const deletedIds = new Set(
+            queue.filter(q => q.type === 'DELETE_CATALOG_ITEM').map(q => q.payload?.id)
+          );
+
+          const finalMap = new Map<string, CatalogItem>();
+          mapped.forEach(item => {
+            if (!deletedIds.has(item.id)) finalMap.set(item.id, item);
+          });
+          pendingItems.forEach(item => {
+            if (!deletedIds.has(item.id)) finalMap.set(item.id, item);
+          });
+
+          const finalItems = Array.from(finalMap.values());
+          localStorage.setItem(localKey, JSON.stringify(finalItems));
+          return finalItems;
         }
       } catch (e) {
         console.warn("Supabase getCatalog:", e);
@@ -229,18 +252,27 @@ export const storageService = {
       console.error("Erro ao salvar item no storage local:", e);
     }
 
-    // Sincroniza no Supabase
+    // Sincroniza no Supabase se online; se offline ou erro, salva na fila pendente
     const supabase = getSupabase();
-    if (supabase) {
-      syncSupabase(() => supabase.from('products').upsert({
-        id: safeItem.id,
-        name: safeItem.name,
-        description: safeItem.description || '',
-        price: safeItem.price,
-        type: safeItem.type,
-        unit: safeItem.unit || 'un',
-        company_id: companyId
-      }));
+    if (supabase && typeof navigator !== 'undefined' && navigator.onLine) {
+      try {
+        const { error } = await supabase.from('products').upsert({
+          id: safeItem.id,
+          name: safeItem.name,
+          description: safeItem.description || '',
+          price: safeItem.price,
+          type: safeItem.type,
+          unit: safeItem.unit || 'un',
+          company_id: companyId
+        });
+        if (error) {
+          syncService.enqueue('SAVE_CATALOG_ITEM', safeItem);
+        }
+      } catch (err) {
+        syncService.enqueue('SAVE_CATALOG_ITEM', safeItem);
+      }
+    } else {
+      syncService.enqueue('SAVE_CATALOG_ITEM', safeItem);
     }
 
     // Sincroniza na API legada em segundo plano
@@ -267,16 +299,25 @@ export const storageService = {
     }
 
     const supabase = getSupabase();
-    if (supabase) {
-      syncSupabase(() => supabase.from('products').upsert({
-        id: item.id,
-        name: item.name,
-        description: item.description || '',
-        price: item.price,
-        type: item.type,
-        unit: item.unit || 'un',
-        company_id: companyId
-      }));
+    if (supabase && typeof navigator !== 'undefined' && navigator.onLine) {
+      try {
+        const { error } = await supabase.from('products').upsert({
+          id: item.id,
+          name: item.name,
+          description: item.description || '',
+          price: item.price,
+          type: item.type,
+          unit: item.unit || 'un',
+          company_id: companyId
+        });
+        if (error) {
+          syncService.enqueue('SAVE_CATALOG_ITEM', item);
+        }
+      } catch (err) {
+        syncService.enqueue('SAVE_CATALOG_ITEM', item);
+      }
+    } else {
+      syncService.enqueue('SAVE_CATALOG_ITEM', item);
     }
 
     apiService.put<CatalogItem>(`/products/${item.id}`, item).catch(() => {});
@@ -302,8 +343,17 @@ export const storageService = {
     }
 
     const supabase = getSupabase();
-    if (supabase) {
-      syncSupabase(() => supabase.from('products').delete().eq('id', id));
+    if (supabase && typeof navigator !== 'undefined' && navigator.onLine) {
+      try {
+        const { error } = await supabase.from('products').delete().eq('id', id);
+        if (error) {
+          syncService.enqueue('DELETE_CATALOG_ITEM', { id, companyId });
+        }
+      } catch (err) {
+        syncService.enqueue('DELETE_CATALOG_ITEM', { id, companyId });
+      }
+    } else {
+      syncService.enqueue('DELETE_CATALOG_ITEM', { id, companyId });
     }
 
     apiService.delete(`/products/${id}`).catch(() => {});
@@ -315,8 +365,11 @@ export const storageService = {
 
     // 1. Tenta buscar do Supabase
     const supabase = getSupabase();
-    if (supabase) {
+    if (supabase && typeof navigator !== 'undefined' && navigator.onLine) {
       try {
+        // Tenta processar pendências antes de ler
+        syncService.processQueue().catch(() => {});
+
         const { data, error } = await supabase
           .from('quotes')
           .select('*')
@@ -339,8 +392,27 @@ export const storageService = {
             providerInfo: q.provider_info,
             companyId: q.company_id
           }));
-          localStorage.setItem(localKey, JSON.stringify(mapped));
-          return mapped;
+
+          // Preserva orçamentos criados offline que estão na fila de sincronização
+          const queue = getQueue();
+          const pendingQuotes = queue
+            .filter(q => q.type === 'SAVE_QUOTE' && q.payload?.companyId === companyId)
+            .map(q => q.payload as Quote);
+          const deletedIds = new Set(
+            queue.filter(q => q.type === 'DELETE_QUOTE').map(q => q.payload?.id)
+          );
+
+          const finalMap = new Map<string, Quote>();
+          mapped.forEach(item => {
+            if (!deletedIds.has(item.id)) finalMap.set(item.id, item);
+          });
+          pendingQuotes.forEach(item => {
+            if (!deletedIds.has(item.id)) finalMap.set(item.id, item);
+          });
+
+          const finalQuotes = Array.from(finalMap.values());
+          localStorage.setItem(localKey, JSON.stringify(finalQuotes));
+          return finalQuotes;
         }
       } catch (e) {
         console.warn("Supabase getQuotes:", e);
@@ -397,25 +469,34 @@ export const storageService = {
       console.error("Erro ao persistir orçamento localmente:", e);
     }
 
-    // Sincroniza no Supabase
+    // Sincroniza no Supabase se online; caso contrário, enfileira na fila de sincronização
     const supabase = getSupabase();
-    if (supabase) {
-      syncSupabase(() => supabase.from('quotes').upsert({
-        id: safeQuote.id,
-        number: safeQuote.number,
-        date: safeQuote.date,
-        customer_name: safeQuote.customerName,
-        customer_phone: safeQuote.customerPhone,
-        customer_email: safeQuote.customerEmail,
-        customer_address: safeQuote.customerAddress,
-        customer_city: safeQuote.customerCity,
-        customer_state: safeQuote.customerState,
-        items: safeQuote.items,
-        total: safeQuote.total,
-        notes: safeQuote.notes,
-        provider_info: safeQuote.providerInfo,
-        company_id: companyId
-      }));
+    if (supabase && typeof navigator !== 'undefined' && navigator.onLine) {
+      try {
+        const { error } = await supabase.from('quotes').upsert({
+          id: safeQuote.id,
+          number: safeQuote.number,
+          date: safeQuote.date,
+          customer_name: safeQuote.customerName,
+          customer_phone: safeQuote.customerPhone,
+          customer_email: safeQuote.customerEmail,
+          customer_address: safeQuote.customerAddress,
+          customer_city: safeQuote.customerCity,
+          customer_state: safeQuote.customerState,
+          items: safeQuote.items,
+          total: safeQuote.total,
+          notes: safeQuote.notes,
+          provider_info: safeQuote.providerInfo,
+          company_id: companyId
+        });
+        if (error) {
+          syncService.enqueue('SAVE_QUOTE', safeQuote);
+        }
+      } catch (err) {
+        syncService.enqueue('SAVE_QUOTE', safeQuote);
+      }
+    } else {
+      syncService.enqueue('SAVE_QUOTE', safeQuote);
     }
 
     // Sincroniza remotamente na API se possível
@@ -446,8 +527,17 @@ export const storageService = {
     }
 
     const supabase = getSupabase();
-    if (supabase) {
-      syncSupabase(() => supabase.from('quotes').delete().eq('id', id));
+    if (supabase && typeof navigator !== 'undefined' && navigator.onLine) {
+      try {
+        const { error } = await supabase.from('quotes').delete().eq('id', id);
+        if (error) {
+          syncService.enqueue('DELETE_QUOTE', { id });
+        }
+      } catch (err) {
+        syncService.enqueue('DELETE_QUOTE', { id });
+      }
+    } else {
+      syncService.enqueue('DELETE_QUOTE', { id });
     }
 
     apiService.delete(`/quotes/${id}`).catch(() => {});
@@ -522,18 +612,27 @@ export const storageService = {
     }
 
     const supabase = getSupabase();
-    if (supabase) {
-      syncSupabase(() => supabase.from('provider_info').upsert({
-        id: 'prov_' + companyId,
-        company_id: companyId,
-        name: info.name,
-        document: info.document,
-        phone: info.phone,
-        email: info.email,
-        address: info.address,
-        logo: info.logo || '',
-        updated_at: new Date().toISOString()
-      }));
+    if (supabase && typeof navigator !== 'undefined' && navigator.onLine) {
+      try {
+        const { error } = await supabase.from('provider_info').upsert({
+          id: 'prov_' + companyId,
+          company_id: companyId,
+          name: info.name,
+          document: info.document,
+          phone: info.phone,
+          email: info.email,
+          address: info.address,
+          logo: info.logo || '',
+          updated_at: new Date().toISOString()
+        });
+        if (error) {
+          syncService.enqueue('SAVE_PROVIDER_INFO', info);
+        }
+      } catch (err) {
+        syncService.enqueue('SAVE_PROVIDER_INFO', info);
+      }
+    } else {
+      syncService.enqueue('SAVE_PROVIDER_INFO', info);
     }
 
     apiService.post<ProviderInfo>('/provider', info).catch(() => {});

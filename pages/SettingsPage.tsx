@@ -71,7 +71,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ providerInfo, onUpda
         <div className="text-sm">
           <div className="flex items-center gap-2">
             <span className="font-semibold text-slate-800">
-              {isSupabaseConfigured() ? 'Supabase Conectado' : 'Armazenamento Local Ativo'}
+              {isSupabaseConfigured() ? 'Backup e Sincronização na Nuvem Ativos' : 'Armazenamento Local Ativo'}
             </span>
             {isSupabaseConfigured() && (
               <span className="inline-flex items-center gap-1 text-xs text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full font-medium border border-emerald-200">
@@ -81,8 +81,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ providerInfo, onUpda
           </div>
           <p className="text-slate-500 text-xs mt-1">
             {isSupabaseConfigured()
-              ? 'Seus orçamentos, catálogo e dados profissionais são sincronizados em tempo real com o banco de dados PostgreSQL do Supabase.'
-              : 'Os dados estão salvos com segurança na memória do seu navegador. Para sincronizar na nuvem, basta configurar as variáveis VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY nas configurações.'}
+              ? 'Seus orçamentos, catálogo de serviços e dados da empresa são salvos e sincronizados automaticamente na nuvem. Você pode acessar de qualquer celular ou computador.'
+              : 'Seus dados estão salvos com segurança neste navegador. Se ficar sem internet, tudo continuará funcionando normalmente.'}
           </p>
         </div>
       </div>

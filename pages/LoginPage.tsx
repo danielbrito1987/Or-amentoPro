@@ -82,7 +82,7 @@ export const LoginPage: React.FC = () => {
           {isSupabaseConfigured() && (
             <div className="mt-2.5 inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-950/60 border border-emerald-500/40 rounded-full text-emerald-400 text-xs font-semibold">
               <Database className="w-3.5 h-3.5" />
-              <span>Autenticação Supabase Conectada</span>
+              <span>Acesso Seguro na Nuvem Ativo</span>
             </div>
           )}
         </div>
@@ -225,7 +225,7 @@ export const LoginPage: React.FC = () => {
               {isLoading ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  {mode === 'register' ? 'Criando conta no Supabase...' : 'Entrando...'}
+                  {mode === 'register' ? 'Criando sua conta na nuvem...' : 'Entrando...'}
                 </>
               ) : (
                 mode === 'register' ? 'Cadastrar e Começar' : 'Entrar'
