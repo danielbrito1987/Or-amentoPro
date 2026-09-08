@@ -250,19 +250,22 @@ export const QuoteEditorPage: React.FC<QuoteEditorPageProps> = ({
       />
 
       {/* Cabeçalho */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 sm:p-5 rounded-2xl border border-gray-200/90 shadow-sm">
         <div className="flex items-center space-x-3">
-          <Button variant="ghost" onClick={onBack} className="p-2">
-            <ChevronLeft size={20} className="mr-1" /> Voltar
+          <Button variant="secondary" size="sm" onClick={onBack} className="shrink-0">
+            <ChevronLeft size={18} className="mr-1" /> Voltar
           </Button>
-          <div>
-            <span className="text-xs font-semibold text-blue-600 uppercase tracking-wider">Edição de Orçamento</span>
-            <h2 className="text-xl md:text-2xl font-bold text-slate-800">{quote.number}</h2>
+          <div className="min-w-0">
+            <span className="text-[11px] font-bold text-blue-600 uppercase tracking-wider block">Edição de Orçamento</span>
+            <h2 className="text-lg sm:text-xl md:text-2xl font-black text-slate-800 truncate">{quote.number}</h2>
           </div>
         </div>
-        <div className="text-right">
-          <span className="text-xs text-slate-400 block">Total Geral</span>
-          <span className="text-xl md:text-2xl font-black text-slate-900">{formatCurrency(quote.total)}</span>
+        <div className="flex items-center justify-between sm:justify-end sm:text-right border-t sm:border-t-0 pt-2.5 sm:pt-0 border-gray-100">
+          <span className="text-xs text-slate-500 sm:hidden">Total Geral:</span>
+          <div>
+            <span className="hidden sm:block text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Total Geral</span>
+            <span className="text-xl sm:text-2xl font-black text-slate-900">{formatCurrency(quote.total)}</span>
+          </div>
         </div>
       </div>
 
@@ -511,11 +514,11 @@ export const QuoteEditorPage: React.FC<QuoteEditorPageProps> = ({
               </div>
 
               {/* Linha 2: Preço Unitário, Quantidade, Unidade, Cálculo em Tempo Real e Botão Incluir */}
-              <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+              <div className="grid grid-cols-2 sm:grid-cols-12 gap-2.5 sm:gap-3 items-end">
                 
                 {/* Preço Unitário */}
-                <div className="sm:col-span-3">
-                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                <div className="col-span-1 sm:col-span-3">
+                  <label className="block text-xs font-medium text-slate-700 mb-1 truncate">
                     Valor Unitário (R$)
                   </label>
                   <div className="relative">
@@ -532,15 +535,15 @@ export const QuoteEditorPage: React.FC<QuoteEditorPageProps> = ({
                         setItemPrice(val === '' ? '' : parseFloat(val));
                       }}
                       placeholder="0,00"
-                      className="w-full pl-9 pr-3 py-2 bg-white text-sm rounded-xl border border-slate-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none font-semibold text-slate-800"
+                      className="w-full pl-8 sm:pl-9 pr-2 sm:pr-3 py-2 bg-white text-sm rounded-xl border border-slate-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none font-semibold text-slate-800"
                     />
                   </div>
                 </div>
 
                 {/* Quantidade com botões rápidos - e + */}
-                <div className="sm:col-span-3">
+                <div className="col-span-1 sm:col-span-3">
                   <div className="flex items-center justify-between mb-1">
-                    <label className="text-xs font-medium text-slate-700">Quantidade</label>
+                    <label className="text-xs font-medium text-slate-700 truncate">Qtd</label>
                     <span className="text-[11px] text-slate-400">{itemUnit || 'un'}</span>
                   </div>
                   <div className="flex items-center bg-white border border-slate-300 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500">
@@ -559,7 +562,7 @@ export const QuoteEditorPage: React.FC<QuoteEditorPageProps> = ({
                       step="any"
                       value={itemQuantity}
                       onChange={(e) => setItemQuantity(parseFloat(e.target.value) || 0)}
-                      className="w-full py-2 text-sm text-center font-bold text-slate-800 outline-none bg-transparent"
+                      className="w-full py-2 text-sm text-center font-bold text-slate-800 outline-none bg-transparent min-w-0"
                     />
                     <button
                       type="button"
@@ -573,32 +576,32 @@ export const QuoteEditorPage: React.FC<QuoteEditorPageProps> = ({
                 </div>
 
                 {/* Subtotal Calculado em Tempo Real */}
-                <div className="sm:col-span-3">
+                <div className="col-span-1 sm:col-span-3">
                   <div className="p-2 bg-white border border-slate-200/90 rounded-xl">
                     <div className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1">
-                      <Calculator className="w-3 h-3 text-emerald-500" />
-                      <span>Subtotal Calculado</span>
+                      <Calculator className="w-3 h-3 text-emerald-500 shrink-0" />
+                      <span className="truncate">Subtotal</span>
                     </div>
-                    <div className="text-base font-black text-emerald-700 truncate mt-0.5">
+                    <div className="text-sm sm:text-base font-black text-emerald-700 truncate mt-0.5">
                       {formatCurrency(calculatedSubtotal)}
                     </div>
                   </div>
                 </div>
 
                 {/* Botão de Inclusão */}
-                <div className="sm:col-span-3">
+                <div className="col-span-1 sm:col-span-3">
                   <button
                     type="button"
                     onClick={handleIncludeItem}
                     disabled={!itemName.trim()}
-                    className={`w-full py-2.5 px-3 rounded-xl font-bold text-sm flex items-center justify-center gap-1.5 transition-all shadow-sm ${
+                    className={`w-full py-2.5 px-3 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all shadow-sm min-h-[42px] ${
                       itemName.trim()
                         ? 'bg-blue-600 hover:bg-blue-700 text-white active:scale-[0.98] shadow-blue-500/20'
                         : 'bg-slate-200 text-slate-400 cursor-not-allowed'
                     }`}
                   >
                     <Plus className="w-4 h-4 shrink-0" />
-                    <span>Incluir Item</span>
+                    <span className="truncate">Incluir</span>
                   </button>
                 </div>
               </div>

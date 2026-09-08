@@ -61,7 +61,13 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ providerInfo, onUpda
             <textarea value={providerInfo.address} onChange={e => onUpdate({...providerInfo, address: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-gray-200 outline-none" rows={3} placeholder="Endereço Comercial" />
           </div>
         </div>
-        <Button className="w-full py-4 text-lg" onClick={onSave}>Salvar Informações</Button>
+        <Button 
+          size="lg" 
+          className="w-full shadow-lg shadow-blue-500/20" 
+          onClick={onSave}
+        >
+          Salvar Informações
+        </Button>
       </div>
 
       <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-5 flex items-start gap-3.5">

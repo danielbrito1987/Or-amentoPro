@@ -450,27 +450,27 @@ export const InteractiveGuideModal: React.FC<InteractiveGuideModalProps> = ({
         </div>
 
         {/* Rodapé com Navegação */}
-        <div className="bg-slate-900 border-t border-slate-800 p-4 sm:p-5 flex items-center justify-between gap-3">
+        <div className="bg-slate-900 border-t border-slate-800 p-3.5 sm:p-5 flex items-center justify-between gap-2.5 sm:gap-3">
           <button
             onClick={handlePrev}
             disabled={currentStep === 0}
-            className={`px-4 py-2.5 rounded-xl border border-slate-700 text-slate-300 text-sm font-medium flex items-center space-x-2 transition-all ${
+            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl border border-slate-700 text-slate-300 text-xs sm:text-sm font-medium flex items-center space-x-1.5 sm:space-x-2 transition-all min-h-[40px] ${
               currentStep === 0 
                 ? 'opacity-40 cursor-not-allowed' 
                 : 'hover:bg-slate-800 hover:text-white'
             }`}
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ArrowLeft className="w-4 h-4 shrink-0" />
             <span className="hidden sm:inline">Passo Anterior</span>
             <span className="sm:hidden">Voltar</span>
           </button>
 
-          <div className="flex items-center space-x-1.5">
+          <div className="flex items-center space-x-1 sm:space-x-1.5">
             {steps.map((_, idx) => (
               <span
                 key={idx}
-                className={`h-2 rounded-full transition-all duration-300 ${
-                  idx === currentStep ? 'w-6 bg-blue-500' : 'w-2 bg-slate-700'
+                className={`h-1.5 sm:h-2 rounded-full transition-all duration-300 ${
+                  idx === currentStep ? 'w-4 sm:w-6 bg-blue-500' : 'w-1.5 sm:w-2 bg-slate-700'
                 }`}
               />
             ))}
@@ -478,10 +478,10 @@ export const InteractiveGuideModal: React.FC<InteractiveGuideModalProps> = ({
 
           <button
             onClick={handleNext}
-            className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold flex items-center space-x-2 shadow-lg shadow-blue-600/30 transition-all"
+            className="px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-semibold flex items-center space-x-1.5 sm:space-x-2 shadow-lg shadow-blue-600/30 transition-all min-h-[40px]"
           >
-            <span>{currentStep === steps.length - 1 ? 'Concluir Guia' : 'Próximo Passo'}</span>
-            <ArrowRight className="w-4 h-4" />
+            <span>{currentStep === steps.length - 1 ? 'Concluir' : 'Próximo'}</span>
+            <ArrowRight className="w-4 h-4 shrink-0" />
           </button>
         </div>
 

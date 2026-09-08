@@ -38,15 +38,15 @@ export const QuotesPage: React.FC<QuotesPageProps> = ({
           <h2 className="text-2xl font-bold text-slate-800">Orçamentos</h2>
           <p className="text-slate-500">Gerencie suas propostas comerciais</p>
         </div>
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative group min-w-[280px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors" size={20} />
+        <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-3 items-stretch sm:items-center">
+          <div className="relative group w-full sm:min-w-[260px] md:min-w-[300px]">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors" size={18} />
             <input 
               type="text"
-              placeholder="Buscar por cliente ou telefone..."
+              placeholder="Buscar cliente ou telefone..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-10 py-2.5 bg-white border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all shadow-sm"
+              className="w-full pl-10 pr-10 py-2.5 bg-white border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all shadow-sm text-sm"
             />
             {searchTerm && (
               <button onClick={() => setSearchTerm('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
@@ -54,19 +54,26 @@ export const QuotesPage: React.FC<QuotesPageProps> = ({
               </button>
             )}
           </div>
-          {onOpenGuide && (
-            <button
-              onClick={onOpenGuide}
-              className="inline-flex items-center justify-center space-x-2 px-4 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold rounded-xl border border-blue-200/80 transition-all text-sm shadow-sm"
-              title="Aprenda a usar o sistema passo a passo"
+          <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 w-full sm:w-auto">
+            {onOpenGuide && (
+              <button
+                onClick={onOpenGuide}
+                className="w-full sm:w-auto inline-flex items-center justify-center space-x-1.5 px-3 sm:px-4 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold rounded-xl border border-blue-200/80 transition-all text-xs sm:text-sm shadow-sm min-h-[42px]"
+                title="Aprenda a usar o sistema passo a passo"
+              >
+                <HelpCircle size={16} className="text-blue-600 shrink-0" />
+                <span className="truncate">Como Usar</span>
+              </button>
+            )}
+            <Button 
+              onClick={onNewQuote} 
+              size="md"
+              icon={<Plus size={18} />} 
+              className="w-full sm:w-auto shadow-lg shadow-blue-500/20 col-span-1"
             >
-              <HelpCircle size={18} className="text-blue-600" />
-              <span>Como Usar</span>
-            </button>
-          )}
-          <Button onClick={onNewQuote} icon={<Plus size={20} />} className="w-full sm:w-auto shadow-lg shadow-blue-500/20">
-            Novo Orçamento
-          </Button>
+              <span className="truncate">Novo Orçamento</span>
+            </Button>
+          </div>
         </div>
       </div>
 

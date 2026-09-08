@@ -51,18 +51,31 @@ export const QuoteViewPage: React.FC<QuoteViewPageProps> = ({ quote, providerInf
 
   return (
     <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 no-print">
-        <Button variant="secondary" onClick={onBack} className="w-full sm:w-auto"><ChevronLeft size={20} className="mr-2" /> Voltar</Button>
-        <div className="flex flex-wrap justify-center items-center gap-2 w-full sm:w-auto">
-          <Button variant="secondary" onClick={onEdit}>Editar</Button>
-          <Button variant="primary" className="bg-green-600 hover:bg-green-700 border-none shadow-md shadow-green-600/20" icon={<MessageCircle size={20} />} onClick={handleWhatsAppShare}>WhatsApp</Button>
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 no-print">
+        <Button variant="secondary" onClick={onBack} size="md" className="w-full sm:w-auto">
+          <ChevronLeft size={18} className="mr-1.5" /> Voltar
+        </Button>
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 w-full sm:w-auto">
+          <Button variant="secondary" onClick={onEdit} size="md" className="w-full sm:w-auto">
+            Editar
+          </Button>
+          <Button 
+            variant="primary" 
+            size="md"
+            className="w-full sm:w-auto bg-green-600 hover:bg-green-700 active:bg-green-800 border-none shadow-md shadow-green-600/20" 
+            icon={<MessageCircle size={18} />} 
+            onClick={handleWhatsAppShare}
+          >
+            WhatsApp
+          </Button>
           <Button 
             id="btn-share-pdf"
             variant="primary"
+            size="md"
             onClick={handleSharePdf} 
             disabled={isGeneratingPdf}
             icon={isGeneratingPdf ? <Loader2 size={18} className="animate-spin" /> : <FileDown size={18} />}
-            className="bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-500/25"
+            className="col-span-2 sm:col-auto w-full sm:w-auto bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-500/25"
           >
             {isGeneratingPdf ? 'Gerando PDF...' : 'Compartilhar PDF'}
           </Button>
