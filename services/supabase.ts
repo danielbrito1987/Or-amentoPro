@@ -1,21 +1,8 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-const getEnv = (key: string): string => {
-  try {
-    if (typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env[key]) {
-      return String((import.meta as any).env[key]).trim();
-    }
-  } catch {}
-  try {
-    if (typeof process !== 'undefined' && process.env && (process.env as any)[key]) {
-      return String((process.env as any)[key]).trim();
-    }
-  } catch {}
-  return '';
-};
-
-const supabaseUrl = getEnv('VITE_SUPABASE_URL');
-const supabaseAnonKey = getEnv('VITE_SUPABASE_ANON_KEY');
+// Static direct access to ensure Vite compile-time replacement works in both dev and production
+const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL || '').trim();
+const supabaseAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY || '').trim();
 
 export const isSupabaseConfigured = (): boolean => {
   return Boolean(

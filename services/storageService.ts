@@ -3,6 +3,7 @@ import { CatalogItem, Quote, ProviderInfo, ItemType } from '../types';
 import { apiService } from './api.service';
 import { getSupabase } from './supabase';
 import { syncService, getQueue } from './syncService';
+import { authService } from './authService';
 
 const syncSupabase = async (fn: () => PromiseLike<any>) => {
   try {
@@ -375,7 +376,7 @@ export const storageService = {
           .select('*')
           .eq('company_id', companyId)
           .order('created_at', { ascending: false });
-        if (!error && data && data.length > 0) {
+        if (!error && data) {
           const mapped: Quote[] = data.map((q: any) => ({
             id: q.id,
             number: q.number,
@@ -441,13 +442,18 @@ export const storageService = {
       // API offline
     }
 
-    // Se não há dados, gera exemplo inicial realista
-    const provider = await storageService.getProviderInfo(companyId);
-    const initialQuotes = getInitialQuotes(companyId, provider);
-    try {
-      localStorage.setItem(localKey, JSON.stringify(initialQuotes));
-    } catch {}
-    return initialQuotes;
+    // Apenas gera exemplo inicial se for a conta de demonstração
+    if (companyId === 'comp_demo_eletro') {
+      const provider = await storageService.getProviderInfo(companyId);
+      const initialQuotes = getInitialQuotes(companyId, provider);
+      try {
+        localStorage.setItem(localKey, JSON.stringify(initialQuotes));
+      } catch {}
+      return initialQuotes;
+    }
+
+    // Para qualquer conta real, inicia com lista limpa vazia
+    return [];
   },
   
   saveQuote: async (quote: Quote): Promise<Quote> => {
@@ -555,15 +561,15 @@ export const storageService = {
           .from('provider_info')
           .select('*')
           .eq('company_id', companyId)
-          .single();
+          .maybeSingle();
         if (!error && data && data.name) {
           const mapped: ProviderInfo = {
             name: data.name,
-            document: data.document,
-            phone: data.phone,
-            email: data.email,
-            address: data.address,
-            logo: data.logo,
+            document: data.document || '',
+            phone: data.phone || '',
+            email: data.email || '',
+            address: data.address || '',
+            logo: data.logo || '',
             companyId: data.company_id
           };
           localStorage.setItem(localKey, JSON.stringify(mapped));
@@ -575,7 +581,7 @@ export const storageService = {
     }
 
     try {
-      const stored = localStorage.getItem(localKey) || localStorage.getItem('orcafacil_provider');
+      const stored = localStorage.getItem(localKey);
       if (stored) {
         return JSON.parse(stored);
       }
@@ -593,11 +599,50 @@ export const storageService = {
       }
     } catch {}
 
-    const initial = getInitialProviderInfo(companyId);
+    // Apenas a conta de demonstração recebe o prestador "Silva & Oliveira"
+    if (companyId === 'comp_demo_eletro') {
+      const initial = getInitialProviderInfo(companyId);
+      try {
+        localStorage.setItem(localKey, JSON.stringify(initial));
+      } catch {}
+      return initial;
+    }
+
+    // Para usuários reais: inicializa com os dados cadastrados pelo usuário
+    const currentUser = authService.getCurrentUser();
+    const realInitial: ProviderInfo = {
+      name: (currentUser && currentUser.name) || 'Prestador de Serviços',
+      document: '',
+      phone: '',
+      email: (currentUser && currentUser.email) || '',
+      address: '',
+      companyId
+    };
+
     try {
-      localStorage.setItem(localKey, JSON.stringify(initial));
+      localStorage.setItem(localKey, JSON.stringify(realInitial));
     } catch {}
-    return initial;
+
+    // Persiste no Supabase
+    if (supabase && typeof navigator !== 'undefined' && navigator.onLine) {
+      void (async () => {
+        try {
+          await supabase.from('provider_info').upsert({
+            id: 'prov_' + companyId,
+            company_id: companyId,
+            name: realInitial.name,
+            document: '',
+            phone: '',
+            email: realInitial.email,
+            address: '',
+            logo: '',
+            updated_at: new Date().toISOString()
+          });
+        } catch {}
+      })();
+    }
+
+    return realInitial;
   },
   
   saveProviderInfo: async (info: ProviderInfo): Promise<ProviderInfo> => {
