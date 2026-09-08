@@ -8,8 +8,9 @@ import {
   LogOut, 
   ChevronLeft, 
   ChevronRight, 
-  X,
-  User as UserIcon
+  X, 
+  User as UserIcon,
+  HelpCircle
 } from 'lucide-react';
 import { ProviderInfo } from '../types';
 import { useAuth } from '../contexts/AuthContext';
@@ -23,6 +24,7 @@ interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
   onLogout: () => void;
+  onOpenGuide?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ 
@@ -31,7 +33,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   providerInfo, 
   isOpen, 
   onClose, 
-  onLogout 
+  onLogout,
+  onOpenGuide
 }) => {
   const { user } = useAuth();
 
@@ -140,6 +143,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <NavButton tab="quotes" icon={TrendingUp} label="Orçamentos" />
           <NavButton tab="catalog" icon={Package} label="Catálogo" />
           <NavButton tab="settings" icon={Settings} label="Meus Dados" />
+
+          {onOpenGuide && (
+            <div className="pt-2">
+              <button
+                id="btn-sidebar-guide"
+                onClick={() => { onOpenGuide(); onClose(); }}
+                title={isCollapsed ? "Como Usar o Sistema" : undefined}
+                className={`w-full flex items-center rounded-xl transition-all duration-200 border border-blue-500/20 bg-blue-500/10 text-blue-300 hover:bg-blue-500/20 hover:text-white ${
+                  isCollapsed 
+                    ? 'justify-center py-3 px-0' 
+                    : 'space-x-3 px-4 py-2.5'
+                }`}
+                aria-label="Como Usar o Sistema"
+              >
+                <HelpCircle className="w-5 h-5 shrink-0 text-blue-400" />
+                {!isCollapsed && (
+                  <span className="font-medium text-sm truncate">
+                    Como Usar o App
+                  </span>
+                )}
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Rodapé: Perfil e Logout */}

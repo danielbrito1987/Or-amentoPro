@@ -15,6 +15,7 @@ import { FileText, Menu, X, Loader2 } from 'lucide-react';
 import { SyncIndicator } from './components/SyncIndicator';
 import { AccountSuspendedModal } from './components/AccountSuspendedModal';
 import { AppLogo } from './components/AppLogo';
+import { InteractiveGuideModal } from './components/InteractiveGuideModal';
 
 const AppContent: React.FC = () => {
   const { user, isAuthenticated, isSuspended, isLoading, logout } = useAuth();
@@ -34,6 +35,7 @@ const AppContent: React.FC = () => {
   const [isEditingQuote, setIsEditingQuote] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isFetchingData, setIsFetchingData] = useState(false);
+  const [isGuideOpen, setIsGuideOpen] = useState(false);
 
   // Controle de estado para saber o que já foi carregado
   const [loadedSections, setLoadedSections] = useState({
@@ -287,6 +289,7 @@ const AppContent: React.FC = () => {
         isOpen={isSidebarOpen} 
         onClose={() => setIsSidebarOpen(false)}
         onLogout={logout}
+        onOpenGuide={() => setIsGuideOpen(true)}
       />
 
       <main className="flex-1 overflow-y-auto bg-gray-50 pb-20 md:pb-0">
@@ -296,7 +299,8 @@ const AppContent: React.FC = () => {
               quotes={quotes} 
               onNewQuote={handleStartNewQuote} 
               onSelectQuote={setSelectedQuote} 
-              onDeleteQuote={handleDeleteQuote} 
+              onDeleteQuote={handleDeleteQuote}
+              onOpenGuide={() => setIsGuideOpen(true)}
             />
           )}
 
@@ -337,6 +341,19 @@ const AppContent: React.FC = () => {
           )}
         </div>
       </main>
+
+      <InteractiveGuideModal
+        isOpen={isGuideOpen}
+        onClose={() => setIsGuideOpen(false)}
+        onNavigateToTab={(tab) => {
+          handleTabChange(tab);
+          setIsGuideOpen(false);
+        }}
+        onStartNewQuote={() => {
+          setIsGuideOpen(false);
+          handleStartNewQuote();
+        }}
+      />
     </div>
   );
 };

@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Quote } from '../types';
 import { Button } from '../components/Button';
-import { Plus, Search, X, Filter, TrendingUp, MessageCircle, ChevronRight, Trash2, FileText } from 'lucide-react';
+import { Plus, Search, X, Filter, TrendingUp, MessageCircle, ChevronRight, Trash2, FileText, HelpCircle, Sparkles } from 'lucide-react';
 import { formatCurrency } from '../utils/formatters';
 
 interface QuotesPageProps {
@@ -10,9 +10,16 @@ interface QuotesPageProps {
   onNewQuote: () => void;
   onSelectQuote: (quote: Quote) => void;
   onDeleteQuote: (id: string) => void;
+  onOpenGuide?: () => void;
 }
 
-export const QuotesPage: React.FC<QuotesPageProps> = ({ quotes, onNewQuote, onSelectQuote, onDeleteQuote }) => {
+export const QuotesPage: React.FC<QuotesPageProps> = ({ 
+  quotes, 
+  onNewQuote, 
+  onSelectQuote, 
+  onDeleteQuote,
+  onOpenGuide 
+}) => {
   const [searchTerm, setSearchTerm] = useState('');
 
   const filteredQuotes = quotes.filter(quote => {
@@ -47,6 +54,16 @@ export const QuotesPage: React.FC<QuotesPageProps> = ({ quotes, onNewQuote, onSe
               </button>
             )}
           </div>
+          {onOpenGuide && (
+            <button
+              onClick={onOpenGuide}
+              className="inline-flex items-center justify-center space-x-2 px-4 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold rounded-xl border border-blue-200/80 transition-all text-sm shadow-sm"
+              title="Aprenda a usar o sistema passo a passo"
+            >
+              <HelpCircle size={18} className="text-blue-600" />
+              <span>Como Usar</span>
+            </button>
+          )}
           <Button onClick={onNewQuote} icon={<Plus size={20} />} className="w-full sm:w-auto shadow-lg shadow-blue-500/20">
             Novo Orçamento
           </Button>
@@ -55,11 +72,25 @@ export const QuotesPage: React.FC<QuotesPageProps> = ({ quotes, onNewQuote, onSe
 
       {quotes.length === 0 ? (
         <div className="bg-white rounded-2xl border border-dashed border-gray-300 p-8 md:p-12 text-center flex flex-col items-center">
-          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4 text-gray-400">
+          <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mb-4 text-blue-600">
             <FileText size={32} />
           </div>
           <h3 className="text-lg font-semibold text-slate-800">Nenhum orçamento ainda</h3>
-          <p className="text-slate-500 mt-1 max-w-xs">Crie seu primeiro orçamento profissional clicando no botão acima.</p>
+          <p className="text-slate-500 mt-1 max-w-sm mb-6">Crie seu primeiro orçamento profissional clicando no botão abaixo ou siga o nosso guia rápido passo a passo.</p>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Button onClick={onNewQuote} icon={<Plus size={20} />} className="shadow-lg shadow-blue-500/20">
+              Criar Primeiro Orçamento
+            </Button>
+            {onOpenGuide && (
+              <button
+                onClick={onOpenGuide}
+                className="inline-flex items-center justify-center space-x-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl transition-colors text-sm"
+              >
+                <HelpCircle size={18} className="text-slate-500" />
+                <span>Ver Como Funciona</span>
+              </button>
+            )}
+          </div>
         </div>
       ) : filteredQuotes.length === 0 ? (
         <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center">
