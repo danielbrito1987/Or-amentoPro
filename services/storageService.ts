@@ -231,12 +231,17 @@ export const storageService = {
       // Ignora erro da API remota se estiver offline
     }
 
-    // Inicializa com dados padrão pré-cadastrados
-    const initialItems = getInitialCatalog(companyId);
-    try {
-      localStorage.setItem(localKey, JSON.stringify(initialItems));
-    } catch {}
-    return initialItems;
+    // Apenas gera itens de exemplo se for a conta de demonstração
+    if (companyId === 'comp_demo_eletro') {
+      const initialItems = getInitialCatalog(companyId);
+      try {
+        localStorage.setItem(localKey, JSON.stringify(initialItems));
+      } catch {}
+      return initialItems;
+    }
+
+    // Para contas reais, inicia com catálogo limpo
+    return [];
   },
   
   saveCatalogItem: async (item: CatalogItem): Promise<CatalogItem> => {

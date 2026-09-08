@@ -146,59 +146,73 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({ catalog, onSaveItem, o
         </div>
 
         <div className="lg:col-span-2 space-y-4 order-2">
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden hidden md:block">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase">Item</th>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase text-right">Preço</th>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase text-center">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {catalog.map(item => (
-                  <tr key={item.id}>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center space-x-3">
-                        <div className={`p-2 rounded-lg ${item.type === ItemType.SERVICE ? 'bg-blue-50 text-blue-600' : 'bg-green-50 text-green-600'}`}>
-                          {item.type === ItemType.SERVICE ? <Briefcase size={18} /> : <Box size={18} />}
-                        </div>
-                        <div>
-                          <p className="font-semibold text-slate-800">{item.name}</p>
-                          <p className="text-xs text-gray-400">{item.description}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-right font-bold">{formatCurrency(item.price)} <span className="text-xs text-gray-400 font-normal">/{item.unit}</span></td>
-                    <td className="px-6 py-4 text-center space-x-2">
-                      <button onClick={() => startEdit(item)} className="p-2 text-gray-400 hover:text-blue-600"><Settings size={18} /></button>
-                      <button onClick={() => onDeleteItem(item.id)} className="p-2 text-gray-400 hover:text-red-500"><Trash2 size={18} /></button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {/* Mobile version */}
-          <div className="md:hidden space-y-3">
-            {catalog.map(item => (
-              <div key={item.id} className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex justify-between items-center">
-                <div className="flex items-center space-x-3">
-                  <div className={`p-2 rounded-lg ${item.type === ItemType.SERVICE ? 'bg-blue-50 text-blue-600' : 'bg-green-50 text-green-600'}`}>
-                    {item.type === ItemType.SERVICE ? <Briefcase size={18} /> : <Box size={18} />}
-                  </div>
-                  <div>
-                    <p className="font-semibold text-slate-800">{item.name}</p>
-                    <p className="text-xs text-gray-400">{formatCurrency(item.price)} / {item.unit}</p>
-                  </div>
-                </div>
-                <div className="flex space-x-2">
-                  <button onClick={() => startEdit(item)} className="p-2 text-blue-500"><Settings size={18} /></button>
-                  <button onClick={() => onDeleteItem(item.id)} className="p-2 text-red-500"><Trash2 size={18} /></button>
-                </div>
+          {catalog.length === 0 ? (
+            <div className="bg-white rounded-2xl border border-dashed border-gray-300 p-8 md:p-12 text-center flex flex-col items-center">
+              <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-4 text-blue-500">
+                <Briefcase size={28} />
               </div>
-            ))}
-          </div>
+              <h3 className="text-lg font-semibold text-slate-800">Catálogo vazio</h3>
+              <p className="text-slate-500 mt-1 max-w-sm text-sm">
+                Cadastre seus serviços ou produtos usando o formulário ao lado para agilizar a criação dos seus orçamentos.
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden hidden md:block">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-100">
+                      <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase">Item</th>
+                      <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase text-right">Preço</th>
+                      <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase text-center">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {catalog.map(item => (
+                      <tr key={item.id}>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center space-x-3">
+                            <div className={`p-2 rounded-lg ${item.type === ItemType.SERVICE ? 'bg-blue-50 text-blue-600' : 'bg-green-50 text-green-600'}`}>
+                              {item.type === ItemType.SERVICE ? <Briefcase size={18} /> : <Box size={18} />}
+                            </div>
+                            <div>
+                              <p className="font-semibold text-slate-800">{item.name}</p>
+                              <p className="text-xs text-gray-400">{item.description}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-right font-bold">{formatCurrency(item.price)} <span className="text-xs text-gray-400 font-normal">/{item.unit}</span></td>
+                        <td className="px-6 py-4 text-center space-x-2">
+                          <button onClick={() => startEdit(item)} className="p-2 text-gray-400 hover:text-blue-600"><Settings size={18} /></button>
+                          <button onClick={() => onDeleteItem(item.id)} className="p-2 text-gray-400 hover:text-red-500"><Trash2 size={18} /></button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {/* Mobile version */}
+              <div className="md:hidden space-y-3">
+                {catalog.map(item => (
+                  <div key={item.id} className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex justify-between items-center">
+                    <div className="flex items-center space-x-3">
+                      <div className={`p-2 rounded-lg ${item.type === ItemType.SERVICE ? 'bg-blue-50 text-blue-600' : 'bg-green-50 text-green-600'}`}>
+                        {item.type === ItemType.SERVICE ? <Briefcase size={18} /> : <Box size={18} />}
+                      </div>
+                      <div>
+                        <p className="font-semibold text-slate-800">{item.name}</p>
+                        <p className="text-xs text-gray-400">{formatCurrency(item.price)} / {item.unit}</p>
+                      </div>
+                    </div>
+                    <div className="flex space-x-2">
+                      <button onClick={() => startEdit(item)} className="p-2 text-blue-500"><Settings size={18} /></button>
+                      <button onClick={() => onDeleteItem(item.id)} className="p-2 text-red-500"><Trash2 size={18} /></button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

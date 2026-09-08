@@ -1,18 +1,17 @@
 
 import React, { useState } from 'react';
 import { Button } from '../components/Button';
-import { FileText, Mail, Lock, User as UserIcon, Loader2, AlertCircle, Sparkles, CheckCircle2, ArrowRight, Database } from 'lucide-react';
+import { FileText, Mail, Lock, User as UserIcon, Loader2, AlertCircle, CheckCircle2, Database } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { isSupabaseConfigured } from '../services/supabase';
 
 export const LoginPage: React.FC = () => {
-  const { login, register, loginAsDemo } = useAuth();
+  const { login, register } = useAuth();
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [name, setName] = useState('');
-  const [email, setEmail] = useState('demo@orcafacil.com.br');
-  const [password, setPassword] = useState('123456');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isDemoLoading, setIsDemoLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -49,19 +48,6 @@ export const LoginPage: React.FC = () => {
       setError(err?.message || 'Ocorreu um erro. Verifique suas credenciais e tente novamente.');
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleDemoAccess = async () => {
-    setIsDemoLoading(true);
-    setError(null);
-    setSuccessMessage(null);
-    try {
-      await loginAsDemo();
-    } catch (err: any) {
-      setError('Erro ao iniciar demonstração: ' + (err?.message || 'Tente novamente.'));
-    } finally {
-      setIsDemoLoading(false);
     }
   };
 
@@ -108,48 +94,7 @@ export const LoginPage: React.FC = () => {
             </button>
           </div>
 
-          {/* Quick 1-Click Demo Login Banner */}
-          {mode === 'login' && (
-            <div className="bg-gradient-to-r from-blue-900/40 via-indigo-900/30 to-blue-900/40 border border-blue-500/30 rounded-2xl p-3.5 text-center">
-              <div className="flex items-center justify-center gap-1.5 text-blue-400 font-semibold text-xs uppercase tracking-wider mb-1">
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Acesso Imediato para Testes</span>
-              </div>
-              <p className="text-xs text-slate-300 mb-2.5">
-                Entrar com dados de serviços e orçamento já preenchidos.
-              </p>
-              <Button
-                id="btn-quick-demo"
-                type="button"
-                onClick={handleDemoAccess}
-                disabled={isDemoLoading || isLoading}
-                className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow-lg shadow-blue-600/25 flex items-center justify-center gap-2 transition-all active:scale-[0.98] text-sm"
-              >
-                {isDemoLoading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Iniciando demonstração...
-                  </>
-                ) : (
-                  <>
-                    <span>Entrar com Conta de Demonstração</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </>
-                )}
-              </Button>
-            </div>
-          )}
-
-          {mode === 'login' && (
-            <div className="relative flex items-center justify-center">
-              <div className="border-t border-slate-800 w-full" />
-              <span className="bg-slate-900 px-3 text-xs text-slate-500 uppercase tracking-wider font-semibold shrink-0">
-                Ou acesse com suas credenciais
-              </span>
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-3.5">
+          <form onSubmit={handleSubmit} className="space-y-4 pt-1">
             {error && (
               <div className="bg-red-500/10 border border-red-500/25 text-red-400 p-3 rounded-xl text-xs flex items-start gap-2.5">
                 <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
@@ -219,8 +164,8 @@ export const LoginPage: React.FC = () => {
             <Button
               id="btn-login-submit"
               type="submit"
-              disabled={isLoading || isDemoLoading}
-              className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-base font-bold transition-all active:scale-[0.98] shadow-lg shadow-blue-600/20"
+              disabled={isLoading}
+              className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-base font-bold transition-all active:scale-[0.98] shadow-lg shadow-blue-600/20 mt-2"
             >
               {isLoading ? (
                 <>
@@ -232,15 +177,6 @@ export const LoginPage: React.FC = () => {
               )}
             </Button>
           </form>
-
-          {!isSupabaseConfigured() && (
-            <div className="pt-1 text-center">
-              <div className="inline-flex items-center gap-1.5 text-xs text-slate-400">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Modo de testes ativo: use qualquer e-mail e senha</span>
-              </div>
-            </div>
-          )}
         </div>
 
         <p className="text-center mt-5 text-slate-500 text-xs">
