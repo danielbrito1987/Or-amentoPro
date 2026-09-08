@@ -14,6 +14,7 @@ import {
 import { ProviderInfo } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { SyncIndicator } from './SyncIndicator';
+import { AppLogo } from './AppLogo';
 
 interface SidebarProps {
   activeTab: string;
@@ -94,17 +95,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Header do Sidebar */}
         <div className={`p-4 border-b border-slate-800/80 flex items-center overflow-hidden ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
           {/* Logo e Nome */}
-          <div className="flex items-center space-x-3 overflow-hidden">
-            <div className="bg-gradient-to-tr from-blue-700 to-blue-500 p-2.5 rounded-xl shadow-md shadow-blue-600/30 shrink-0">
-              <FileText className="w-5 h-5 text-white" />
-            </div>
-            {!isCollapsed && (
-              <div className="overflow-hidden">
-                <h1 className="text-lg font-black tracking-tight text-white leading-tight truncate">OrçaFácil</h1>
-                <p className="text-[11px] text-blue-400 font-medium leading-none truncate">Propostas Rápidas</p>
-              </div>
-            )}
-          </div>
+          <AppLogo size="md" showText={!isCollapsed} />
 
           {/* Botão de fechar em telas pequenas */}
           <button 

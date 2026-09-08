@@ -14,6 +14,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { FileText, Menu, X, Loader2 } from 'lucide-react';
 import { SyncIndicator } from './components/SyncIndicator';
 import { AccountSuspendedModal } from './components/AccountSuspendedModal';
+import { AppLogo } from './components/AppLogo';
 
 const AppContent: React.FC = () => {
   const { user, isAuthenticated, isSuspended, isLoading, logout } = useAuth();
@@ -269,14 +270,11 @@ const AppContent: React.FC = () => {
         </div>
       )}
 
-      <div className="md:hidden flex items-center justify-between p-4 bg-slate-900 text-white no-print">
-        <div className="flex items-center space-x-3">
-          <div className="bg-blue-600 p-1.5 rounded-lg"><FileText className="w-5 h-5 text-white" /></div>
-          <h1 className="text-lg font-bold">OrçaFácil</h1>
-        </div>
+      <div className="md:hidden flex items-center justify-between p-3.5 bg-slate-900 text-white no-print border-b border-slate-800">
+        <AppLogo size="sm" />
         <div className="flex items-center space-x-2">
           <SyncIndicator isCollapsed={true} />
-          <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 text-slate-400">
+          <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors">
             {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
         </div>

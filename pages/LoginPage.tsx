@@ -1,9 +1,10 @@
 
 import React, { useState } from 'react';
 import { Button } from '../components/Button';
-import { FileText, Mail, Lock, User as UserIcon, Loader2, AlertCircle, CheckCircle2, Database } from 'lucide-react';
+import { Mail, Lock, User as UserIcon, Loader2, AlertCircle, CheckCircle2, Database } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { isSupabaseConfigured } from '../services/supabase';
+import orcaLogo from '../src/assets/images/orcafacil_quote_logo_1788895951950.jpg';
 
 export const LoginPage: React.FC = () => {
   const { login, register } = useAuth();
@@ -59,14 +60,30 @@ export const LoginPage: React.FC = () => {
 
       <div className="w-full max-w-md animate-in fade-in zoom-in duration-300 relative z-10">
         <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center p-3.5 bg-blue-600 rounded-2xl shadow-xl shadow-blue-500/25 mb-3">
-            <FileText className="w-8 h-8 text-white" />
+          <div className="relative inline-block mb-3">
+            <div className="absolute inset-0 bg-blue-500/20 rounded-3xl blur-xl" />
+            <div className="relative w-20 h-20 rounded-2xl overflow-hidden shadow-2xl shadow-blue-500/30 border border-white/10 mx-auto ring-1 ring-blue-400/20">
+              <img
+                src={orcaLogo}
+                alt="Logo OrçaFácil Pro"
+                referrerPolicy="no-referrer"
+                className="w-full h-full object-cover"
+              />
+            </div>
           </div>
-          <h1 className="text-3xl font-black text-white tracking-tight">OrçaFácil</h1>
-          <p className="text-slate-400 mt-1 text-sm">Sistema de orçamentos rápidos para prestadores de serviços</p>
+
+          <div className="flex items-center justify-center gap-2">
+            <h1 className="text-3xl font-black text-white tracking-tight">
+              Orça<span className="text-blue-500">Fácil</span>
+            </h1>
+            <span className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md shadow-md shadow-blue-500/20">
+              PRO
+            </span>
+          </div>
+          <p className="text-slate-400 mt-1.5 text-sm">Sistema de orçamentos rápidos para prestadores de serviços</p>
 
           {isSupabaseConfigured() && (
-            <div className="mt-2.5 inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-950/60 border border-emerald-500/40 rounded-full text-emerald-400 text-xs font-semibold">
+            <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-950/60 border border-emerald-500/40 rounded-full text-emerald-400 text-xs font-semibold">
               <Database className="w-3.5 h-3.5" />
               <span>Acesso Seguro na Nuvem Ativo</span>
             </div>
