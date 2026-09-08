@@ -1,6 +1,6 @@
 -- ============================================================
--- SQL DE CRIAÇÃO DAS TABELAS NO SUPABASE PARA O ORÇAFÁCIL
--- Copie e cole este código no SQL Editor do seu painel Supabase
+-- SQL DE CONFIGURAÇÃO E GERENCIAMENTO NO SUPABASE (ORÇAFÁCIL)
+-- Execute no SQL Editor do painel Supabase se desejar
 -- ============================================================
 
 -- 1. Tabela de Itens do Catálogo (Serviços e Produtos)
@@ -47,12 +47,11 @@ CREATE TABLE IF NOT EXISTS public.provider_info (
   updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- Desativa RLS temporariamente para testes rápidos ou ativa com acesso anônimo de leitura/escrita
+-- Políticas de segurança RLS
 ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.quotes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.provider_info ENABLE ROW LEVEL SECURITY;
 
--- Políticas de acesso para a chave anônima (anon) pública
 CREATE POLICY "Permitir acesso total a produtos para anon" 
   ON public.products FOR ALL 
   TO anon, authenticated 
@@ -70,3 +69,29 @@ CREATE POLICY "Permitir acesso total a dados do prestador para anon"
   TO anon, authenticated 
   USING (true) 
   WITH CHECK (true);
+
+-- ============================================================
+-- COMANDOS PRONTOS PARA DESABILITAR / REATIVAR CLIENTES (INADIMPLÊNCIA)
+-- ============================================================
+
+-- A) PARA DESABILITAR UM CLIENTE INADIMPLENTE:
+-- Substitua 'cliente@email.com' pelo e-mail do cliente:
+/*
+UPDATE auth.users
+SET raw_user_meta_data = raw_user_meta_data || '{"status": "suspended", "status_reason": "Assinatura suspensa por pendência financeira. Entre em contato para regularizar seu plano."}'::jsonb
+WHERE email = 'cliente@email.com';
+*/
+
+-- B) PARA REATIVAR O CLIENTE APÓS O PAGAMENTO:
+/*
+UPDATE auth.users
+SET raw_user_meta_data = raw_user_meta_data || '{"status": "active", "status_reason": null}'::jsonb
+WHERE email = 'cliente@email.com';
+*/
+
+-- C) CONSULTAR STATUS DE TODOS OS CLIENTES:
+/*
+SELECT id, email, created_at, raw_user_meta_data->>'name' as nome, raw_user_meta_data->>'status' as status
+FROM auth.users
+ORDER BY created_at DESC;
+*/

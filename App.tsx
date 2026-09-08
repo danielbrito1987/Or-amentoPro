@@ -13,9 +13,10 @@ import { LoginPage } from './pages/LoginPage';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { FileText, Menu, X, Loader2 } from 'lucide-react';
 import { SyncIndicator } from './components/SyncIndicator';
+import { AccountSuspendedModal } from './components/AccountSuspendedModal';
 
 const AppContent: React.FC = () => {
-  const { user, isAuthenticated, isLoading, logout } = useAuth();
+  const { user, isAuthenticated, isSuspended, isLoading, logout } = useAuth();
   
   const [activeTab, setActiveTab] = useState<'quotes' | 'catalog' | 'settings'>('quotes');
   const [quotes, setQuotes] = useState<Quote[]>([]);
@@ -245,6 +246,16 @@ const AppContent: React.FC = () => {
 
   if (!isAuthenticated) {
     return <LoginPage />;
+  }
+
+  if (isSuspended) {
+    return (
+      <AccountSuspendedModal
+        userEmail={user?.email}
+        reason={user?.statusReason}
+        onLogout={logout}
+      />
+    );
   }
 
   return (

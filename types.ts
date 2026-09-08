@@ -50,6 +50,9 @@ export interface User {
   email: string;
   name: string;
   companyId?: string;
+  status?: 'active' | 'suspended';
+  statusReason?: string;
+  role?: string;
 }
 
 export interface AuthState {

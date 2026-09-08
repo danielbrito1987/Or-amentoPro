@@ -8,14 +8,30 @@ const USER_KEY = 'orcafacil_user';
 
 const mapSupabaseUser = (sbUser: any, token: string): { token: string; user: User } => {
   const meta = sbUser.user_metadata || {};
+  const appMeta = sbUser.app_metadata || {};
   const companyId = meta.company_id || sbUser.id;
   const name = meta.name || (sbUser.email ? sbUser.email.split('@')[0] : 'Prestador');
+
+  // Suporte a status de suspensão configurado pelo Supabase (metadata ou app_metadata)
+  const isSuspended = 
+    meta.status === 'suspended' || 
+    meta.is_active === false || 
+    meta.disabled === true ||
+    appMeta.status === 'suspended' ||
+    appMeta.is_active === false ||
+    appMeta.disabled === true;
+
+  const status: 'active' | 'suspended' = isSuspended ? 'suspended' : 'active';
+  const statusReason = meta.status_reason || meta.statusReason || appMeta.status_reason || 'Sua assinatura ou período de acesso expirou. Entre em contato com o administrador para regularizar seu plano.';
 
   const user: User = {
     id: sbUser.id,
     email: sbUser.email || '',
     name,
-    companyId
+    companyId,
+    status,
+    statusReason,
+    role: meta.role || appMeta.role || 'user'
   };
 
   localStorage.setItem(TOKEN_KEY, token);
@@ -173,6 +189,22 @@ export const authService = {
       return data ? JSON.parse(data) : null;
     } catch {
       return null;
+    }
+  },
+
+  checkFreshUserStatus: async (): Promise<User | null> => {
+    const supabase = getSupabase();
+    if (!supabase) return authService.getCurrentUser();
+
+    try {
+      const { data: { user: sbUser }, error } = await supabase.auth.getUser();
+      if (error || !sbUser) return null;
+
+      const token = authService.getToken() || '';
+      const mapped = mapSupabaseUser(sbUser, token);
+      return mapped.user;
+    } catch {
+      return authService.getCurrentUser();
     }
   },
 
