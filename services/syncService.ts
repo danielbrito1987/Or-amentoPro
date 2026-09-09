@@ -96,11 +96,19 @@ export const syncService = {
 
   enqueue: (type: SyncActionType, payload: any) => {
     const queue = getQueue();
-    // Se já houver uma ação idêntica para o mesmo registro, substitui pela mais recente
     const targetId = payload?.id || payload?.companyId;
+
+    // Se já houver uma ação idêntica para o mesmo registro, substitui pela mais recente
+    // Se estiver excluindo, remove também qualquer SAVE pendente deste registro
     const filteredQueue = queue.filter(item => {
       const itemTargetId = item.payload?.id || item.payload?.companyId;
-      return !(item.type === type && itemTargetId === targetId);
+      if (itemTargetId !== targetId) return true;
+
+      if (type === 'DELETE_QUOTE' && item.type === 'SAVE_QUOTE') return false;
+      if (type === 'DELETE_CATALOG_ITEM' && item.type === 'SAVE_CATALOG_ITEM') return false;
+      if (item.type === type) return false;
+
+      return true;
     });
 
     const newItem: SyncQueueItem = {

@@ -135,16 +135,22 @@ export const QuotesPage: React.FC<QuotesPageProps> = ({
                 <span className="text-xl font-bold text-slate-900">
                   {formatCurrency(quote.total)}
                 </span>
-                <div className="flex space-x-1">
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="p-1.5 hover:bg-red-50 hover:text-red-500" 
-                    onClick={(e) => { e.stopPropagation(); onDeleteQuote(quote.id); }}
+                <div className="flex items-center space-x-1">
+                  <button 
+                    type="button"
+                    id={`btn-delete-quote-${quote.id}`}
+                    title="Excluir Orçamento"
+                    aria-label="Excluir Orçamento"
+                    className="p-2 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" 
+                    onClick={(e) => { 
+                      e.preventDefault();
+                      e.stopPropagation(); 
+                      onDeleteQuote(quote.id); 
+                    }}
                   >
                     <Trash2 size={18} />
-                  </Button>
-                  <div className="p-1.5 bg-gray-50 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                  </button>
+                  <div className="p-2 bg-gray-50 rounded-xl group-hover:bg-blue-600 group-hover:text-white transition-colors">
                     <ChevronRight size={18} />
                   </div>
                 </div>

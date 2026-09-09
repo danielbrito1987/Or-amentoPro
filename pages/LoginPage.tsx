@@ -105,9 +105,12 @@ export const LoginPage: React.FC = () => {
               id="tab-register"
               type="button"
               onClick={() => { setMode('register'); setError(null); setSuccessMessage(null); }}
-              className={`py-2 rounded-xl transition-all ${mode === 'register' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}
+              className={`py-2 rounded-xl transition-all flex items-center justify-center gap-1.5 ${mode === 'register' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}
             >
-              Criar Conta
+              <span>Criar Conta</span>
+              <span className="text-[10px] bg-amber-400 text-slate-950 font-black px-1.5 py-0.2 rounded-md">
+                7d Grátis
+              </span>
             </button>
           </div>
 
@@ -190,7 +193,7 @@ export const LoginPage: React.FC = () => {
                   {mode === 'register' ? 'Criando sua conta na nuvem...' : 'Entrando...'}
                 </>
               ) : (
-                mode === 'register' ? 'Cadastrar e Começar' : 'Entrar'
+                mode === 'register' ? 'Criar Conta e Testar 7 Dias Grátis' : 'Entrar'
               )}
             </Button>
           </form>

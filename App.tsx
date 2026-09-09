@@ -14,13 +14,17 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { FileText, Menu, X, Loader2 } from 'lucide-react';
 import { SyncIndicator } from './components/SyncIndicator';
 import { AccountSuspendedModal } from './components/AccountSuspendedModal';
+import { SubscriptionPaywallModal } from './components/SubscriptionPaywallModal';
+import { TrialBanner } from './components/TrialBanner';
+import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { AppLogo } from './components/AppLogo';
 import { InteractiveGuideModal } from './components/InteractiveGuideModal';
+import { ConfirmModal } from './components/ConfirmModal';
 
 const AppContent: React.FC = () => {
-  const { user, isAuthenticated, isSuspended, isLoading, logout } = useAuth();
+  const { user, isAuthenticated, isSuspended, subscriptionInfo, isLoading, logout, refreshUserStatus } = useAuth();
   
-  const [activeTab, setActiveTab] = useState<'quotes' | 'catalog' | 'settings'>('quotes');
+  const [activeTab, setActiveTab] = useState<'quotes' | 'catalog' | 'settings' | 'admin'>('quotes');
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
   const [providerInfo, setProviderInfo] = useState<ProviderInfo>({
@@ -36,6 +40,12 @@ const AppContent: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isFetchingData, setIsFetchingData] = useState(false);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
+
+  // Estados dos modais de confirmação de exclusão
+  const [quoteToDelete, setQuoteToDelete] = useState<Quote | null>(null);
+  const [catalogItemToDelete, setCatalogItemToDelete] = useState<CatalogItem | null>(null);
+  const [isDeletingItem, setIsDeletingItem] = useState(false);
+  const [deleteToast, setDeleteToast] = useState<string | null>(null);
 
   // Controle de estado para saber o que já foi carregado
   const [loadedSections, setLoadedSections] = useState({
@@ -173,31 +183,63 @@ const AppContent: React.FC = () => {
     }
   };
 
-  const deleteCatalogItem = async (id: string) => {
-    if (confirm("Deseja remover este item?")) {
-      setIsFetchingData(true);
-      try {
-        await storageService.deleteCatalogItem(id);
-        setCatalog(prev => prev.filter(i => i.id !== id));
-      } catch (error) {
-        alert("Erro ao remover.");
-      } finally {
-        setIsFetchingData(false);
-      }
+  // Exclusão de item do catálogo com modal próprio
+  const handleRequestDeleteCatalogItem = (id: string) => {
+    const found = catalog.find(i => i.id === id);
+    if (found) {
+      setCatalogItemToDelete(found);
+    } else {
+      setCatalogItemToDelete({ id, name: 'Item do catálogo' } as CatalogItem);
     }
   };
 
-  const handleDeleteQuote = async (id: string) => {
-    if (confirm("Excluir este orçamento definitivamente?")) {
-      setIsFetchingData(true);
-      try {
-        await storageService.deleteQuote(id);
-        setQuotes(prev => prev.filter(q => q.id !== id));
-      } catch (error) {
-        alert("Erro ao excluir.");
-      } finally {
-        setIsFetchingData(false);
+  const confirmDeleteCatalogItem = async () => {
+    if (!catalogItemToDelete) return;
+    setIsDeletingItem(true);
+    try {
+      await storageService.deleteCatalogItem(catalogItemToDelete.id);
+      setCatalog(prev => prev.filter(i => i.id !== catalogItemToDelete.id));
+      setDeleteToast('Item removido do catálogo com sucesso!');
+      setTimeout(() => setDeleteToast(null), 3500);
+    } catch (error) {
+      console.error("Erro ao remover do catálogo:", error);
+      setDeleteToast('Erro ao remover item do catálogo.');
+      setTimeout(() => setDeleteToast(null), 3500);
+    } finally {
+      setIsDeletingItem(false);
+      setCatalogItemToDelete(null);
+    }
+  };
+
+  // Exclusão de orçamento com modal próprio
+  const handleRequestDeleteQuote = (id: string) => {
+    const found = quotes.find(q => q.id === id) || (selectedQuote?.id === id ? selectedQuote : null);
+    if (found) {
+      setQuoteToDelete(found);
+    } else {
+      setQuoteToDelete({ id, number: 'Orçamento', customerName: '' } as Quote);
+    }
+  };
+
+  const confirmDeleteQuote = async () => {
+    if (!quoteToDelete) return;
+    setIsDeletingItem(true);
+    try {
+      await storageService.deleteQuote(quoteToDelete.id);
+      setQuotes(prev => prev.filter(q => q.id !== quoteToDelete.id));
+      if (selectedQuote?.id === quoteToDelete.id) {
+        setSelectedQuote(null);
+        setIsEditingQuote(false);
       }
+      setDeleteToast(`Orçamento ${quoteToDelete.number || ''} excluído com sucesso!`);
+      setTimeout(() => setDeleteToast(null), 3500);
+    } catch (error) {
+      console.error("Erro ao excluir orçamento:", error);
+      setDeleteToast('Erro ao excluir orçamento. Tente novamente.');
+      setTimeout(() => setDeleteToast(null), 3500);
+    } finally {
+      setIsDeletingItem(false);
+      setQuoteToDelete(null);
     }
   };
 
@@ -252,6 +294,18 @@ const AppContent: React.FC = () => {
   }
 
   if (isSuspended) {
+    // Se o usuário estiver bloqueado por término de trial ou mensalidade, exibe a tela de pagamento PIX
+    if (subscriptionInfo.status === 'expired') {
+      return (
+        <SubscriptionPaywallModal
+          userEmail={user?.email}
+          userName={user?.name}
+          onLogout={logout}
+          onCheckStatus={refreshUserStatus}
+        />
+      );
+    }
+
     return (
       <AccountSuspendedModal
         userEmail={user?.email}
@@ -292,14 +346,17 @@ const AppContent: React.FC = () => {
         onOpenGuide={() => setIsGuideOpen(true)}
       />
 
-      <main className="flex-1 overflow-y-auto bg-gray-50 pb-20 md:pb-0">
-        <div className="max-w-6xl mx-auto p-4 md:p-8">
+      <main className="flex-1 overflow-y-auto bg-gray-50 pb-20 md:pb-0 flex flex-col">
+        {/* Barra superior de aviso de dias restantes de teste grátis */}
+        <TrialBanner />
+
+        <div className="max-w-6xl w-full mx-auto p-4 md:p-8 flex-1">
           {activeTab === 'quotes' && !isEditingQuote && !selectedQuote && (
             <QuotesPage 
               quotes={quotes} 
               onNewQuote={handleStartNewQuote} 
               onSelectQuote={setSelectedQuote} 
-              onDeleteQuote={handleDeleteQuote}
+              onDeleteQuote={handleRequestDeleteQuote}
               onOpenGuide={() => setIsGuideOpen(true)}
             />
           )}
@@ -308,7 +365,7 @@ const AppContent: React.FC = () => {
             <CatalogPage 
               catalog={catalog} 
               onSaveItem={saveCatalogItem} 
-              onDeleteItem={deleteCatalogItem} 
+              onDeleteItem={handleRequestDeleteCatalogItem} 
             />
           )}
 
@@ -318,6 +375,10 @@ const AppContent: React.FC = () => {
               onUpdate={setProviderInfo} 
               onSave={handleSaveSettings} 
             />
+          )}
+
+          {activeTab === 'admin' && (
+            <AdminDashboardPage />
           )}
 
           {isEditingQuote && selectedQuote && (
@@ -337,10 +398,44 @@ const AppContent: React.FC = () => {
               providerInfo={providerInfo} 
               onBack={() => setSelectedQuote(null)} 
               onEdit={() => setIsEditingQuote(true)} 
+              onDelete={() => handleRequestDeleteQuote(selectedQuote.id)}
             />
           )}
         </div>
       </main>
+
+      {/* Notificação toast de feedback */}
+      {deleteToast && (
+        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl text-sm font-medium border border-slate-800 animate-in fade-in slide-in-from-bottom-4">
+          {deleteToast}
+        </div>
+      )}
+
+      {/* Modal de confirmação para exclusão de orçamento */}
+      <ConfirmModal
+        isOpen={Boolean(quoteToDelete)}
+        title="Excluir Orçamento?"
+        message={`Tem certeza que deseja excluir definitivamente o orçamento ${quoteToDelete?.number || ''}${quoteToDelete?.customerName ? ` de "${quoteToDelete.customerName}"` : ''}? Esta ação removerá o registro do seu painel e não poderá ser desfeita.`}
+        confirmLabel="Sim, Excluir"
+        cancelLabel="Cancelar"
+        variant="danger"
+        isLoading={isDeletingItem}
+        onConfirm={confirmDeleteQuote}
+        onClose={() => setQuoteToDelete(null)}
+      />
+
+      {/* Modal de confirmação para exclusão de item do catálogo */}
+      <ConfirmModal
+        isOpen={Boolean(catalogItemToDelete)}
+        title="Remover Item do Catálogo?"
+        message={`Deseja remover o item "${catalogItemToDelete?.name || ''}" do seu catálogo?`}
+        confirmLabel="Sim, Remover"
+        cancelLabel="Cancelar"
+        variant="danger"
+        isLoading={isDeletingItem}
+        onConfirm={confirmDeleteCatalogItem}
+        onClose={() => setCatalogItemToDelete(null)}
+      />
 
       <InteractiveGuideModal
         isOpen={isGuideOpen}

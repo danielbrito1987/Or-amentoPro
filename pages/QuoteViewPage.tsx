@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Quote, ProviderInfo } from '../types';
 import { Button } from '../components/Button';
-import { ChevronLeft, MessageCircle, FileDown, Loader2, Check } from 'lucide-react';
+import { ChevronLeft, MessageCircle, FileDown, Loader2, Check, Trash2 } from 'lucide-react';
 import { formatCurrency } from '../utils/formatters';
 import { shareOrDownloadPdf } from '../utils/pdfGenerator';
 
@@ -11,9 +11,10 @@ interface QuoteViewPageProps {
   providerInfo: ProviderInfo;
   onBack: () => void;
   onEdit: () => void;
+  onDelete?: () => void;
 }
 
-export const QuoteViewPage: React.FC<QuoteViewPageProps> = ({ quote, providerInfo, onBack, onEdit }) => {
+export const QuoteViewPage: React.FC<QuoteViewPageProps> = ({ quote, providerInfo, onBack, onEdit, onDelete }) => {
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
 
@@ -59,6 +60,17 @@ export const QuoteViewPage: React.FC<QuoteViewPageProps> = ({ quote, providerInf
           <Button variant="secondary" onClick={onEdit} size="md" className="w-full sm:w-auto">
             Editar
           </Button>
+          {onDelete && (
+            <Button 
+              variant="secondary" 
+              onClick={onDelete} 
+              size="md" 
+              className="w-full sm:w-auto text-red-600 hover:bg-red-50 hover:border-red-200"
+              icon={<Trash2 size={16} className="text-red-500" />}
+            >
+              Excluir
+            </Button>
+          )}
           <Button 
             variant="primary" 
             size="md"

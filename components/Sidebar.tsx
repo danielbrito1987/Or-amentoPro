@@ -10,7 +10,8 @@ import {
   ChevronRight, 
   X, 
   User as UserIcon,
-  HelpCircle
+  HelpCircle,
+  ShieldCheck
 } from 'lucide-react';
 import { ProviderInfo } from '../types';
 import { useAuth } from '../contexts/AuthContext';
@@ -144,6 +145,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <NavButton tab="catalog" icon={Package} label="Catálogo" />
           <NavButton tab="settings" icon={Settings} label="Meus Dados" />
 
+          {/* Aba Exclusiva do Dono do SaaS */}
+          {user?.email?.toLowerCase() === 'damasceno1871@gmail.com' && (
+            <div className="pt-2 border-t border-slate-800">
+              <NavButton 
+                tab="admin" 
+                icon={ShieldCheck} 
+                label="Painel SaaS (Dono)" 
+              />
+            </div>
+          )}
+
           {onOpenGuide && (
             <div className="pt-2">
               <button
@@ -194,9 +206,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
             {!isCollapsed && (
               <div className="text-xs overflow-hidden flex-1 min-w-0">
-                <p className="font-semibold text-slate-200 truncate">{providerInfo.name || 'Prestador de Serviços'}</p>
+                <div className="flex items-center gap-1.5">
+                  <p className="font-semibold text-slate-200 truncate">{providerInfo.name || 'Prestador de Serviços'}</p>
+                  {user?.email?.toLowerCase() === 'damasceno1871@gmail.com' ? (
+                    <span className="text-[9px] bg-purple-500/30 text-purple-300 font-bold px-1.5 py-0.2 rounded border border-purple-500/40 shrink-0">
+                      DONO
+                    </span>
+                  ) : (
+                    <span className="text-[9px] bg-blue-500/30 text-blue-300 font-bold px-1.5 py-0.2 rounded border border-blue-500/40 shrink-0">
+                      PRO
+                    </span>
+                  )}
+                </div>
                 {user && (
-                  <p className="text-[11px] text-slate-400 truncate">{user.email}</p>
+                  <p className="text-[11px] text-slate-400 truncate font-mono">{user.email}</p>
                 )}
               </div>
             )}

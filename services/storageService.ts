@@ -332,16 +332,22 @@ export const storageService = {
 
   deleteCatalogItem: async (id: string, companyId?: string): Promise<void> => {
     try {
-      // Procura em todas as chaves de catálogo no localStorage
+      // Coleta chaves primeiro para evitar pulo de índice durante a iteração
+      const keysToClean: string[] = [];
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
         if (key && key.startsWith('orcafacil_catalog_')) {
-          const stored = localStorage.getItem(key);
-          if (stored) {
+          keysToClean.push(key);
+        }
+      }
+      for (const key of keysToClean) {
+        const stored = localStorage.getItem(key);
+        if (stored) {
+          try {
             const items: CatalogItem[] = JSON.parse(stored);
             const filtered = items.filter(i => i.id !== id);
             localStorage.setItem(key, JSON.stringify(filtered));
-          }
+          } catch {}
         }
       }
     } catch (e) {
@@ -522,15 +528,21 @@ export const storageService = {
   
   deleteQuote: async (id: string): Promise<void> => {
     try {
+      const keysToClean: string[] = [];
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
         if (key && key.startsWith('orcafacil_quotes_')) {
-          const stored = localStorage.getItem(key);
-          if (stored) {
+          keysToClean.push(key);
+        }
+      }
+      for (const key of keysToClean) {
+        const stored = localStorage.getItem(key);
+        if (stored) {
+          try {
             const quotes: Quote[] = JSON.parse(stored);
             const filtered = quotes.filter(q => q.id !== id);
             localStorage.setItem(key, JSON.stringify(filtered));
-          }
+          } catch {}
         }
       }
     } catch (e) {

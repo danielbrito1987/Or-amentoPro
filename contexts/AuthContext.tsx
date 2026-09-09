@@ -3,6 +3,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import { User } from '../types';
 import { authService } from '../services/authService';
 import { getSupabase } from '../services/supabase';
+import { saasService } from '../services/saasService';
 
 interface AuthContextType {
   user: User | null;
@@ -10,6 +11,14 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isSuspended: boolean;
   isLoading: boolean;
+  isAdmin: boolean;
+  subscriptionInfo: {
+    status: 'trial' | 'active' | 'expired';
+    daysRemaining: number;
+    hoursRemaining: number;
+    expiresAt: Date;
+    isExpired: boolean;
+  };
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, name?: string) => Promise<{ message?: string }>;
   loginAsDemo: () => Promise<void>;
@@ -30,6 +39,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const savedToken = authService.getToken();
 
     if (savedUser && savedToken && savedToken !== 'undefined' && savedToken !== 'pending_confirmation') {
+      // Registra/sincroniza no SaaS
+      saasService.registerNewUser(savedUser);
       setUser(savedUser);
       setToken(savedToken);
     } else {
@@ -43,6 +54,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // Faz verificação do usuário atual na inicialização
       authService.checkFreshUserStatus().then(freshUser => {
         if (freshUser) {
+          saasService.registerNewUser(freshUser);
           setUser(freshUser);
         }
       });
@@ -66,8 +78,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             companyId: meta.company_id || session.user.id,
             status: isSuspended ? 'suspended' : 'active',
             statusReason: meta.status_reason || meta.statusReason || appMeta.status_reason || 'Sua assinatura ou período de acesso expirou. Entre em contato com o administrador para regularizar seu plano.',
-            role: meta.role || appMeta.role || 'user'
+            role: (session.user.email?.toLowerCase() === saasService.getAdminEmail().toLowerCase()) 
+              ? 'admin' 
+              : (meta.role || appMeta.role || 'user')
           };
+
+          saasService.registerNewUser(usr);
           setUser(usr);
           setToken(session.access_token);
           localStorage.setItem('orcafacil_jwt_token', session.access_token);
@@ -87,12 +103,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const refreshUserStatus = async () => {
     const freshUser = await authService.checkFreshUserStatus();
     if (freshUser) {
+      saasService.registerNewUser(freshUser);
       setUser(freshUser);
     }
   };
 
   const login = async (email: string, password: string) => {
     const result = await authService.login(email, password);
+    saasService.registerNewUser(result.user);
     setUser(result.user);
     setToken(result.token);
   };
@@ -100,6 +118,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const register = async (email: string, password: string, name?: string) => {
     const result = await authService.register(email, password, name);
     if (result.token !== 'pending_confirmation') {
+      saasService.registerNewUser(result.user);
       setUser(result.user);
       setToken(result.token);
     }
@@ -108,6 +127,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const loginAsDemo = async () => {
     const result = await authService.loginAsDemo();
+    saasService.registerNewUser(result.user);
     setUser(result.user);
     setToken(result.token);
   };
@@ -118,7 +138,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setUser(null);
   };
 
-  const isSuspended = user?.status === 'suspended';
+  const isAdmin = saasService.isAdmin(user);
+
+  const subscriptionInfo = user 
+    ? saasService.getUserSubscriptionStatus(user)
+    : {
+        status: 'expired' as const,
+        daysRemaining: 0,
+        hoursRemaining: 0,
+        expiresAt: new Date(),
+        isExpired: true
+      };
+
+  // Usuário é suspenso se seu status manual for suspended OU se não for admin e seu plano tiver expirado (passaram os 7 dias ou a mensalidade)
+  const isSuspended = !isAdmin && (user?.status === 'suspended' || subscriptionInfo.isExpired);
 
   const value = {
     user,
@@ -126,6 +159,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     isAuthenticated: !!token && token !== 'undefined' && token !== 'pending_confirmation',
     isSuspended,
     isLoading,
+    isAdmin,
+    subscriptionInfo,
     login,
     register,
     loginAsDemo,

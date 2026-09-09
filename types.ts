@@ -45,6 +45,17 @@ export interface ProviderInfo {
   companyId?: string;
 }
 
+export interface SubscriptionInfo {
+  status: 'trial' | 'active' | 'expired';
+  trialEndsAt: string; // ISO String
+  planPrice: number; // 59.90
+  activeUntil?: string; // ISO String se pago
+  paymentMethod?: 'pix_manual' | 'pix' | 'other';
+  pixKey?: string;
+  pixReceiver?: string;
+  whatsappConfirmationPhone?: string;
+}
+
 export interface User {
   id: string;
   email: string;
@@ -52,7 +63,11 @@ export interface User {
   companyId?: string;
   status?: 'active' | 'suspended';
   statusReason?: string;
-  role?: string;
+  role?: 'admin' | 'user' | string;
+  createdAt?: string;
+  trialEndsAt?: string;
+  subscriptionStatus?: 'trial' | 'active' | 'expired';
+  subscriptionValidUntil?: string;
 }
 
 export interface AuthState {
