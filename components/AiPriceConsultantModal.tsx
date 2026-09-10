@@ -77,8 +77,8 @@ export const AiPriceConsultantModal: React.FC<AiPriceConsultantModalProps> = ({
       setChosenPrice(result.suggestedPrice);
       setChosenUnit(result.unit || 'un');
     } catch (err: any) {
-      console.error(err);
-      setError('Não foi possível calcular a estimativa. Verifique sua conexão e tente novamente.');
+      console.error('Erro ao consultar IA:', err);
+      setError(err?.message || 'Não foi possível calcular a estimativa. Tente novamente.');
     } finally {
       setIsLoading(false);
     }
