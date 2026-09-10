@@ -26,35 +26,46 @@ function getGeminiClient(): GoogleGenAI {
   return aiClient;
 }
 
-// Executa chamada à IA com timeout individual e modelos resilientes
+// Executa chamada à IA com retry em caso de 503/429 e fallback em cascata
 async function generateContentWithFallback(contents: any, config?: any) {
   const ai = getGeminiClient();
-  // gemini-3.1-flash-lite é prioritário por ser rápido e ter maior disponibilidade
-  const models = ['gemini-3.1-flash-lite', 'gemini-flash-latest', 'gemini-3.8-flash'];
+  const models = [
+    'gemini-3.1-flash-lite',
+    'gemini-flash-latest',
+    'gemini-3.8-flash',
+    'gemini-3.1-pro-preview',
+  ];
   let lastError: any = null;
 
   for (const model of models) {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 9000); // 9 segundos max por modelo
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const callPromise = ai.models.generateContent({
+          model,
+          contents,
+          config,
+        });
 
-      const response = await ai.models.generateContent({
-        model,
-        contents,
-        config: {
-          ...config,
-          abortSignal: controller.signal,
-        },
-      });
+        // Timeout individual de 7 segundos
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error(`Timeout ao consultar ${model}`)), 7000)
+        );
 
-      clearTimeout(timeoutId);
-
-      if (response && response.text) {
-        return response;
+        const response: any = await Promise.race([callPromise, timeoutPromise]);
+        if (response && response.text) {
+          return response;
+        }
+      } catch (err: any) {
+        lastError = err;
+        const status = err?.status || (err?.error && err.error.code);
+        // Se for alta demanda temporária (503) ou rate limit (429), tenta mais uma vez rapidamente
+        if (attempt === 1 && (status === 503 || status === 429)) {
+          await new Promise((r) => setTimeout(r, 400));
+          continue;
+        }
+        console.log(`[AI Advisor] Modelo ${model} alternado:`, status || err?.message || 'erro');
+        break;
       }
-    } catch (err: any) {
-      console.warn(`[Gemini] Tentativa com ${model} não respondeu:`, err?.status || err?.message || err);
-      lastError = err;
     }
   }
 
@@ -453,7 +464,7 @@ Atenção:
       });
       return;
     } catch (err: any) {
-      console.warn('[Gemini] Erro ou indisponibilidade na IA. Ativando estimador de mercado de contingência:', err?.message || err);
+      console.log('[AI Advisor] Ativando estimador de mercado de contingência.');
       // Contingência inteligente: nunca deixa o usuário sem resposta
       const fallbackEstimate = calculateMarketBaseline(cleanService, cleanCity, cleanDetails);
       res.json(fallbackEstimate);
@@ -478,7 +489,7 @@ Foque no valor entregue pelo serviço/produto e transparência.`;
       const text = response.text || 'Obrigado pela oportunidade de apresentar esta proposta. Ficamos à inteira disposição para eventuais dúvidas.';
       res.json({ text });
     } catch (err: any) {
-      console.warn('[Gemini] Fallback em observações:', err?.message || err);
+      console.log('[AI Advisor] Fallback em observações ativado.');
       res.json({
         text: 'Agradecemos a oportunidade de apresentar este orçamento. Nosso compromisso é com a qualidade técnica, pontualidade e transparência. Ficamos à inteira disposição para eventuais dúvidas e para agendar o início dos trabalhos.',
       });
