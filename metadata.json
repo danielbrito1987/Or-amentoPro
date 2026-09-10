@@ -1,6 +1,6 @@
 {
   "name": "OrçaFácil Pro - Sistema de Orçamentos Profissionais",
-  "description": "Uma plataforma intuitiva para prestadores de serviços criarem, gerenciarem e exportarem orçamentos profissionais com facilidade.",
+  "description": "Crie orçamentos profissionais em PDF em menos de 2 minutos. Sistema completo para prestadores de serviços, autônomos e MEI com envio via WhatsApp. Teste 7 dias grátis!",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"

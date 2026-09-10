@@ -1,0 +1,13 @@
+# Robots.txt para OrçaFácil Pro
+# Permite que todos os principais mecanismos de busca (Google, Bing, Yahoo, DuckDuckGo) indexem o site
+
+User-agent: *
+Allow: /
+Allow: /index.html
+Allow: /favicon.jpg
+Allow: /favicon.png
+Allow: /manifest.json
+Allow: /sitemap.xml
+
+# Sitemap oficial
+Sitemap: https://www.orcafacilpro.app.br/sitemap.xml
