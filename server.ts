@@ -1,18 +1,14 @@
 import express from 'express';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 let aiClient: GoogleGenAI | null = null;
-function getGeminiClient(): GoogleGenAI {
+function getGeminiClient(): GoogleGenAI | null {
   if (!aiClient) {
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
     if (!apiKey) {
-      throw new Error('A variável GEMINI_API_KEY não está configurada no servidor.');
+      return null;
     }
     aiClient = new GoogleGenAI({
       apiKey,
@@ -29,6 +25,9 @@ function getGeminiClient(): GoogleGenAI {
 // Executa chamada à IA com retry em caso de 503/429 e fallback em cascata
 async function generateContentWithFallback(contents: any, config?: any) {
   const ai = getGeminiClient();
+  if (!ai) {
+    throw new Error('Chave da API Gemini não configurada neste ambiente.');
+  }
   const models = [
     'gemini-3.1-flash-lite',
     'gemini-flash-latest',
