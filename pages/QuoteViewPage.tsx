@@ -4,6 +4,7 @@ import { Quote, ProviderInfo } from '../types';
 import { Button } from '../components/Button';
 import { ChevronLeft, MessageCircle, FileDown, Loader2, Check, Trash2 } from 'lucide-react';
 import { formatCurrency } from '../utils/formatters';
+import { normalizeUnit } from '../services/marketEstimator';
 import { shareOrDownloadPdf } from '../utils/pdfGenerator';
 
 interface QuoteViewPageProps {
@@ -143,7 +144,7 @@ export const QuoteViewPage: React.FC<QuoteViewPageProps> = ({ quote, providerInf
               {quote.items.map((item, idx) => (
                 <tr key={idx}>
                   <td className="py-4"><p className="font-semibold text-slate-800 text-sm">{item.name}</p></td>
-                  <td className="py-4 px-4 text-center text-slate-600 text-sm">{item.quantity} {item.unit}</td>
+                  <td className="py-4 px-4 text-center text-slate-600 text-sm">{item.quantity} {normalizeUnit(item.unit)}</td>
                   <td className="py-4 px-4 text-right text-slate-600 text-sm">{formatCurrency(item.price)}</td>
                   <td className="py-4 text-right font-bold text-slate-900 text-sm">{formatCurrency(item.price * item.quantity)}</td>
                 </tr>

@@ -82,6 +82,8 @@ export interface PriceSuggestion {
   minPrice: number;
   maxPrice: number;
   unit: string;
+  quantity?: number;
+  unitPrice?: number;
   estimatedHours?: string;
   justification: string;
   tips?: string[];

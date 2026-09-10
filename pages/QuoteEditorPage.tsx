@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { maskPhone, formatCurrency } from '../utils/formatters';
 import { generateQuoteNotes } from '../services/geminiService';
+import { normalizeUnit } from '../services/marketEstimator';
 import { AiPriceConsultantModal } from '../components/AiPriceConsultantModal';
 
 interface QuoteEditorPageProps {
@@ -129,7 +130,7 @@ export const QuoteEditorPage: React.FC<QuoteEditorPageProps> = ({
       id: selectedCatalogItem ? selectedCatalogItem.id : ('item_' + Date.now()),
       name: trimmedName,
       price: price,
-      unit: itemUnit.trim() || 'un',
+      unit: normalizeUnit(itemUnit),
       description: itemDescription.trim(),
       type: itemType,
       quantity: quantity,
@@ -148,7 +149,7 @@ export const QuoteEditorPage: React.FC<QuoteEditorPageProps> = ({
         ...updatedItems[existingIndex],
         quantity: updatedItems[existingIndex].quantity + quantity,
         price: price, // atualiza valor unitário caso o usuário tenha ajustado
-        unit: itemUnit.trim() || updatedItems[existingIndex].unit,
+        unit: normalizeUnit(itemUnit) || updatedItems[existingIndex].unit,
       };
     } else {
       updatedItems = [...quote.items, newItem];
@@ -205,16 +206,27 @@ export const QuoteEditorPage: React.FC<QuoteEditorPageProps> = ({
     name: string;
     price: number;
     unit: string;
+    quantity?: number;
     description?: string;
     saveToCatalog?: boolean;
   }) => {
+    let cleanUnit = normalizeUnit(data.unit);
+    let targetQuantity = data.quantity && data.quantity > 0 ? data.quantity : 1;
+
+    // Proteção extra: se a unidade ainda tiver número embutido (ex: "3 un"), extrai a quantidade
+    const unitMatch = String(data.unit || '').match(/^(\d+)\s*(.*)/);
+    if (unitMatch && (!data.quantity || data.quantity === 1)) {
+      targetQuantity = parseInt(unitMatch[1], 10) || 1;
+      cleanUnit = normalizeUnit(unitMatch[2]);
+    }
+
     setItemName(data.name);
     setSearchQuery(data.name);
     setItemPrice(data.price);
-    setItemUnit(data.unit || 'un');
+    setItemUnit(cleanUnit);
     setItemDescription(data.description || '');
     setItemType(ItemType.SERVICE);
-    setItemQuantity(1);
+    setItemQuantity(targetQuantity);
     setSelectedCatalogItem(null);
 
     // Salva no catálogo do prestador se solicitado
@@ -222,7 +234,7 @@ export const QuoteEditorPage: React.FC<QuoteEditorPageProps> = ({
       onSaveCatalogItem({
         name: data.name,
         price: data.price,
-        unit: data.unit || 'un',
+        unit: cleanUnit,
         description: data.description || '',
         type: ItemType.SERVICE,
       }, false);
@@ -544,7 +556,21 @@ export const QuoteEditorPage: React.FC<QuoteEditorPageProps> = ({
                 <div className="col-span-1 sm:col-span-3">
                   <div className="flex items-center justify-between mb-1">
                     <label className="text-xs font-medium text-slate-700 truncate">Qtd</label>
-                    <span className="text-[11px] text-slate-400">{itemUnit || 'un'}</span>
+                    <select
+                      value={normalizeUnit(itemUnit)}
+                      onChange={(e) => setItemUnit(normalizeUnit(e.target.value))}
+                      className="text-[11px] font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200/60 rounded px-1.5 py-0.5 outline-none cursor-pointer"
+                      title="Alterar unidade de medida"
+                    >
+                      <option value="un">un</option>
+                      <option value="ponto">ponto</option>
+                      <option value="serviço">serviço</option>
+                      <option value="m²">m²</option>
+                      <option value="m">m</option>
+                      <option value="diária">diária</option>
+                      <option value="hora">hora</option>
+                      <option value="kg">kg</option>
+                    </select>
                   </div>
                   <div className="flex items-center bg-white border border-slate-300 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500">
                     <button
@@ -681,7 +707,7 @@ export const QuoteEditorPage: React.FC<QuoteEditorPageProps> = ({
                               {item.name}
                             </p>
                             <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-medium shrink-0">
-                              {item.unit || 'un'}
+                              {normalizeUnit(item.unit)}
                             </span>
                           </div>
                           <p className="text-xs text-slate-500 mt-0.5 pl-7">
@@ -827,7 +853,7 @@ export const QuoteEditorPage: React.FC<QuoteEditorPageProps> = ({
                     <p className="text-xs font-semibold text-slate-800 truncate group-hover:text-blue-700">
                       {item.name}
                     </p>
-                    <p className="text-[11px] text-slate-400">{item.unit || 'un'}</p>
+                    <p className="text-[11px] text-slate-400">{normalizeUnit(item.unit)}</p>
                   </div>
                   <div className="text-right shrink-0 flex items-center gap-1.5">
                     <span className="text-xs font-bold text-slate-900 group-hover:text-blue-600">

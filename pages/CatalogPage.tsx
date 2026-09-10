@@ -4,6 +4,7 @@ import { CatalogItem, ItemType } from '../types';
 import { Button } from '../components/Button';
 import { Briefcase, Box, Settings, Trash2, Sparkles } from 'lucide-react';
 import { formatCurrency, maskCurrencyInput } from '../utils/formatters';
+import { normalizeUnit } from '../services/marketEstimator';
 import { AiPriceConsultantModal } from '../components/AiPriceConsultantModal';
 
 interface CatalogPageProps {
@@ -37,7 +38,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({ catalog, onSaveItem, o
       type: ItemType.SERVICE,
       name: prev.name?.trim() ? prev.name : data.name,
       price: data.price,
-      unit: data.unit || prev.unit || 'un',
+      unit: normalizeUnit(data.unit || prev.unit),
       description: prev.description?.trim() ? prev.description : (data.description || '')
     }));
     setCurrencyInput(maskCurrencyInput(Math.round(data.price * 100).toString()));

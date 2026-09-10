@@ -71,7 +71,7 @@ async function generateContentWithFallback(contents: any, config?: any) {
   throw lastError || new Error('Modelos de IA temporariamente indisponíveis.');
 }
 
-import { calculateMarketBaseline } from './services/marketEstimator';
+import { calculateMarketBaseline, normalizeUnit } from './services/marketEstimator';
 
 async function startServer() {
   const app = express();
@@ -126,7 +126,7 @@ Retorne ESTRITAMENTE um JSON no seguinte formato:
 
 Atenção:
 - "suggestedPrice", "minPrice" e "maxPrice" devem ser números (ex: 180.00, sem símbolo de moeda).
-- "unit" deve ser a unidade de cobrança (ex: "un", "m²", "hora", "diária", "ponto", "serviço"). NUNCA use "BRL" ou "R$".
+- "unit" deve ser apenas a sigla ou nome da unidade de medida SEM números (ex: "un", "m²", "hora", "diária", "ponto", "serviço"). NUNCA use "BRL", "R$" ou números na unidade como "3 un".
 - As explicações e dicas devem ser em português do Brasil, práticas e úteis para o profissional fechar o serviço com lucro.`;
 
       const response = await generateContentWithFallback(prompt, {
@@ -144,11 +144,12 @@ Atenção:
       let minPrice = Number(parsed.minPrice) || Math.round(suggestedPrice * 0.75);
       let maxPrice = Number(parsed.maxPrice) || Math.round(suggestedPrice * 1.35);
 
-      // Normaliza unidade
-      let unit = String(parsed.unit || 'un').toLowerCase().trim();
-      if (unit === 'brl' || unit === 'r$' || unit === 'reais' || unit === 'real') {
-        unit = 'un';
-      }
+      // Normaliza unidade para padrão limpo (sem números)
+      const unit = normalizeUnit(parsed.unit);
+      const parsedQuantity = Number(parsed.quantity) || 1;
+      const unitPrice = parsedQuantity > 1 
+        ? Math.round((suggestedPrice / parsedQuantity) * 100) / 100 
+        : suggestedPrice;
 
       res.json({
         serviceName: parsed.serviceName || cleanService,
@@ -156,6 +157,8 @@ Atenção:
         minPrice,
         maxPrice,
         unit,
+        quantity: parsedQuantity,
+        unitPrice,
         estimatedHours: parsed.estimatedHours || '1 a 2 horas',
         justification: parsed.justification || 'Valor calculado com base nos custos operacionais e média do mercado.',
         tips: Array.isArray(parsed.tips) && parsed.tips.length > 0 ? parsed.tips : [

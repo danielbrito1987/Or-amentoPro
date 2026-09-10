@@ -1,5 +1,38 @@
 import { PriceSuggestion } from '../types';
 
+export function normalizeUnit(rawUnit?: string): string {
+  if (!rawUnit) return 'un';
+  let clean = rawUnit.toLowerCase().trim();
+  // Remove números e espaços no início (ex: "3 un" -> "un", "4 pontos" -> "ponto", "10 m²" -> "m²")
+  clean = clean.replace(/^\d+\s*/, '').trim();
+
+  if (clean.startsWith('unid') || clean === 'un' || clean === 'unidades' || clean === 'peça' || clean === 'peca') {
+    return 'un';
+  }
+  if (clean.startsWith('ponto')) {
+    return 'ponto';
+  }
+  if (clean === 'm2' || clean === 'm²' || clean.includes('metro quadrado')) {
+    return 'm²';
+  }
+  if (clean === 'm' || clean.includes('metro linear') || clean === 'metro') {
+    return 'm';
+  }
+  if (clean.includes('serviço') || clean.includes('servico')) {
+    return 'serviço';
+  }
+  if (clean.includes('diária') || clean.includes('diaria')) {
+    return 'diária';
+  }
+  if (clean.includes('hora') || clean === 'h' || clean === 'hrs') {
+    return 'hora';
+  }
+  if (clean === 'kg' || clean.includes('quilo')) {
+    return 'kg';
+  }
+  return clean || 'un';
+}
+
 function parseQuantity(text: string): number {
   const words: Record<string, number> = {
     um: 1,
@@ -80,7 +113,7 @@ export function calculateMarketBaseline(
   let basePrice = 160;
   let minBase = 120;
   let maxBase = 220;
-  let unit = quantity > 1 ? `${quantity} un` : 'un';
+  let unit = 'un';
   let estimatedHours = quantity > 1 ? `${quantity * 1} a ${quantity * 1.8} horas` : '1 a 2 horas';
   let formattedName = serviceDescription.trim();
   let justification = 'Estimativa baseada na média praticada por prestadores autônomos para mão de obra qualificada no mercado brasileiro.';
@@ -100,7 +133,7 @@ export function calculateMarketBaseline(
     basePrice = quantity === 1 ? singlePrice : singlePrice + (quantity - 1) * 145;
     minBase = quantity === 1 ? singleMin : singleMin + (quantity - 1) * 110;
     maxBase = quantity === 1 ? singleMax : singleMax + (quantity - 1) * 190;
-    unit = quantity > 1 ? `${quantity} un` : 'un';
+    unit = 'un';
     estimatedHours = quantity === 1 ? '1.5 a 2.5 horas' : `${Math.round(quantity * 1.2)} a ${Math.round(quantity * 1.8)} horas`;
     justification = quantity > 1 
       ? `Valor calculado para instalação de ${quantity} aparelhos no mesmo endereço, incluindo desconto por volume. Inclui fixação reforçada, montagem das pás, ligação elétrica e testes.`
@@ -119,7 +152,7 @@ export function calculateMarketBaseline(
     basePrice = quantity === 1 ? singlePrice : singlePrice + (quantity - 1) * 110;
     minBase = quantity === 1 ? 110 : 110 + (quantity - 1) * 85;
     maxBase = quantity === 1 ? 200 : 200 + (quantity - 1) * 150;
-    unit = quantity > 1 ? `${quantity} un` : 'un';
+    unit = 'un';
     estimatedHours = quantity === 1 ? '1 hora' : `${quantity * 0.8} a ${quantity * 1.2} horas`;
     justification = 'Instalação com vedação veda-rosca, conector cerâmico/Wago, conferência da fiação e teste de vazamento e aquecimento.';
     tips = [
@@ -135,7 +168,7 @@ export function calculateMarketBaseline(
     basePrice = quantity === 1 ? singlePrice : Math.max(90, quantity * 40);
     minBase = quantity === 1 ? 40 : Math.max(70, quantity * 30);
     maxBase = quantity === 1 ? 80 : Math.max(120, quantity * 60);
-    unit = `${quantity} ponto${quantity > 1 ? 's' : ''}`;
+    unit = 'ponto';
     estimatedHours = `${Math.ceil(quantity * 0.5)} a ${Math.ceil(quantity * 0.8)} horas`;
     justification = 'Instalação com reaperto seguro de bornes, teste de polaridade (fase, neutro e terra) e alinhamento do espelho.';
     tips = [
@@ -164,7 +197,7 @@ export function calculateMarketBaseline(
     basePrice = quantity === 1 ? singlePrice : singlePrice + (quantity - 1) * 80;
     minBase = quantity === 1 ? 80 : 80 + (quantity - 1) * 60;
     maxBase = quantity === 1 ? 180 : 180 + (quantity - 1) * 120;
-    unit = quantity > 1 ? `${quantity} un` : 'un';
+    unit = 'un';
     estimatedHours = `${Math.ceil(quantity * 1)} a ${Math.ceil(quantity * 1.5)} horas`;
     justification = 'Fixação com furação precisa, nivelamento estético e isolamento elétrico.';
     tips = ['Verifique se o teto é de gesso acartonado para usar buchas específicas de drywall tipo fly ou basculante.'];
@@ -177,7 +210,7 @@ export function calculateMarketBaseline(
     basePrice = quantity === 1 ? singlePrice : singlePrice + (quantity - 1) * 85;
     minBase = quantity === 1 ? 85 : 85 + (quantity - 1) * 65;
     maxBase = quantity === 1 ? 170 : 170 + (quantity - 1) * 120;
-    unit = quantity > 1 ? `${quantity} un` : 'un';
+    unit = 'un';
     estimatedHours = `${quantity * 0.7} a ${quantity * 1.2} horas`;
     justification = 'Aplicação de fita veda-rosca, alinhamento de engates flexíveis e verificação de estanqueidade.';
     tips = ['Confira a pressão da rede de água e substitua os anéis de borracha para evitar infiltrações futuras.'];
@@ -214,7 +247,7 @@ export function calculateMarketBaseline(
       basePrice = quantity === 1 ? 180 : quantity * 150;
       minBase = quantity === 1 ? 130 : quantity * 110;
       maxBase = quantity === 1 ? 260 : quantity * 210;
-      unit = quantity > 1 ? `${quantity} un` : 'un';
+      unit = 'un';
       estimatedHours = `${quantity * 2} a ${quantity * 3.5} horas`;
       justification = 'Lixamento, aplicação de fundo preparador e 2 demãos de esmalte sintético ou verniz com acabamento uniforme.';
       tips = ['Isole batentes, fechaduras e o piso com lona para evitar manchas indesejadas.'];
@@ -240,7 +273,7 @@ export function calculateMarketBaseline(
       basePrice = quantity === 1 ? 220 : singlePriceCalculation(220, 170, quantity);
       minBase = quantity === 1 ? 160 : singlePriceCalculation(160, 130, quantity);
       maxBase = quantity === 1 ? 300 : singlePriceCalculation(300, 240, quantity);
-      unit = quantity > 1 ? `${quantity} un` : 'un';
+      unit = 'un';
       estimatedHours = `${quantity * 1} a ${quantity * 1.8} horas`;
       justification = 'Higienização de turbina, serpentina, filtros e bandeja com bactericida hospitalar e limpeza do dreno.';
       tips = ['Ofereça manutenção preventiva semestral para residências e trimestral para escritórios.'];
@@ -249,7 +282,7 @@ export function calculateMarketBaseline(
       basePrice = quantity === 1 ? 580 : singlePriceCalculation(580, 500, quantity);
       minBase = quantity === 1 ? 440 : singlePriceCalculation(440, 390, quantity);
       maxBase = quantity === 1 ? 780 : singlePriceCalculation(780, 680, quantity);
-      unit = quantity > 1 ? `${quantity} un` : 'un';
+      unit = 'un';
       estimatedHours = `${quantity * 3} a ${quantity * 4.5} horas`;
       justification = 'Fixação de suportes, perfuração, isolamento térmico, vácuo com bomba e teste de pressão na linha frigorígena.';
       tips = ['Verifique se o cliente já contratou ou possui ponto elétrico 220V dedicado e dreno pronto no local.'];
@@ -340,12 +373,19 @@ export function calculateMarketBaseline(
   const finalMin = Math.round((minBase * regionalMultiplier) / 5) * 5;
   const finalMax = Math.round((maxBase * regionalMultiplier) / 5) * 5;
 
+  // Calcula valor unitário limpo (arredondado para centavos)
+  const finalUnitPrice = quantity > 1
+    ? Math.round((finalSuggested / quantity) * 100) / 100
+    : finalSuggested;
+
   return {
     serviceName: formattedName,
     suggestedPrice: finalSuggested,
     minPrice: finalMin,
     maxPrice: finalMax,
-    unit,
+    unit: normalizeUnit(unit),
+    quantity,
+    unitPrice: finalUnitPrice,
     estimatedHours,
     justification,
     tips,
