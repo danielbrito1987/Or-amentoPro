@@ -35,6 +35,24 @@ export const AdminDashboardPage: React.FC = () => {
   const [daysToAdd, setDaysToAdd] = useState<number>(30);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [userToBlock, setUserToBlock] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
+
+  
+  const handleSyncSupabase = async () => {
+    setIsSyncing(true);
+    try {
+      const res = await saasService.syncWithSupabase();
+      loadUsers();
+      refreshUserStatus();
+      setFeedback(res.message);
+      setTimeout(() => setFeedback(null), 5000);
+    } catch (err: any) {
+      setFeedback("Erro ao conectar com Supabase: " + (err.message || "tente novamente"));
+      setTimeout(() => setFeedback(null), 5000);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   const loadUsers = () => {
     const list = saasService.getAllUsers();
@@ -43,6 +61,7 @@ export const AdminDashboardPage: React.FC = () => {
 
   useEffect(() => {
     loadUsers();
+    handleSyncSupabase();
   }, []);
 
   const handleActivate = (email: string, days: number = 30) => {
@@ -106,7 +125,18 @@ export const AdminDashboardPage: React.FC = () => {
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={handleSyncSupabase}
+              disabled={isSyncing}
+              className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white rounded-2xl font-bold text-xs md:text-sm shadow-lg shadow-blue-500/30 transition-all cursor-pointer border border-blue-400/40 active:scale-95"
+              title="Consultar cadastros diretamente no banco de dados do Supabase"
+            >
+              <RefreshCw className={"w-4 h-4 " + (isSyncing ? "animate-spin" : "")} />
+              <span>{isSyncing ? "Sincronizando..." : "Sincronizar com Supabase"}</span>
+            </button>
+
             <div className="bg-white/10 backdrop-blur-md px-4 py-3 rounded-2xl border border-white/10 text-right">
               <span className="text-[11px] text-blue-200 uppercase tracking-wider font-semibold block">
                 Faturamento Mensal Estimado
@@ -192,7 +222,19 @@ export const AdminDashboardPage: React.FC = () => {
       <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden">
         <div className="p-4 sm:p-6 border-b border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
           <div>
-            <h3 className="text-lg font-bold text-slate-900">Lista de Clientes do Sistema</h3>
+            <div className="flex items-center gap-3">
+              <h3 className="text-lg font-bold text-slate-900">Lista de Clientes do Sistema</h3>
+              <button
+                onClick={handleSyncSupabase}
+                disabled={isSyncing}
+                className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-semibold transition-all cursor-pointer"
+                title="Sincronizar cadastros agora com o Supabase"
+              >
+                <RefreshCw className={"w-3.5 h-3.5 " + (isSyncing ? "animate-spin" : "")} />
+                <span>{isSyncing ? "Sincronizando..." : "Sincronizar Supabase"}</span>
+              </button>
+            </div>
+
             <p className="text-xs text-slate-500">Total de {filteredUsers.length} usuários encontrados</p>
           </div>
 

@@ -1,3 +1,4 @@
+import { getSupabase } from './supabase';
 import { User } from '../types';
 
 export const ADMIN_EMAIL = 'damasceno1871@gmail.com';
@@ -234,5 +235,72 @@ export const saasService = {
       if (reason) record.lastPaymentNote = reason;
       saasService.saveUserRecord(record);
     }
-  }
+  },
+
+  syncWithSupabase: async (): Promise<{ success: boolean; count: number; message: string }> => {
+    const supabase = getSupabase();
+    if (!supabase) {
+      return { success: false, count: 0, message: 'Supabase não está configurado nas variáveis de ambiente.' };
+    }
+
+    try {
+      // 1. Tentar buscar da tabela profiles
+      const { data: profiles, error } = await supabase
+        .from('profiles')
+        .select('*');
+
+      if (error) {
+        console.warn('Erro ao consultar profiles no Supabase:', error.message);
+        return { success: false, count: 0, message: `Erro no Supabase: ${error.message}` };
+      }
+
+      if (!profiles || profiles.length === 0) {
+        return { success: true, count: 0, message: 'Nenhum perfil encontrado na tabela profiles do Supabase.' };
+      }
+
+      const users = saasService.getAllUsers();
+      let imported = 0;
+
+      profiles.forEach((p: any) => {
+        if (!p.email) return;
+        const emailLower = p.email.trim().toLowerCase();
+        const existingIndex = users.findIndex(u => u.email.toLowerCase() === emailLower);
+
+        const createdAt = p.created_at || new Date().toISOString();
+        const trialDays = saasService.getTrialDays();
+        const defaultTrialEnd = new Date(new Date(createdAt).getTime() + trialDays * 24 * 60 * 60 * 1000).toISOString();
+
+        const isOwner = emailLower === saasService.getAdminEmail().toLowerCase();
+
+        const record: SaaSUserRecord = {
+          id: p.id || `user_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+          email: p.email,
+          name: p.name || (p.email.split('@')[0]),
+          createdAt: createdAt,
+          trialEndsAt: p.trial_ends_at || defaultTrialEnd,
+          subscriptionStatus: isOwner ? 'active' : (p.status === 'blocked' ? 'expired' : (p.plan === 'pro' || p.plan === 'enterprise' ? 'active' : 'trial')),
+          subscriptionValidUntil: isOwner ? new Date(2099, 11, 31).toISOString() : (p.subscription_valid_until || undefined),
+          role: isOwner ? 'admin' : (p.role === 'admin' ? 'admin' : 'user'),
+          companyId: p.company_id || `comp_${p.id || Date.now()}` 
+        };
+
+        if (existingIndex >= 0) {
+          users[existingIndex] = {
+            ...users[existingIndex],
+            ...record,
+            subscriptionStatus: users[existingIndex].subscriptionStatus === 'active' ? 'active' : record.subscriptionStatus
+          };
+        } else {
+          users.push(record);
+          imported++;
+        }
+      });
+
+      localStorage.setItem(USERS_REGISTRY_KEY, JSON.stringify(users));
+      return { success: true, count: profiles.length, message: `${profiles.length} cadastros sincronizados do Supabase com sucesso!` };
+    } catch (err: any) {
+      console.error('Falha na sincronização:', err);
+      return { success: false, count: 0, message: err.message || 'Erro inesperado na sincronização.' };
+    }
+  },
 };
