@@ -256,8 +256,13 @@ const AppContent: React.FC = () => {
       await storageService.saveQuote(quoteWithCompany);
       const updatedQuotes = await storageService.getQuotes(currentCompId);
       setQuotes(updatedQuotes);
+      
+      // Abre direto a tela de visualização/compartilhamento do orçamento salvo
+      const savedQuote = updatedQuotes.find(item => item.id === quoteWithCompany.id) || quoteWithCompany;
+      setSelectedQuote(savedQuote);
       setIsEditingQuote(false);
-      setSelectedQuote(null);
+      setDeleteToast(`Orçamento ${savedQuote.number} salvo com sucesso!`);
+      setTimeout(() => setDeleteToast(null), 3500);
     } catch (error) {
       alert("Erro ao salvar orçamento.");
     } finally {

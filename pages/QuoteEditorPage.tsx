@@ -272,12 +272,19 @@ export const QuoteEditorPage: React.FC<QuoteEditorPageProps> = ({
             <h2 className="text-lg sm:text-xl md:text-2xl font-black text-slate-800 truncate">{quote.number}</h2>
           </div>
         </div>
-        <div className="flex items-center justify-between sm:justify-end sm:text-right border-t sm:border-t-0 pt-2.5 sm:pt-0 border-gray-100">
-          <span className="text-xs text-slate-500 sm:hidden">Total Geral:</span>
-          <div>
+        <div className="flex items-center justify-between sm:justify-end sm:text-right border-t sm:border-t-0 pt-2.5 sm:pt-0 border-gray-100 gap-3">
+          <div className="text-left sm:text-right">
             <span className="hidden sm:block text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Total Geral</span>
             <span className="text-xl sm:text-2xl font-black text-slate-900">{formatCurrency(quote.total)}</span>
           </div>
+          <Button
+            variant="primary"
+            size="md"
+            className="bg-blue-600 hover:bg-blue-500 border-none shadow-md shadow-blue-600/25 px-4 font-bold text-sm"
+            onClick={() => onSave(quote)}
+          >
+            Salvar Orçamento
+          </Button>
         </div>
       </div>
 
