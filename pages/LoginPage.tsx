@@ -1,20 +1,41 @@
 
 import React, { useState } from 'react';
 import { Button } from '../components/Button';
-import { Mail, Lock, User as UserIcon, Loader2, AlertCircle, CheckCircle2, Database } from 'lucide-react';
+import { Mail, Lock, User as UserIcon, Loader2, AlertCircle, CheckCircle2, Database, ArrowLeft, UserCheck, Sparkles } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { isSupabaseConfigured } from '../services/supabase';
 import orcaLogo from '../src/assets/images/orcafacil_quote_logo_1788895951950.jpg';
 
-export const LoginPage: React.FC = () => {
-  const { login, register } = useAuth();
-  const [mode, setMode] = useState<'login' | 'register'>('login');
+interface LoginPageProps {
+  initialMode?: 'login' | 'register';
+  onBackToLanding?: () => void;
+}
+
+export const LoginPage: React.FC<LoginPageProps> = ({ 
+  initialMode = 'login',
+  onBackToLanding 
+}) => {
+  const { login, register, loginAsDemo } = useAuth();
+  const [mode, setMode] = useState<'login' | 'register'>(initialMode);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isDemoLoading, setIsDemoLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  const handleDemoAccess = async () => {
+    setError(null);
+    setIsDemoLoading(true);
+    try {
+      await loginAsDemo();
+    } catch (err: any) {
+      setError(err?.message || 'Erro ao entrar como usuário de demonstração.');
+    } finally {
+      setIsDemoLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,6 +75,17 @@ export const LoginPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 relative overflow-hidden">
+      {onBackToLanding && (
+        <button
+          id="btn-back-to-landing"
+          onClick={onBackToLanding}
+          className="absolute top-4 left-4 z-20 inline-flex items-center gap-2 text-xs font-semibold text-slate-300 hover:text-white px-3.5 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-900 border border-slate-800 transition-all shadow-md active:scale-[0.98]"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>Voltar para a Página Inicial</span>
+        </button>
+      )}
+
       {/* Decorative background elements */}
       <div className="absolute top-[-10%] left-[-10%] w-[45%] h-[45%] bg-blue-600/15 rounded-full blur-[130px] pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[45%] h-[45%] bg-indigo-600/15 rounded-full blur-[130px] pointer-events-none" />
@@ -197,6 +229,47 @@ export const LoginPage: React.FC = () => {
               )}
             </Button>
           </form>
+
+          {/* Card de Acesso Rápido para Apresentação / Testes */}
+          <div className="pt-3 border-t border-slate-800">
+            <div className="bg-slate-950/90 border border-blue-500/25 rounded-2xl p-4 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-blue-400 font-bold text-xs">
+                  <UserCheck className="w-4 h-4" />
+                  <span>Apresentação do Sistema (Usuário de Teste)</span>
+                </div>
+                <span className="text-[10px] font-bold bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-md">
+                  Não-Dono
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 leading-relaxed">
+                Ambiente de demonstração com dados modelo (Carlos Silva - Eletricista) sem privilégios de administrador ou dono, ideal para apresentar a clientes e parceiros.
+              </p>
+              <div className="bg-slate-900/90 p-2.5 rounded-xl text-[11px] font-mono text-slate-300 border border-slate-800 flex justify-between items-center">
+                <span>teste@orcafacil.com.br</span>
+                <span className="text-slate-500">senha: teste123</span>
+              </div>
+              <button
+                id="btn-login-demo-quick"
+                type="button"
+                disabled={isDemoLoading}
+                onClick={handleDemoAccess}
+                className="w-full py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-100 hover:text-white text-xs font-bold transition-all border border-slate-700/80 hover:border-slate-600 flex items-center justify-center gap-2 active:scale-[0.98]"
+              >
+                {isDemoLoading ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-400" />
+                    <span>Iniciando ambiente de teste...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-3.5 h-3.5 text-blue-400" />
+                    <span>Entrar no Modo Demonstração (1 Clique)</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
 
         <p className="text-center mt-5 text-slate-500 text-xs">

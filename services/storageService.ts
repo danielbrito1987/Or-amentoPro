@@ -108,52 +108,138 @@ const getInitialProviderInfo = (companyId: string): ProviderInfo => ({
   companyId
 });
 
-const getInitialQuotes = (companyId: string, provider: ProviderInfo): Quote[] => [
-  {
-    id: 'quote-demo-1',
-    number: 'ORC-0001',
-    date: new Date().toISOString().split('T')[0],
-    customerName: 'Roberto Almeida Santos',
-    customerPhone: '(11) 99123-4567',
-    customerEmail: 'roberto.almeida@gmail.com',
-    customerAddress: 'Av. Brigadeiro Faria Lima, 2200, Apto 104',
-    customerCity: 'São Paulo',
-    customerState: 'SP',
-    items: [
-      {
-        id: 'item-1',
-        name: 'Instalação de Ponto Elétrico / Tomada',
-        description: 'Instalação completa de tomada 10A ou 20A com passagem de fiação e espelho',
-        price: 85.00,
-        type: ItemType.SERVICE,
-        unit: 'un',
-        quantity: 4
-      },
-      {
-        id: 'item-5',
-        name: 'Disjuntor Bipolar DIN 32A Curva C',
-        description: 'Disjuntor padrão DIN para proteção de circuitos residenciais',
-        price: 48.00,
-        type: ItemType.PRODUCT,
-        unit: 'un',
-        quantity: 1
-      },
-      {
-        id: 'item-3',
-        name: 'Troca de Disjuntor no Quadro de Distribuição',
-        description: 'Substituição de disjuntor com teste de carga e aperto de conexões',
-        price: 90.00,
-        type: ItemType.SERVICE,
-        unit: 'un',
-        quantity: 1
-      }
-    ],
-    total: 478.00,
-    notes: 'Validade da proposta: 15 dias. Pagamento em até 3x sem juros ou 5% de desconto no Pix à vista. Garantia de 90 dias sobre a mão de obra prestada.',
-    providerInfo: provider,
-    companyId
-  }
-];
+const getInitialQuotes = (companyId: string, provider: ProviderInfo): Quote[] => {
+  const today = new Date();
+  const dateStr = today.toISOString().split('T')[0];
+  const dateYesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const dateThreeDaysAgo = new Date(today.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+  return [
+    {
+      id: 'quote-demo-1',
+      number: 'ORC-0001',
+      date: dateStr,
+      customerName: 'Roberto Almeida Santos',
+      customerPhone: '(11) 99123-4567',
+      customerEmail: 'roberto.almeida@gmail.com',
+      customerAddress: 'Av. Brigadeiro Faria Lima, 2200, Apto 104',
+      customerCity: 'São Paulo',
+      customerState: 'SP',
+      items: [
+        {
+          id: 'item-1',
+          name: 'Instalação de Ponto Elétrico / Tomada',
+          description: 'Instalação completa de tomada 10A ou 20A com passagem de fiação e espelho',
+          price: 85.00,
+          type: ItemType.SERVICE,
+          unit: 'un',
+          quantity: 4
+        },
+        {
+          id: 'item-5',
+          name: 'Disjuntor Bipolar DIN 32A Curva C',
+          description: 'Disjuntor padrão DIN para proteção de circuitos residenciais',
+          price: 48.00,
+          type: ItemType.PRODUCT,
+          unit: 'un',
+          quantity: 1
+        },
+        {
+          id: 'item-3',
+          name: 'Troca de Disjuntor no Quadro de Distribuição',
+          description: 'Substituição de disjuntor com teste de carga e aperto de conexões',
+          price: 90.00,
+          type: ItemType.SERVICE,
+          unit: 'un',
+          quantity: 1
+        }
+      ],
+      total: 478.00,
+      notes: 'Validade da proposta: 15 dias. Pagamento em até 3x sem juros ou 5% de desconto no Pix à vista. Garantia de 90 dias sobre a mão de obra prestada.',
+      providerInfo: provider,
+      companyId
+    },
+    {
+      id: 'quote-demo-2',
+      number: 'ORC-0002',
+      date: dateYesterday,
+      customerName: 'Juliana Mendes Rocha',
+      customerPhone: '(11) 98234-9988',
+      customerEmail: 'juliana.rocha@hotmail.com',
+      customerAddress: 'Rua Bela Cintra, 890, Apto 52',
+      customerCity: 'São Paulo',
+      customerState: 'SP',
+      items: [
+        {
+          id: 'item-2',
+          name: 'Manutenção Preventiva de Ar Condicionado (Split)',
+          description: 'Higienização completa da evaporadora e condensadora com aplicação de bactericida',
+          price: 180.00,
+          type: ItemType.SERVICE,
+          unit: 'un',
+          quantity: 2
+        },
+        {
+          id: 'item-1',
+          name: 'Instalação de Ponto Elétrico / Tomada',
+          description: 'Ponto dedicado 220V para alimentação do ar condicionado',
+          price: 120.00,
+          type: ItemType.SERVICE,
+          unit: 'un',
+          quantity: 1
+        },
+        {
+          id: 'item-6',
+          name: 'Rolo de Cabo Flexível 2,5mm (100 metros)',
+          description: 'Cabo normatizado NBR antichama para circuito elétrico',
+          price: 240.00,
+          type: ItemType.PRODUCT,
+          unit: 'un',
+          quantity: 1
+        }
+      ],
+      total: 720.00,
+      notes: 'Proposta com produtos de primeira linha. Realização do serviço em 1 dia útil após aprovação.',
+      providerInfo: provider,
+      companyId
+    },
+    {
+      id: 'quote-demo-3',
+      number: 'ORC-0003',
+      date: dateThreeDaysAgo,
+      customerName: 'Condomínio Residencial Parque dos Pássaros',
+      customerPhone: '(11) 97711-2233',
+      customerEmail: 'sindico@parquepassaros.com.br',
+      customerAddress: 'Alameda dos Ipês, 150 - Portaria',
+      customerCity: 'São Paulo',
+      customerState: 'SP',
+      items: [
+        {
+          id: 'item-4',
+          name: 'Pintura Residencial com Emassamento',
+          description: 'Preparação de superfície, lixamento, selador e 2 demãos de tinta acrílica premium',
+          price: 45.00,
+          type: ItemType.SERVICE,
+          unit: 'm²',
+          quantity: 40
+        },
+        {
+          id: 'item-7',
+          name: 'Lâmpada LED Tubular T8 18W Bivolt',
+          description: 'Substituição das luminárias antigas da garagem por lâmpadas LED 6500K',
+          price: 26.50,
+          type: ItemType.PRODUCT,
+          unit: 'un',
+          quantity: 16
+        }
+      ],
+      total: 2224.00,
+      notes: 'Emissão de Nota Fiscal de Serviços com retenções legais. Pagamento faturado 15/30 dias.',
+      providerInfo: provider,
+      companyId
+    }
+  ];
+};
 
 export const storageService = {
   // Catalog (Produtos e Serviços)

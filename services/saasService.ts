@@ -79,11 +79,16 @@ export const saasService = {
     const existing = users.find(u => u.email.toLowerCase() === user.email.toLowerCase());
 
     const isSystemAdmin = user.email.trim().toLowerCase() === ADMIN_EMAIL.toLowerCase();
+    const isTestDemo = user.email.trim().toLowerCase() === 'teste@orcafacil.com.br' || user.email.trim().toLowerCase() === 'demo@orcafacil.com.br';
 
     if (existing) {
       if (isSystemAdmin) {
         existing.role = 'admin';
         existing.subscriptionStatus = 'active';
+      } else if (isTestDemo) {
+        existing.role = 'user';
+        existing.subscriptionStatus = 'active';
+        existing.subscriptionValidUntil = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
       }
       saasService.saveUserRecord(existing);
       return existing;
@@ -98,9 +103,11 @@ export const saasService = {
       name: user.name || user.email.split('@')[0],
       createdAt: now.toISOString(),
       trialEndsAt: trialEnd.toISOString(),
-      subscriptionStatus: isSystemAdmin ? 'active' : 'trial',
-      subscriptionValidUntil: isSystemAdmin ? new Date(2099, 11, 31).toISOString() : undefined,
-      role: isSystemAdmin ? 'admin' : 'user',
+      subscriptionStatus: (isSystemAdmin || isTestDemo) ? 'active' : 'trial',
+      subscriptionValidUntil: isSystemAdmin 
+        ? new Date(2099, 11, 31).toISOString() 
+        : (isTestDemo ? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString() : undefined),
+      role: isSystemAdmin ? 'admin' : 'user', // O usuário de teste é estritamente 'user' (não-dono)
       companyId: user.companyId || 'comp_' + Math.random().toString(36).substring(2, 9)
     };
 
@@ -123,6 +130,18 @@ export const saasService = {
         daysRemaining: 9999,
         hoursRemaining: 999999,
         expiresAt: new Date(2099, 11, 31),
+        isExpired: false
+      };
+    }
+
+    // Usuário de teste/apresentação (não-dono): sempre ativo para demonstração perfeita
+    const cleanUserEmail = user.email ? user.email.trim().toLowerCase() : '';
+    if (cleanUserEmail === 'teste@orcafacil.com.br' || cleanUserEmail === 'demo@orcafacil.com.br') {
+      return {
+        status: 'active',
+        daysRemaining: 30,
+        hoursRemaining: 720,
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         isExpired: false
       };
     }

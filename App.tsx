@@ -10,6 +10,7 @@ import { SettingsPage } from './pages/SettingsPage';
 import { QuoteEditorPage } from './pages/QuoteEditorPage';
 import { QuoteViewPage } from './pages/QuoteViewPage';
 import { LoginPage } from './pages/LoginPage';
+import { LandingPage } from './pages/LandingPage';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { FileText, Menu, X, Loader2 } from 'lucide-react';
 import { SyncIndicator } from './components/SyncIndicator';
@@ -22,8 +23,11 @@ import { InteractiveGuideModal } from './components/InteractiveGuideModal';
 import { ConfirmModal } from './components/ConfirmModal';
 
 const AppContent: React.FC = () => {
-  const { user, isAuthenticated, isSuspended, subscriptionInfo, isLoading, logout, refreshUserStatus } = useAuth();
+  const { user, isAuthenticated, isSuspended, subscriptionInfo, isLoading, logout, refreshUserStatus, loginAsDemo } = useAuth();
   
+  // Controle de exibição pública: landing page ou tela de login/cadastro
+  const [publicView, setPublicView] = useState<'landing' | 'login' | 'register'>('landing');
+
   const [activeTab, setActiveTab] = useState<'quotes' | 'catalog' | 'settings' | 'admin'>('quotes');
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
@@ -286,6 +290,11 @@ const AppContent: React.FC = () => {
     }
   };
 
+  const handleLogout = () => {
+    logout();
+    setPublicView('landing');
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -295,7 +304,30 @@ const AppContent: React.FC = () => {
   }
 
   if (!isAuthenticated) {
-    return <LoginPage />;
+    if (publicView === 'login') {
+      return (
+        <LoginPage 
+          initialMode="login" 
+          onBackToLanding={() => setPublicView('landing')} 
+        />
+      );
+    }
+
+    if (publicView === 'register') {
+      return (
+        <LoginPage 
+          initialMode="register" 
+          onBackToLanding={() => setPublicView('landing')} 
+        />
+      );
+    }
+
+    return (
+      <LandingPage 
+        onGoToLogin={() => setPublicView('login')}
+        onGoToRegister={() => setPublicView('register')}
+      />
+    );
   }
 
   if (isSuspended) {
@@ -305,7 +337,7 @@ const AppContent: React.FC = () => {
         <SubscriptionPaywallModal
           userEmail={user?.email}
           userName={user?.name}
-          onLogout={logout}
+          onLogout={handleLogout}
           onCheckStatus={refreshUserStatus}
         />
       );
@@ -315,7 +347,7 @@ const AppContent: React.FC = () => {
       <AccountSuspendedModal
         userEmail={user?.email}
         reason={user?.statusReason}
-        onLogout={logout}
+        onLogout={handleLogout}
       />
     );
   }
@@ -347,7 +379,7 @@ const AppContent: React.FC = () => {
         providerInfo={providerInfo} 
         isOpen={isSidebarOpen} 
         onClose={() => setIsSidebarOpen(false)}
-        onLogout={logout}
+        onLogout={handleLogout}
         onOpenGuide={() => setIsGuideOpen(true)}
       />
 

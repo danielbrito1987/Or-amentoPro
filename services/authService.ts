@@ -42,6 +42,12 @@ const mapSupabaseUser = (sbUser: any, token: string): { token: string; user: Use
 export const authService = {
   login: async (email: string, password: string): Promise<{ token: string; user: User }> => {
     const cleanEmail = email.trim().toLowerCase();
+
+    // 0. Usuário de teste/demonstração para apresentação do sistema (não é dono, dados modelos prontos)
+    if (cleanEmail === 'teste@orcafacil.com.br' || cleanEmail === 'demo@orcafacil.com.br') {
+      return authService.loginAsDemo();
+    }
+
     const supabase = getSupabase();
 
     // 1. Se o Supabase estiver configurado, usa a autenticação oficial do Supabase
@@ -159,13 +165,15 @@ export const authService = {
 
   loginAsDemo: async (): Promise<{ token: string; user: User }> => {
     const demoUser: User = {
-      id: 'usr_demo_1',
-      email: 'demo@orcafacil.com.br',
-      name: 'Carlos Silva (Eletricista & Manutenções)',
+      id: 'usr_teste_apresentacao',
+      email: 'teste@orcafacil.com.br',
+      name: 'Carlos Silva (Demonstração / Teste)',
       companyId: 'comp_demo_eletro',
+      role: 'user', // Explicitamente 'user' (NÃO é dono/admin)
+      status: 'active'
     };
 
-    const token = 'demo_jwt_token_active';
+    const token = 'demo_jwt_token_active_presentation';
     localStorage.setItem(TOKEN_KEY, token);
     localStorage.setItem(USER_KEY, JSON.stringify(demoUser));
 
