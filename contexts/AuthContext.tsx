@@ -39,12 +39,22 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     const initAuth = async () => {
       try {
-        const currentUser = await authService.getCurrentUserAsync();
-        if (currentUser) {
-          setUser(currentUser);
+        // Verifica se a função existe antes de chamar
+        if (typeof authService?.getCurrentUserAsync === 'function') {
+          const currentUser = await authService.getCurrentUserAsync();
+          if (currentUser) {
+            setUser(currentUser);
+          }
+        } else if (typeof authService?.getCurrentUser === 'function') {
+          const local = authService.getCurrentUser();
+          if (local) {
+            setUser(local);
+          }
         }
       } catch (error) {
         console.error('Erro ao verificar sessão:', error);
+      } finally {
+        setIsLoading(false);
       }
     };
 

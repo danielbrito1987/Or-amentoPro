@@ -40,6 +40,64 @@ const mapSupabaseUser = (sbUser: any, token: string): { token: string; user: Use
 };
 
 export const authService = {
+  getCurrentUser: (): User | null => {
+    const userJson = localStorage.getItem(USER_KEY);
+    if (!userJson) return null;
+    try {
+      return JSON.parse(userJson);
+    } catch (e) {
+      return null;
+    }
+  },
+
+  getCurrentUserAsync: async (timeoutMs: number = 2500): Promise<User | null> => {
+    const supabase = getSupabase();
+    
+    try {
+      const sessionPromise = supabase.auth.getSession().catch(() => ({ data: { session: null }, error: null }));
+      const timeoutPromise = new Promise<{ data: { session: null }, error: null }>((res) => 
+        setTimeout(() => res({ data: { session: null }, error: null }), timeoutMs)
+      );
+
+      const result: any = await Promise.race([sessionPromise, timeoutPromise]);
+      const session = result?.data?.session || null;
+      const error = result?.error || null;
+
+      if (session?.user && !error) {
+        try {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+
+          const activeUser: User = {
+            id: session.user.id,
+            email: session.user.email || '',
+            name: profile?.name || session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'Usuário',
+            role: profile?.role || 'user',
+            companyId: profile?.company_id || session.user.id,
+            plan: profile?.plan || 'pro',
+            status: 'active'
+          };
+
+          localStorage.setItem(USER_KEY, JSON.stringify(activeUser));
+          return activeUser;
+        } catch (profileErr) {
+          console.warn('Erro ao buscar perfil:', profileErr);
+        }
+      }
+    } catch (err) {
+      console.warn('Erro ao conectar com Supabase Auth, utilizando cache local:', err);
+    }
+
+    // Fallback síncrono local se Supabase não responder
+    const localUser = authService.getCurrentUser();
+    if (localUser) return localUser;
+
+    return null;
+  },
+
   login: async (email: string, password: string): Promise<{ token: string; user: User }> => {
     const cleanEmail = email.trim().toLowerCase();
 
