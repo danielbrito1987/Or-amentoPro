@@ -22,7 +22,8 @@ import {
   HelpCircle,
   Share2,
   Lock,
-  X
+  X,
+Crown
 } from 'lucide-react';
 import { formatCurrency } from '../utils/formatters';
 import { 
@@ -745,10 +746,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </div>
 
             {/* Card Plano Premium - R$ 199,90 */}
-            <div className="bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 border-2 border-blue-500 rounded-3xl p-6 sm:p-8 flex flex-col justify-between shadow-2xl shadow-blue-950/60 relative transition-all">
-              <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-black text-xs uppercase tracking-wider px-4 py-1 rounded-full shadow-lg flex items-center gap-1.5 whitespace-nowrap">
-                <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                <span>Full • Completão</span>
+            <div className="relative rounded-3xl p-8 bg-gradient-to-b from-slate-900 via-amber-950/20 to-slate-900 border-2 border-amber-400/80 shadow-2xl shadow-amber-500/20 flex flex-col justify-between overflow-hidden ring-1 ring-amber-400/30">
+              <div className="absolute top-0 right-0 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-600 text-slate-950 text-[10px] font-black uppercase tracking-wider py-1.5 px-4 rounded-bl-xl shadow-lg shadow-amber-500/30 flex items-center gap-1">
+                <Crown className="w-3.5 h-3.5" />
+                Plano Premium ⭐
               </div>
 
               <div>
@@ -757,11 +758,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                     <h3 className="text-xl font-black text-white flex items-center gap-1.5">
                       Plano Premium
                     </h3>
-                    <p className="text-xs text-blue-200 mt-1">Acesso ilimitado e IA para fechar mais e melhor</p>
+                    <p className="text-xs text-slate-400 min-h-[36px] mb-4">
+                      Para profissionais estabelecidos que buscam autonomia, contratos jurídicos e automação total.
+                    </p>
                   </div>
-                  <span className="text-xs font-bold text-emerald-300 bg-emerald-950/80 px-3 py-1 rounded-full border border-emerald-500/30">
-                    Melhor custo-benefício
-                  </span>
                 </div>
 
                 <div className="py-4 border-y border-slate-800 my-2">
@@ -771,62 +771,49 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                     <span className="text-slate-400 text-xs font-medium">/mês</span>
                   </div>
                   <p className="text-[11px] text-emerald-400 font-semibold mt-2">
-                    7 dias de teste grátis com todos os recursos liberados
+                    ✨ Teste 7 dias grátis sem compromisso
                   </p>
                 </div>
 
                 <ul className="py-6 space-y-3.5 text-xs sm:text-sm text-slate-200">
                   <li className="flex items-center gap-2.5 font-bold text-white">
-                    <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <Check className="w-4 h-4 text-amber-400 shrink-0" />
                     <span>Gestão <strong>COMPLETA</strong> dos seus contratos</span>
                   </li>
                   <li className="flex items-center gap-2.5 font-bold text-white">
-                    <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <Check className="w-4 h-4 text-amber-400 shrink-0" />
                     <span>Assinatura <strong>DIGITAL</strong> dos contratos</span>
                   </li>
                   <li className="flex items-center gap-2.5 font-bold text-white">
-                    <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <Check className="w-4 h-4 text-amber-400 shrink-0" />
                     <span>Orçamentos <strong>ILIMITADOS</strong> em PDF</span>
                   </li>
-                  <li className="flex items-center gap-2.5 font-bold text-amber-300 bg-amber-950/30 p-2 rounded-xl border border-amber-500/25">
-                    <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
-                    <span>Consultor de Preços com Inteligência Artificial</span>
+                  <li className="flex items-center gap-2.5 font-bold text-amber-200 bg-amber-500/10 p-2.5 rounded-xl border border-amber-400/30">
+                    <Sparkles className="w-4 h-4 text-amber-300 shrink-0" />
+                    <span><strong>IA Exclusiva</strong> (descrições & termos automáticos)</span>
                   </li>
                   <li className="flex items-center gap-2.5">
-                    <Check className="w-4 h-4 text-blue-400 shrink-0" />
-                    <span>Envio Direto no WhatsApp em 1 Toque</span>
+                    <Check className="w-4 h-4 text-amber-400 shrink-0" />
+                    <span>Envio 1-clique via WhatsApp com link direto</span>
                   </li>
                   <li className="flex items-center gap-2.5">
-                    <Check className="w-4 h-4 text-blue-400 shrink-0" />
-                    <span>Catálogo ilimitado de serviços e produtos</span>
+                    <Check className="w-4 h-4 text-amber-400 shrink-0" />
+                    <span>Catálogo ilimitado de serviços & produtos</span>
                   </li>
                   <li className="flex items-center gap-2.5">
-                    <Check className="w-4 h-4 text-blue-400 shrink-0" />
-                    <span>Sua logo, CNPJ/CPF e chave Pix na proposta</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <Check className="w-4 h-4 text-blue-400 shrink-0" />
-                    <span>Sincronização em nuvem e modo offline</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <Check className="w-4 h-4 text-blue-400 shrink-0" />
+                    <Check className="w-4 h-4 text-amber-400 shrink-0" />
                     <span>Suporte prioritário via WhatsApp</span>
                   </li>
                 </ul>
               </div>
 
-              <div>
-                <button
-                  id="btn-pricing-pro-register"
-                  onClick={onGoToRegister}
-                  className="w-full py-4 text-base font-extrabold rounded-2xl bg-blue-600 hover:bg-blue-500 text-white shadow-xl shadow-blue-600/30 transition-all active:scale-[0.98] cursor-pointer"
-                >
-                  Criar Conta e Testar Plano Premium (7 Dias)
-                </button>
-                <p className="text-[11px] text-slate-400 text-center mt-2.5">
-                  Não cobramos nada hoje • Liberação imediata
-                </p>
-              </div>
+              <button
+                onClick={onGoToRegister}
+                className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 hover:from-yellow-400 hover:to-amber-500 text-slate-950 font-black text-sm shadow-xl shadow-amber-500/25 transition-all transform hover:scale-[1.02] flex items-center justify-center gap-2"
+              >
+                <span>Iniciar Teste Grátis</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
             </div>
           </div>
         </div>
