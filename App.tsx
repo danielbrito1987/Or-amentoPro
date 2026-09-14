@@ -51,6 +51,7 @@ const AppContent: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isFetchingData, setIsFetchingData] = useState(false);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
+  const [isPaywallOpen, setIsPaywallOpen] = useState(false);
 
   // Estados dos modais de confirmação de exclusão
   const [quoteToDelete, setQuoteToDelete] = useState<Quote | null>(null);
@@ -459,6 +460,10 @@ const AppContent: React.FC = () => {
               onDeleteQuote={handleRequestDeleteQuote}
               onOpenGuide={() => setIsGuideOpen(true)}
             />
+          )}
+
+          {activeTab === 'contracts' && !isEditingContract && (
+            <ContractsPage onUpgradeToPremium={() => setIsPaywallOpen(true)} />
           )}
 
           {activeTab === 'catalog' && (
