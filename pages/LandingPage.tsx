@@ -599,7 +599,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl mx-auto items-stretch">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto items-stretch">
             {/* Card Plano Básico - R$ 29,90 */}
             <div className="bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-3xl p-6 sm:p-8 flex flex-col justify-between transition-all relative">
               <div>
@@ -736,6 +736,83 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   className="w-full py-4 text-base font-extrabold rounded-2xl bg-blue-600 hover:bg-blue-500 text-white shadow-xl shadow-blue-600/30 transition-all active:scale-[0.98] cursor-pointer"
                 >
                   Criar Conta e Testar Plano Pro (7 Dias)
+                </button>
+                <p className="text-[11px] text-slate-400 text-center mt-2.5">
+                  Não cobramos nada hoje • Liberação imediata
+                </p>
+              </div>
+            </div>
+
+            {/* Card Plano Premium - R$ 199,90 */}
+            <div className="bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 border-2 border-blue-500 rounded-3xl p-6 sm:p-8 flex flex-col justify-between shadow-2xl shadow-blue-950/60 relative transition-all">
+              <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-black text-xs uppercase tracking-wider px-4 py-1 rounded-full shadow-lg flex items-center gap-1.5 whitespace-nowrap">
+                <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                <span>Full • Completão</span>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-4 pt-1">
+                  <div>
+                    <h3 className="text-xl font-black text-white flex items-center gap-1.5">
+                      Plano Premium
+                    </h3>
+                    <p className="text-xs text-blue-200 mt-1">Acesso ilimitado e IA para fechar mais e melhor</p>
+                  </div>
+                  <span className="text-xs font-bold text-emerald-300 bg-emerald-950/80 px-3 py-1 rounded-full border border-emerald-500/30">
+                    Melhor custo-benefício
+                  </span>
+                </div>
+
+                <div className="py-4 border-y border-slate-800 my-2">
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-sm font-semibold text-slate-400">R$</span>
+                    <span className="text-4xl sm:text-5xl font-black text-white">{formatCurrency(PLAN_PRO_PRICE).replace('R$', '').trim()}</span>
+                    <span className="text-slate-400 text-xs font-medium">/mês</span>
+                  </div>
+                  <p className="text-[11px] text-emerald-400 font-semibold mt-2">
+                    7 dias de teste grátis com todos os recursos liberados
+                  </p>
+                </div>
+
+                <ul className="py-6 space-y-3.5 text-xs sm:text-sm text-slate-200">
+                  <li className="flex items-center gap-2.5 font-bold text-white">
+                    <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>Orçamentos <strong>ILIMITADOS</strong> em PDF</span>
+                  </li>
+                  <li className="flex items-center gap-2.5 font-bold text-amber-300 bg-amber-950/30 p-2 rounded-xl border border-amber-500/25">
+                    <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
+                    <span>Consultor de Preços com Inteligência Artificial</span>
+                  </li>
+                  <li className="flex items-center gap-2.5">
+                    <Check className="w-4 h-4 text-blue-400 shrink-0" />
+                    <span>Envio Direto no WhatsApp em 1 Toque</span>
+                  </li>
+                  <li className="flex items-center gap-2.5">
+                    <Check className="w-4 h-4 text-blue-400 shrink-0" />
+                    <span>Catálogo ilimitado de serviços e produtos</span>
+                  </li>
+                  <li className="flex items-center gap-2.5">
+                    <Check className="w-4 h-4 text-blue-400 shrink-0" />
+                    <span>Sua logo, CNPJ/CPF e chave Pix na proposta</span>
+                  </li>
+                  <li className="flex items-center gap-2.5">
+                    <Check className="w-4 h-4 text-blue-400 shrink-0" />
+                    <span>Sincronização em nuvem e modo offline</span>
+                  </li>
+                  <li className="flex items-center gap-2.5">
+                    <Check className="w-4 h-4 text-blue-400 shrink-0" />
+                    <span>Suporte prioritário via WhatsApp</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div>
+                <button
+                  id="btn-pricing-pro-register"
+                  onClick={onGoToRegister}
+                  className="w-full py-4 text-base font-extrabold rounded-2xl bg-blue-600 hover:bg-blue-500 text-white shadow-xl shadow-blue-600/30 transition-all active:scale-[0.98] cursor-pointer"
+                >
+                  Criar Conta e Testar Plano Premium (7 Dias)
                 </button>
                 <p className="text-[11px] text-slate-400 text-center mt-2.5">
                   Não cobramos nada hoje • Liberação imediata

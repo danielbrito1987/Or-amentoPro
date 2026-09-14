@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Quote, CatalogItem, ProviderInfo } from './types';
+import { Quote, Contract, ContractSignature, CatalogItem, ProviderInfo } from './types';
 import { storageService } from './services/storageService';
+import { contractService } from './services/contractService';
 import { authService } from './services/authService';
 import { Sidebar } from './components/Sidebar';
 import { QuotesPage } from './pages/QuotesPage';
@@ -11,6 +12,7 @@ import { QuoteEditorPage } from './pages/QuoteEditorPage';
 import { QuoteViewPage } from './pages/QuoteViewPage';
 import { LoginPage } from './pages/LoginPage';
 import { LandingPage } from './pages/LandingPage';
+import { ContractsPage } from './pages/ContractsPage';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { FileText, Menu, X, Loader2 } from 'lucide-react';
 import { SyncIndicator } from './components/SyncIndicator';
@@ -30,8 +32,9 @@ const AppContent: React.FC = () => {
   const [publicView, setPublicView] = useState<'landing' | 'login' | 'register'>('landing');
 
   const [showQuoteLimitModal, setShowQuoteLimitModal] = useState(false);
-  const [activeTab, setActiveTab] = useState<'quotes' | 'catalog' | 'settings' | 'admin'>('quotes');
+  const [activeTab, setActiveTab] = useState<'quotes' | 'contracts' | 'catalog' | 'settings' | 'admin'>('quotes');
   const [quotes, setQuotes] = useState<Quote[]>([]);
+  const [contracts, setContracts] = useState<Contract[]>([]);
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
   const [providerInfo, setProviderInfo] = useState<ProviderInfo>({
     name: 'Carregando...',
@@ -42,7 +45,9 @@ const AppContent: React.FC = () => {
   });
   
   const [selectedQuote, setSelectedQuote] = useState<Quote | null>(null);
+  const [selectedContract, setSelectedContract] = useState<Contract | null>(null);
   const [isEditingQuote, setIsEditingQuote] = useState(false);
+  const [isEditingContract, setIsEditingContract] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isFetchingData, setIsFetchingData] = useState(false);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
@@ -56,6 +61,7 @@ const AppContent: React.FC = () => {
   // Controle de estado para saber o que já foi carregado
   const [loadedSections, setLoadedSections] = useState({
     quotes: false,
+    contracts: false,
     catalog: false,
     provider: false
   });
@@ -69,6 +75,19 @@ const AppContent: React.FC = () => {
       setLoadedSections(prev => ({ ...prev, quotes: true }));
     } catch (error) {
       console.error("Erro ao carregar orçamentos:", error);
+    } finally {
+      setIsFetchingData(false);
+    }
+  }, []);
+
+  const fetchContracts = useCallback(async (compId: string) => {
+    setIsFetchingData(true);
+    try {
+      const c = contractService.getAllContracts();
+      setContracts(c);
+      setLoadedSections(prev => ({ ...prev, contracts: true }));
+    } catch (e) {
+      console.error("Erro ao buscar contratos:", e);
     } finally {
       setIsFetchingData(false);
     }
@@ -102,10 +121,12 @@ const AppContent: React.FC = () => {
   }, []);
 
   // HANDLER PRINCIPAL: Carrega os dados SOB DEMANDA ao trocar de aba
-  const handleTabChange = (tab: 'quotes' | 'catalog' | 'settings') => {
+  const handleTabChange = (tab: 'quotes' | 'catalog' | 'settings' | 'contracts') => {
     setActiveTab(tab);
     setSelectedQuote(null);
+    setSelectedContract(null);
     setIsEditingQuote(false);
+    setIsEditingContract(false);
     setIsSidebarOpen(false);
 
     // Tenta pegar o ID do estado ou direto do storage (fallback para logo após login)
@@ -114,6 +135,8 @@ const AppContent: React.FC = () => {
 
     if (tab === 'quotes' && !loadedSections.quotes) {
       fetchQuotes(currentCompId);
+    } else if (tab === 'contracts' && !loadedSections.contracts) {
+      fetchContracts(currentCompId);
     } else if (tab === 'catalog' && !loadedSections.catalog) {
       fetchCatalog(currentCompId);
     } else if (tab === 'settings' && !loadedSections.provider) {
@@ -127,6 +150,7 @@ const AppContent: React.FC = () => {
       const currentCompId = user?.companyId || authService.getCurrentUser()?.companyId;
       if (currentCompId) {
         if (!loadedSections.quotes) fetchQuotes(currentCompId);
+        if (!loadedSections.contracts) fetchContracts(currentCompId);
         if (!loadedSections.provider) fetchProvider(currentCompId);
         if (!loadedSections.catalog) fetchCatalog(currentCompId);
       }
@@ -175,6 +199,25 @@ const AppContent: React.FC = () => {
     setSelectedQuote(newQuote);
     setIsEditingQuote(true);
   };
+
+  /*const newContract: Contract = {
+    id: crypto.randomUUID(),
+    contractNumber: `CONT-${String(contracts.length + 1).padStart(4, '0')}`,
+    quoteId: selectedQuote.id,
+    quoteNumber: selectedQuote.number,
+    userEmail: '',
+    status: 'draft',
+    providerName: providerInfo.name,
+    providerDocument: providerInfo.document,
+    providerAddress: providerInfo.address,
+    providerEmail: providerInfo.email,
+    providerPhone: providerInfo.phone,
+    clientName: selectedQuote.customerName,
+    clientDocument: '',
+    clientAddress: selectedQuote.customerAddress,
+    clientEmail: selectedQuote.customerEmail,
+    clientPhone: selectedQuote.customerPhone,
+  };*/
 
   const saveCatalogItem = async (item: Partial<CatalogItem>, isEditing: boolean) => {
     const currentCompId = user?.companyId || authService.getCurrentUser()?.companyId;
@@ -417,6 +460,10 @@ const AppContent: React.FC = () => {
               onOpenGuide={() => setIsGuideOpen(true)}
             />
           )}
+
+          /*{activeTab === 'contracts' && !isEditingContract && !selectedContract && (
+            <ContractsPage onUpgradeToPremium={() => setIsPaywallOpen(true)} />
+          )}*/
 
           {activeTab === 'catalog' && (
             <CatalogPage 

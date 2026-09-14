@@ -143,6 +143,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Lista de Navegação */}
         <div className="flex-1 px-3 space-y-2 mt-4 overflow-y-auto overflow-x-hidden">
           <NavButton tab="quotes" icon={TrendingUp} label="Orçamentos" />
+          <NavButton tab="contracts" icon={ShieldCheck} label="Contratos & Assinaturas" />
           <NavButton tab="catalog" icon={Package} label="Catálogo" />
           <NavButton tab="settings" icon={Settings} label="Meus Dados" />
 

@@ -91,3 +91,46 @@ export interface PriceSuggestion {
   justification: string;
   tips?: string[];
 }
+
+export type TabType = 'dashboard' | 'quotes' | 'contracts' | 'products' | 'settings';
+
+export interface ContractSignature {
+  signerType: 'provider' | 'client';
+  name: string;
+  document: string;
+  email?: string;
+  signatureDataUrl?: string; // Desenho da rubrica no canvas em base64 PNG
+  signedAt: string; // Data e hora no formato ISO
+  ipAddress?: string;
+  userAgent?: string;
+  status: 'pending' | 'signed';
+}
+
+export interface Contract {
+  id: string;
+  contractNumber: string; // Ex: CONT-2026-001
+  quoteId: string;
+  quoteNumber: string;
+  userEmail: string; // E-mail do proprietário da conta
+  createdAt: string;
+  updatedAt: string;
+  status: 'draft' | 'pending_signatures' | 'partially_signed' | 'signed' | 'cancelled';
+  // Dados da Contratada (Prestador)
+  providerName: string;
+  providerDocument: string;
+  providerAddress: string;
+  providerEmail: string;
+  providerPhone: string;
+  // Dados do Contratante (Cliente)
+  clientName: string;
+  clientDocument: string;
+  clientAddress: string;
+  clientEmail: string;
+  clientPhone: string;
+  // Conteúdo Jurídico e Assinaturas
+  title: string;
+  totalValue: number;
+  paymentTerms: string;
+  content: string; // Texto completo com as cláusulas
+  signatures: ContractSignature[];
+}

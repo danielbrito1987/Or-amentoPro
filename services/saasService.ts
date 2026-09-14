@@ -5,11 +5,12 @@ export const ADMIN_EMAIL = 'damasceno1871@gmail.com';
 export const PIX_KEY = 'damasceno1871@gmail.com';
 export const PLAN_BASIC_PRICE = 29.90;
 export const PLAN_PRO_PRICE = 59.90;
+export const PLAN_PREMIUM_PRICE = 199.90;
 export const MONTHLY_PRICE = PLAN_PRO_PRICE;
 export const TRIAL_DAYS = 7;
 export const BASIC_MONTHLY_QUOTES_LIMIT = 20;
 
-export type SubscriptionPlanId = 'basic' | 'pro';
+export type SubscriptionPlanId = 'basic' | 'pro' | 'premium';
 
 export interface PlanConfig {
   id: SubscriptionPlanId;
@@ -48,6 +49,24 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlanId, PlanConfig> = {
     hasAiConsultant: true,
     description: 'Acesso total e irrestrito para fechar mais negócios e nunca errar nos preços.',
     badge: 'Mais Escolhido',
+    features: [
+      'Orçamentos ilimitados em PDF',
+      'Consultor de Preços com Inteligência Artificial (SINAPI e médias)',
+      'Envio rápido em PDF pelo WhatsApp em 1 clique',
+      'Catálogo de serviços e materiais sem limites',
+      'Sua logo, CNPJ/CPF e chave Pix na proposta',
+      'Sincronização em nuvem e modo offline',
+      'Suporte prioritário via WhatsApp'
+    ]
+  },
+  premium: {
+    id: 'premium',
+    name: 'Plano Premium',
+    price: PLAN_PREMIUM_PRICE,
+    monthlyQuotesLimit: null, // Ilimitado
+    hasAiConsultant: true,
+    description: 'Todas as funcionalidades do plano Pro, mais a gestão de contratos.',
+    badge: 'Full',
     features: [
       'Orçamentos ilimitados em PDF',
       'Consultor de Preços com Inteligência Artificial (SINAPI e médias)',
