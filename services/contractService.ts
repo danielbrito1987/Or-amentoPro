@@ -1,6 +1,5 @@
 import { Contract, ContractSignature, Quote, ProviderInfo } from '../types';
-import { supabase } from './supabaseClient';
-import { getProviderInfo } from './storageService';
+import { storageService  } from './storageService';
 
 const STORAGE_KEY_CONTRACTS = 'orca_facil_contracts';
 
@@ -18,7 +17,7 @@ export const contractService = {
   },
 
   createContractFromQuote: async (quote: Quote, customProvider?: ProviderInfo): Promise<Contract> => {
-    const provider = customProvider || getProviderInfo();
+    const provider = customProvider || await storageService.getProviderInfo();
     const now = new Date();
     const year = now.getFullYear();
     const existing = contractService.getAllContracts();

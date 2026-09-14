@@ -34,7 +34,22 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    const initAuth = async () => {
+      try {
+        const currentUser = await authService.getCurrentUserAsync();
+        if (currentUser) {
+          setUser(currentUser);
+        }
+      } catch (error) {
+        console.error('Erro ao verificar sessão:', error);
+      }
+    };
+
+    initAuth();
+  }, []);
 
   // Carrega estado inicial de forma síncrona do localStorage para evitar telas de login piscando
   useEffect(() => {

@@ -29,7 +29,8 @@ import {
   PLAN_BASIC_PRICE, 
   PLAN_PRO_PRICE, 
   BASIC_MONTHLY_QUOTES_LIMIT, 
-  TRIAL_DAYS 
+  TRIAL_DAYS, 
+PLAN_PREMIUM_PRICE
 } from '../services/saasService';
 import orcaLogo from '../src/assets/images/orcafacil_quote_logo_1788895951950.jpg';
 
@@ -766,7 +767,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 <div className="py-4 border-y border-slate-800 my-2">
                   <div className="flex items-baseline gap-1">
                     <span className="text-sm font-semibold text-slate-400">R$</span>
-                    <span className="text-4xl sm:text-5xl font-black text-white">{formatCurrency(PLAN_PRO_PRICE).replace('R$', '').trim()}</span>
+                    <span className="text-4xl sm:text-5xl font-black text-white">{formatCurrency(PLAN_PREMIUM_PRICE).replace('R$', '').trim()}</span>
                     <span className="text-slate-400 text-xs font-medium">/mês</span>
                   </div>
                   <p className="text-[11px] text-emerald-400 font-semibold mt-2">
@@ -775,6 +776,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 </div>
 
                 <ul className="py-6 space-y-3.5 text-xs sm:text-sm text-slate-200">
+                  <li className="flex items-center gap-2.5 font-bold text-white">
+                    <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>Gestão <strong>COMPLETA</strong> dos seus contratos</span>
+                  </li>
+                  <li className="flex items-center gap-2.5 font-bold text-white">
+                    <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>Assinatura <strong>DIGITAL</strong> dos contratos</span>
+                  </li>
                   <li className="flex items-center gap-2.5 font-bold text-white">
                     <Check className="w-4 h-4 text-emerald-400 shrink-0" />
                     <span>Orçamentos <strong>ILIMITADOS</strong> em PDF</span>
