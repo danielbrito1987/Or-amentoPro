@@ -17,6 +17,7 @@ import { ProviderInfo } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { SyncIndicator } from './SyncIndicator';
 import { AppLogo } from './AppLogo';
+import { saasService } from '../services/saasService';
 
 interface SidebarProps {
   activeTab: string;
@@ -218,6 +219,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       className="text-[9px] bg-emerald-500/30 text-emerald-300 font-bold px-1.5 py-0.2 rounded border border-emerald-500/40 shrink-0"
                     >
                       PARCEIRO
+                    </span>
+                  ) : saasService.getUserPlan(user) === 'basic' ? (
+                    <span className="text-[9px] bg-amber-500/20 text-amber-300 font-bold px-1.5 py-0.2 rounded border border-amber-500/30 shrink-0">
+                      BÁSICO
                     </span>
                   ) : (
                     <span className="text-[9px] bg-blue-500/30 text-blue-300 font-bold px-1.5 py-0.2 rounded border border-blue-500/40 shrink-0">

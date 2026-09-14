@@ -68,6 +68,7 @@ export interface User {
   trialEndsAt?: string;
   subscriptionStatus?: 'trial' | 'active' | 'expired' | 'partner';
   subscriptionValidUntil?: string;
+  plan?: 'basic' | 'pro';
   partnerCompany?: string;
   partnerCode?: string;
 }

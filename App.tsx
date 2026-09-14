@@ -21,6 +21,7 @@ import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { AppLogo } from './components/AppLogo';
 import { InteractiveGuideModal } from './components/InteractiveGuideModal';
 import { ConfirmModal } from './components/ConfirmModal';
+import { saasService, BASIC_MONTHLY_QUOTES_LIMIT, SUBSCRIPTION_PLANS } from './services/saasService';
 
 const AppContent: React.FC = () => {
   const { user, isAuthenticated, isSuspended, subscriptionInfo, isLoading, logout, refreshUserStatus, loginAsDemo } = useAuth();
@@ -28,6 +29,7 @@ const AppContent: React.FC = () => {
   // Controle de exibição pública: landing page ou tela de login/cadastro
   const [publicView, setPublicView] = useState<'landing' | 'login' | 'register'>('landing');
 
+  const [showQuoteLimitModal, setShowQuoteLimitModal] = useState(false);
   const [activeTab, setActiveTab] = useState<'quotes' | 'catalog' | 'settings' | 'admin'>('quotes');
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
@@ -134,6 +136,13 @@ const AppContent: React.FC = () => {
   const handleStartNewQuote = async () => {
     const currentCompId = user?.companyId || authService.getCurrentUser()?.companyId;
     if (!currentCompId) return;
+
+    // Checagem de limite mensal de orçamentos (Plano Básico vs Pro)
+    const limitCheck = saasService.checkQuoteCreationLimit(user, quotes);
+    if (!limitCheck.allowed) {
+      setShowQuoteLimitModal(true);
+      return;
+    }
 
     let currentProvider = providerInfo;
     
@@ -250,6 +259,17 @@ const AppContent: React.FC = () => {
   const handleSaveQuote = async (q: Quote) => {
     const currentCompId = user?.companyId || authService.getCurrentUser()?.companyId;
     if (!currentCompId) return;
+
+    // Se for um novo orçamento sendo salvo, valida o limite do plano
+    const isExisting = quotes.some(item => item.id === q.id);
+    if (!isExisting) {
+      const limitCheck = saasService.checkQuoteCreationLimit(user, quotes);
+      if (!limitCheck.allowed) {
+        setShowQuoteLimitModal(true);
+        return;
+      }
+    }
+
     setIsFetchingData(true);
     try {
       const quoteWithCompany = { 
@@ -486,6 +506,23 @@ const AppContent: React.FC = () => {
           handleStartNewQuote();
         }}
       />
+
+      {showQuoteLimitModal && (
+        <SubscriptionPaywallModal
+          userEmail={user?.email}
+          userName={user?.name}
+          onLogout={() => { setShowQuoteLimitModal(false); handleLogout(); }}
+          onClose={() => setShowQuoteLimitModal(false)}
+          onCheckStatus={() => {
+            if (refreshUserStatus) refreshUserStatus();
+            setShowQuoteLimitModal(false);
+          }}
+          initialPlan="pro"
+          customBadge={`Limite Mensal Atingido (${BASIC_MONTHLY_QUOTES_LIMIT}/${BASIC_MONTHLY_QUOTES_LIMIT})`}
+          customTitle="Limite de Orçamentos Mensais Atingido"
+          customSubtitle={`Você atingiu o limite de ${BASIC_MONTHLY_QUOTES_LIMIT} orçamentos mensais do Plano Básico. Faça o upgrade para o Plano Pro para emitir orçamentos ilimitados e desbloquear o Consultor de Preços com IA!`}
+        />
+      )}
     </div>
   );
 };

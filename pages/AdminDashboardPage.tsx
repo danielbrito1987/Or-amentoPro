@@ -29,7 +29,7 @@ import {
   Copy,
   Check
 } from 'lucide-react';
-import { saasService, SaaSUserRecord } from '../services/saasService';
+import { saasService, SaaSUserRecord, SubscriptionPlanId } from '../services/saasService';
 import { partnerService, PartnerCompany } from '../services/partnerService';
 import { formatCurrency } from '../utils/formatters';
 import { Button } from '../components/Button';
@@ -97,11 +97,11 @@ export const AdminDashboardPage: React.FC = () => {
     handleSyncSupabase();
   }, []);
 
-  const handleActivate = async (email: string, days: number = 30) => {
-    await saasService.activateSubscriptionForUser(email, days, `Liberado pelo Administrador em ${new Date().toLocaleDateString('pt-BR')}`);
+  const handleActivate = async (email: string, days: number = 30, plan: SubscriptionPlanId = 'pro') => {
+    await saasService.activateSubscriptionForUser(email, days, plan, `Liberado pelo Administrador em ${new Date().toLocaleDateString('pt-BR')}`);
     loadData();
     refreshUserStatus();
-    setFeedback(`Assinatura de ${email} ativada por mais ${days} dias com sucesso!`);
+    setFeedback(`Assinatura (${plan.toUpperCase()}) de ${email} ativada por mais ${days} dias com sucesso!`);
     setTimeout(() => setFeedback(null), 4000);
   };
 

@@ -2,8 +2,11 @@
 import React, { useState } from 'react';
 import { Quote } from '../types';
 import { Button } from '../components/Button';
-import { Plus, Search, X, Filter, TrendingUp, MessageCircle, ChevronRight, Trash2, FileText, HelpCircle, Sparkles } from 'lucide-react';
+import { Plus, Search, X, Filter, TrendingUp, MessageCircle, ChevronRight, Trash2, FileText, HelpCircle, Sparkles, AlertCircle, Zap } from 'lucide-react';
 import { formatCurrency } from '../utils/formatters';
+import { useAuth } from '../contexts/AuthContext';
+import { saasService, BASIC_MONTHLY_QUOTES_LIMIT, SUBSCRIPTION_PLANS } from '../services/saasService';
+import { SubscriptionPaywallModal } from '../components/SubscriptionPaywallModal';
 
 interface QuotesPageProps {
   quotes: Quote[];
@@ -20,7 +23,15 @@ export const QuotesPage: React.FC<QuotesPageProps> = ({
   onDeleteQuote,
   onOpenGuide 
 }) => {
+  const { user, refreshUserStatus } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+
+  const plan = saasService.getUserPlan(user);
+  const status = saasService.getUserSubscriptionStatus(user);
+  const isBasicPlan = plan === 'basic' && status.status === 'active' && !status.isPartner && !saasService.isAdmin(user);
+  const quotesThisMonth = saasService.getQuotesCreatedThisMonth(quotes);
+  const isLimitReached = isBasicPlan && quotesThisMonth >= BASIC_MONTHLY_QUOTES_LIMIT;
 
   const filteredQuotes = quotes.filter(quote => {
     const term = searchTerm.toLowerCase();
@@ -30,6 +41,14 @@ export const QuotesPage: React.FC<QuotesPageProps> = ({
     const numberMatch = quote.number.toLowerCase().includes(term);
     return nameMatch || (rawTerm !== '' && phoneMatch) || numberMatch;
   });
+
+  const handleNewQuoteClick = () => {
+    if (isLimitReached) {
+      setShowUpgradeModal(true);
+      return;
+    }
+    onNewQuote();
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -66,7 +85,7 @@ export const QuotesPage: React.FC<QuotesPageProps> = ({
               </button>
             )}
             <Button 
-              onClick={onNewQuote} 
+              onClick={handleNewQuoteClick} 
               size="md"
               icon={<Plus size={18} />} 
               className="w-full sm:w-auto shadow-lg shadow-blue-500/20 col-span-1"
@@ -77,6 +96,45 @@ export const QuotesPage: React.FC<QuotesPageProps> = ({
         </div>
       </div>
 
+      {/* Banner de Quota do Plano Básico */}
+      {isBasicPlan && (
+        <div className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm ${
+          isLimitReached 
+            ? 'bg-amber-50 border-amber-300 text-amber-900' 
+            : 'bg-blue-50/70 border-blue-200 text-blue-950'
+        }`}>
+          <div className="flex items-center gap-3">
+            <div className={`p-2 rounded-xl shrink-0 ${isLimitReached ? 'bg-amber-200 text-amber-800' : 'bg-blue-200 text-blue-800'}`}>
+              {isLimitReached ? <AlertCircle className="w-5 h-5" /> : <Zap className="w-5 h-5" />}
+            </div>
+            <div>
+              <div className="text-xs sm:text-sm font-bold flex items-center gap-2 flex-wrap">
+                <span>Plano Básico: <strong>{quotesThisMonth} de {BASIC_MONTHLY_QUOTES_LIMIT}</strong> orçamentos criados este mês</span>
+                {isLimitReached && (
+                  <span className="text-[10px] bg-red-600 text-white font-black px-2 py-0.5 rounded-full uppercase">
+                    Limite Atingido
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-600 mt-0.5">
+                {isLimitReached 
+                  ? 'Você atingiu o limite de 20 orçamentos/mês. Faça upgrade para o Plano Pro para orçamentos ilimitados e consultor por IA!' 
+                  : `Você ainda pode criar mais ${Math.max(0, BASIC_MONTHLY_QUOTES_LIMIT - quotesThisMonth)} orçamentos até renovar seu ciclo.`}
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowUpgradeModal(true)}
+            className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shrink-0 transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+            <span>Mudar para Pro (Ilimitado)</span>
+          </button>
+        </div>
+      )}
+
       {quotes.length === 0 ? (
         <div className="bg-white rounded-2xl border border-dashed border-gray-300 p-8 md:p-12 text-center flex flex-col items-center">
           <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mb-4 text-blue-600">
@@ -85,7 +143,7 @@ export const QuotesPage: React.FC<QuotesPageProps> = ({
           <h3 className="text-lg font-semibold text-slate-800">Nenhum orçamento ainda</h3>
           <p className="text-slate-500 mt-1 max-w-sm mb-6">Crie seu primeiro orçamento profissional clicando no botão abaixo ou siga o nosso guia rápido passo a passo.</p>
           <div className="flex flex-col sm:flex-row gap-3">
-            <Button onClick={onNewQuote} icon={<Plus size={20} />} className="shadow-lg shadow-blue-500/20">
+            <Button onClick={handleNewQuoteClick} icon={<Plus size={20} />} className="shadow-lg shadow-blue-500/20">
               Criar Primeiro Orçamento
             </Button>
             {onOpenGuide && (
@@ -158,6 +216,23 @@ export const QuotesPage: React.FC<QuotesPageProps> = ({
             </div>
           ))}
         </div>
+      )}
+
+      {showUpgradeModal && (
+        <SubscriptionPaywallModal
+          userEmail={user?.email}
+          userName={user?.name}
+          onLogout={() => { setShowUpgradeModal(false); }}
+          onClose={() => setShowUpgradeModal(false)}
+          onCheckStatus={() => {
+            if (refreshUserStatus) refreshUserStatus();
+            setShowUpgradeModal(false);
+          }}
+          initialPlan="pro"
+          customBadge={`Limite Mensal (${quotesThisMonth}/${BASIC_MONTHLY_QUOTES_LIMIT})`}
+          customTitle="Desbloqueie Orçamentos Ilimitados"
+          customSubtitle={`Com o Plano Pro (${formatCurrency(SUBSCRIPTION_PLANS.pro.price)}/mês), você emite orçamentos ilimitados e ganha o Consultor de Preços por IA para nunca mais errar na precificação.`}
+        />
       )}
     </div>
   );

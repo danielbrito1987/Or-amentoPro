@@ -15,10 +15,18 @@ import {
   RefreshCw,
   Handshake,
   Tag,
-  Building2
+  Building2,
+  Zap,
+  XCircle,
+  X
 } from 'lucide-react';
 import { Button } from './Button';
-import { saasService } from '../services/saasService';
+import { 
+  saasService, 
+  SubscriptionPlanId, 
+  SUBSCRIPTION_PLANS, 
+  BASIC_MONTHLY_QUOTES_LIMIT 
+} from '../services/saasService';
 import { partnerService } from '../services/partnerService';
 import { formatCurrency } from '../utils/formatters';
 
@@ -27,14 +35,25 @@ interface SubscriptionPaywallModalProps {
   userName?: string;
   onLogout: () => void;
   onCheckStatus?: () => void;
+  initialPlan?: SubscriptionPlanId;
+  onClose?: () => void;
+  customBadge?: string;
+  customTitle?: string;
+  customSubtitle?: string;
 }
 
 export const SubscriptionPaywallModal: React.FC<SubscriptionPaywallModalProps> = ({
   userEmail,
   userName,
   onLogout,
-  onCheckStatus
+  onCheckStatus,
+  initialPlan = 'pro',
+  onClose,
+  customBadge,
+  customTitle,
+  customSubtitle
 }) => {
+  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlanId>(initialPlan);
   const [copied, setCopied] = useState(false);
   const [checking, setChecking] = useState(false);
   const [partnerCodeInput, setPartnerCodeInput] = useState('');
@@ -43,7 +62,8 @@ export const SubscriptionPaywallModal: React.FC<SubscriptionPaywallModalProps> =
   const [showPartnerField, setShowPartnerField] = useState(false);
 
   const pixKey = saasService.getPixKey();
-  const price = saasService.getMonthlyPrice();
+  const currentPlanConfig = SUBSCRIPTION_PLANS[selectedPlan];
+  const price = currentPlanConfig.price;
 
   const handleCopyPix = () => {
     navigator.clipboard.writeText(pixKey);
@@ -52,8 +72,12 @@ export const SubscriptionPaywallModal: React.FC<SubscriptionPaywallModalProps> =
   };
 
   const handleNotifyWhatsApp = () => {
+    const planLabel = selectedPlan === 'basic' 
+      ? `Plano Básico (R$ ${formatCurrency(SUBSCRIPTION_PLANS.basic.price)})` 
+      : `Plano Pro Completo (R$ ${formatCurrency(SUBSCRIPTION_PLANS.pro.price)})`;
+
     const text = encodeURIComponent(
-      `Olá! Realizei o pagamento via PIX da assinatura mensal do OrçaFácil Pro (R$ 59,90) para o e-mail cadastrado: ${userEmail || ''}. Poderia confirmar a liberação do meu acesso, por gentileza?`
+      `Olá! Realizei o pagamento via PIX da assinatura mensal do OrçaFácil no ${planLabel} para o e-mail cadastrado: ${userEmail || ''}. Poderia confirmar a ativação do meu acesso, por gentileza?`
     );
     window.open(`https://wa.me/55?text=${text}`, '_blank');
   };
@@ -84,7 +108,7 @@ export const SubscriptionPaywallModal: React.FC<SubscriptionPaywallModalProps> =
 
       setPartnerFeedback({
         type: 'success',
-        message: `Parceria com "${partner.name}" ativada com sucesso! Seu acesso está liberado.`
+        message: `Parceria com "${partner.name}" ativada com sucesso! Seu acesso total está liberado.`
       });
 
       setTimeout(() => {
@@ -113,76 +137,140 @@ export const SubscriptionPaywallModal: React.FC<SubscriptionPaywallModalProps> =
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-      <div className="bg-white rounded-3xl max-w-lg w-full my-auto shadow-2xl border border-slate-200 text-center relative overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <div className="bg-white rounded-3xl max-w-xl w-full my-auto shadow-2xl border border-slate-200 text-center relative overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         
         {/* Faixa superior de destaque */}
         <div className="h-2.5 bg-gradient-to-r from-blue-600 via-indigo-500 to-amber-500" />
+
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-colors z-10 cursor-pointer"
+            aria-label="Fechar"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        )}
 
         <div className="p-6 sm:p-8">
           {/* Tag de Status */}
           <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200/80 mb-4">
             <Clock className="w-3.5 h-3.5 text-amber-600" />
-            <span>Período de Teste Grátis (7 Dias) Expirou</span>
+            <span>{customBadge || 'Período de Teste Grátis (7 Dias) Concluído'}</span>
           </div>
 
           <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mb-2">
-            Continue criando orçamentos profissionais
+            {customTitle || 'Escolha seu Plano de Assinatura'}
           </h2>
           
-          <p className="text-sm text-slate-600 leading-relaxed mb-6">
-            Esperamos que tenha gostado da facilidade do <strong className="text-slate-800">OrçaFácil Pro</strong>! Para continuar emitindo propostas ilimitadas e enviando orçamentos em PDF com a sua marca, ative sua assinatura mensal.
+          <p className="text-xs sm:text-sm text-slate-600 leading-relaxed mb-6">
+            {customSubtitle || 'Continue emitindo propostas comerciais elegantes e fechando mais serviços. Escolha o plano que melhor atende sua rotina:'}
           </p>
 
-          {/* Card de Preço e Benefícios */}
-          <div className="bg-gradient-to-b from-blue-50/70 to-indigo-50/40 border border-blue-200/80 rounded-2xl p-5 mb-6 text-left">
-            <div className="flex items-center justify-between border-b border-blue-200/60 pb-3 mb-3">
-              <div>
-                <span className="text-xs font-bold text-blue-600 uppercase tracking-wider block">
-                  Plano Profissional Ilimitado
+          {/* Seletor dos 2 Planos */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6 text-left">
+            {/* Card Plano Básico */}
+            <div
+              onClick={() => setSelectedPlan('basic')}
+              className={`p-4 rounded-2xl border-2 transition-all cursor-pointer relative ${
+                selectedPlan === 'basic'
+                  ? 'border-blue-600 bg-blue-50/50 shadow-md ring-2 ring-blue-500/20'
+                  : 'border-slate-200 hover:border-slate-300 bg-white'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                  Plano Básico
                 </span>
-                <span className="text-xs text-slate-500">Acesso completo mensal</span>
+                <span className="text-[11px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">
+                  Econômico
+                </span>
               </div>
-              <div className="text-right">
-                <span className="text-2xl sm:text-3xl font-black text-blue-700">
-                  {formatCurrency(price)}
+              <div className="mb-2">
+                <span className="text-2xl font-black text-slate-900">
+                  {formatCurrency(SUBSCRIPTION_PLANS.basic.price)}
                 </span>
-                <span className="text-xs font-semibold text-slate-500 block">/mês</span>
+                <span className="text-xs text-slate-500">/mês</span>
+              </div>
+              <p className="text-[11px] text-slate-600 mb-3">
+                Para profissionais que precisam de propostas organizadas com custo reduzido.
+              </p>
+              <div className="space-y-1.5 text-[11px] text-slate-600">
+                <div className="flex items-center gap-1.5 font-semibold text-slate-800">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                  <span>Até {BASIC_MONTHLY_QUOTES_LIMIT} orçamentos/mês</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                  <span>PDF com sua marca e logo</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-slate-400">
+                  <XCircle className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  <span>Sem Consultor de Preços IA</span>
+                </div>
               </div>
             </div>
 
-            <ul className="space-y-2 text-xs sm:text-sm text-slate-700">
-              <li className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Orçamentos e propostas em PDF ilimitados</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Envio rápido de orçamentos pelo WhatsApp</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Consultor de Preços com Inteligência Artificial</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Seus dados e histórico salvos com total segurança</span>
-              </li>
-            </ul>
+            {/* Card Plano Pro */}
+            <div
+              onClick={() => setSelectedPlan('pro')}
+              className={`p-4 rounded-2xl border-2 transition-all cursor-pointer relative ${
+                selectedPlan === 'pro'
+                  ? 'border-indigo-600 bg-indigo-50/50 shadow-md ring-2 ring-indigo-500/20'
+                  : 'border-slate-200 hover:border-slate-300 bg-white'
+              }`}
+            >
+              <div className="absolute -top-2.5 right-3 bg-gradient-to-r from-amber-500 to-indigo-600 text-white text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full shadow-sm">
+                Mais Escolhido
+              </div>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs font-bold uppercase tracking-wider text-indigo-700 flex items-center gap-1">
+                  <Sparkles className="w-3 h-3 text-amber-500" />
+                  Plano Pro
+                </span>
+                <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                  Completo
+                </span>
+              </div>
+              <div className="mb-2">
+                <span className="text-2xl font-black text-indigo-950">
+                  {formatCurrency(SUBSCRIPTION_PLANS.pro.price)}
+                </span>
+                <span className="text-xs text-slate-500">/mês</span>
+              </div>
+              <p className="text-[11px] text-slate-600 mb-3">
+                Acesso irrestrito com inteligência artificial para nunca errar nos preços.
+              </p>
+              <div className="space-y-1.5 text-[11px] text-slate-700">
+                <div className="flex items-center gap-1.5 font-bold text-indigo-900">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span>Orçamentos ILIMITADOS</span>
+                </div>
+                <div className="flex items-center gap-1.5 font-bold text-indigo-900">
+                  <Zap className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                  <span>Consultor de Preços com IA</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span>Envio WhatsApp em 1 clique</span>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Bloco de Pagamento PIX */}
           <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 sm:p-5 text-left mb-6">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
                 <QrCode className="w-4 h-4 text-blue-600" />
-                Pagamento via PIX:
+                Pagamento via PIX ({currentPlanConfig.name}):
               </span>
-              <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                Liberação Manual Rápida
+              <span className="text-xs font-bold text-slate-900 bg-white px-2.5 py-1 rounded-lg border border-slate-200">
+                Valor: <strong className="text-blue-600">{formatCurrency(price)}</strong>/mês
               </span>
             </div>
 
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 mb-3">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 mb-3 mt-3">
               <div className="flex-1 bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-mono text-slate-800 break-all select-all font-semibold">
                 {pixKey}
               </div>
@@ -208,7 +296,7 @@ export const SubscriptionPaywallModal: React.FC<SubscriptionPaywallModalProps> =
             </div>
 
             <p className="text-[11px] text-slate-500 leading-relaxed">
-              * Ao fazer o PIX de <strong>{formatCurrency(price)}</strong>, envie o comprovante no WhatsApp informando seu e-mail cadastrado (<strong>{userEmail}</strong>) para ativarmos seu acesso na hora.
+              * Ao fazer o PIX de <strong>{formatCurrency(price)}</strong> referente ao {currentPlanConfig.name}, envie o comprovante no WhatsApp informando seu e-mail (<strong>{userEmail}</strong>) para ativarmos seu plano na hora.
             </p>
           </div>
 
@@ -282,7 +370,7 @@ export const SubscriptionPaywallModal: React.FC<SubscriptionPaywallModalProps> =
               className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-lg shadow-emerald-600/20"
               icon={<MessageCircle className="w-5 h-5 text-white" />}
             >
-              Já paguei, enviar comprovante no WhatsApp
+              Já paguei o {currentPlanConfig.name}, enviar no WhatsApp
             </Button>
 
             <div className="grid grid-cols-2 gap-2 pt-1">
@@ -297,15 +385,26 @@ export const SubscriptionPaywallModal: React.FC<SubscriptionPaywallModalProps> =
                 {checking ? 'Verificando...' : 'Verificar Acesso'}
               </Button>
 
-              <Button
-                variant="ghost"
-                size="md"
-                onClick={onLogout}
-                className="w-full font-semibold text-xs sm:text-sm text-slate-500 hover:text-slate-800"
-                icon={<LogOut className="w-4 h-4" />}
-              >
-                Sair da Conta
-              </Button>
+              {onClose ? (
+                <Button
+                  variant="ghost"
+                  size="md"
+                  onClick={onClose}
+                  className="w-full font-semibold text-xs sm:text-sm text-slate-600 hover:text-slate-800"
+                >
+                  Voltar / Fechar
+                </Button>
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="md"
+                  onClick={onLogout}
+                  className="w-full font-semibold text-xs sm:text-sm text-slate-500 hover:text-slate-800"
+                  icon={<LogOut className="w-4 h-4" />}
+                >
+                  Sair da Conta
+                </Button>
+              )}
             </div>
           </div>
 

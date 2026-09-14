@@ -3,8 +3,62 @@ import { User } from '../types';
 
 export const ADMIN_EMAIL = 'damasceno1871@gmail.com';
 export const PIX_KEY = 'damasceno1871@gmail.com';
-export const MONTHLY_PRICE = 59.90;
+export const PLAN_BASIC_PRICE = 29.90;
+export const PLAN_PRO_PRICE = 59.90;
+export const MONTHLY_PRICE = PLAN_PRO_PRICE;
 export const TRIAL_DAYS = 7;
+export const BASIC_MONTHLY_QUOTES_LIMIT = 20;
+
+export type SubscriptionPlanId = 'basic' | 'pro';
+
+export interface PlanConfig {
+  id: SubscriptionPlanId;
+  name: string;
+  price: number;
+  monthlyQuotesLimit: number | null; // null = sem limite
+  hasAiConsultant: boolean;
+  description: string;
+  badge?: string;
+  features: string[];
+}
+
+export const SUBSCRIPTION_PLANS: Record<SubscriptionPlanId, PlanConfig> = {
+  basic: {
+    id: 'basic',
+    name: 'Plano Básico',
+    price: PLAN_BASIC_PRICE,
+    monthlyQuotesLimit: BASIC_MONTHLY_QUOTES_LIMIT,
+    hasAiConsultant: false,
+    description: 'Para profissionais autônomos que buscam organizar propostas com custo reduzido.',
+    badge: 'Econômico',
+    features: [
+      `Até ${BASIC_MONTHLY_QUOTES_LIMIT} orçamentos profissionais por mês`,
+      'Envio rápido em PDF pelo WhatsApp',
+      'Catálogo de serviços e materiais',
+      'Sua logo, CNPJ/CPF e chave Pix na proposta',
+      'Sincronização em nuvem e modo offline',
+      'Suporte via WhatsApp'
+    ]
+  },
+  pro: {
+    id: 'pro',
+    name: 'Plano Pro Completo',
+    price: PLAN_PRO_PRICE,
+    monthlyQuotesLimit: null, // Ilimitado
+    hasAiConsultant: true,
+    description: 'Acesso total e irrestrito para fechar mais negócios e nunca errar nos preços.',
+    badge: 'Mais Escolhido',
+    features: [
+      'Orçamentos ilimitados em PDF',
+      'Consultor de Preços com Inteligência Artificial (SINAPI e médias)',
+      'Envio rápido em PDF pelo WhatsApp em 1 clique',
+      'Catálogo de serviços e materiais sem limites',
+      'Sua logo, CNPJ/CPF e chave Pix na proposta',
+      'Sincronização em nuvem e modo offline',
+      'Suporte prioritário via WhatsApp'
+    ]
+  }
+};
 
 const USERS_REGISTRY_KEY = 'orcafacil_registered_users_registry';
 
@@ -16,6 +70,7 @@ export interface SaaSUserRecord {
   trialEndsAt: string;
   subscriptionStatus: 'trial' | 'active' | 'expired' | 'partner';
   subscriptionValidUntil?: string;
+  plan?: 'basic' | 'pro';
   lastPaymentNote?: string;
   role: 'admin' | 'user';
   companyId: string;
@@ -28,7 +83,98 @@ export const saasService = {
   getAdminEmail: () => ADMIN_EMAIL,
   getPixKey: () => PIX_KEY,
   getMonthlyPrice: () => MONTHLY_PRICE,
+  getBasicPrice: () => PLAN_BASIC_PRICE,
+  getProPrice: () => PLAN_PRO_PRICE,
+  getBasicQuotesLimit: () => BASIC_MONTHLY_QUOTES_LIMIT,
   getTrialDays: () => TRIAL_DAYS,
+  getPlanConfig: (planId: SubscriptionPlanId = 'pro') => SUBSCRIPTION_PLANS[planId] || SUBSCRIPTION_PLANS.pro,
+
+  getUserPlan: (user?: User | null): SubscriptionPlanId => {
+    if (!user || !user.email) return 'pro';
+    if (saasService.isAdmin(user)) return 'pro';
+
+    const users = saasService.getAllUsers();
+    const record = users.find(u => u.email.toLowerCase() === user.email.toLowerCase());
+    if (record && record.plan) return record.plan;
+    if (user.plan) return user.plan;
+    return 'pro';
+  },
+
+  canUseAiConsultant: (user?: User | null): { allowed: boolean; reason?: string } => {
+    if (!user) return { allowed: false, reason: 'Usuário não autenticado.' };
+    if (saasService.isAdmin(user)) return { allowed: true };
+
+    const status = saasService.getUserSubscriptionStatus(user);
+    // Durante o trial de 7 dias ou para parceiros: liberado para experimentar
+    if (status.status === 'trial' || status.isPartner) {
+      return { allowed: true };
+    }
+
+    const plan = saasService.getUserPlan(user);
+    if (plan === 'basic') {
+      return {
+        allowed: false,
+        reason: 'O Consultor de Preços com Inteligência Artificial é exclusivo do Plano Pro (R$ 59,90/mês). Faça o upgrade para consultar tabelas do mercado!'
+      };
+    }
+
+    return { allowed: true };
+  },
+
+  getQuotesCreatedThisMonth: (quotes: { date?: string }[] = []): number => {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+
+    return quotes.filter(q => {
+      if (!q.date) return false;
+      try {
+        const qDate = new Date(q.date);
+        return qDate.getFullYear() === currentYear && qDate.getMonth() === currentMonth;
+      } catch {
+        return false;
+      }
+    }).length;
+  },
+
+  checkQuoteCreationLimit: (user: User | null, quotes: { date?: string }[] = []): {
+    allowed: boolean;
+    count: number;
+    limit: number | null;
+    plan: SubscriptionPlanId;
+    message?: string;
+  } => {
+    if (!user || saasService.isAdmin(user)) {
+      return { allowed: true, count: 0, limit: null, plan: 'pro' };
+    }
+
+    const status = saasService.getUserSubscriptionStatus(user);
+    // Durante o período de teste de 7 dias ou parceiros: orçamentos liberados
+    if (status.status === 'trial' || status.isPartner) {
+      return { allowed: true, count: 0, limit: null, plan: 'pro' };
+    }
+
+    const plan = saasService.getUserPlan(user);
+    if (plan === 'pro') {
+      return { allowed: true, count: 0, limit: null, plan: 'pro' };
+    }
+
+    // Plano Básico: validação de limite mensal
+    const count = saasService.getQuotesCreatedThisMonth(quotes);
+    const limit = BASIC_MONTHLY_QUOTES_LIMIT;
+
+    if (count >= limit) {
+      return {
+        allowed: false,
+        count,
+        limit,
+        plan: 'basic',
+        message: `Você atingiu o limite de ${limit} orçamentos deste mês no Plano Básico. Faça o upgrade para o Plano Pro para criar orçamentos ilimitados!`
+      };
+    }
+
+    return { allowed: true, count, limit, plan: 'basic' };
+  },
 
   isAdmin: (user?: User | null): boolean => {
     if (!user || !user.email) return false;
@@ -118,7 +264,7 @@ export const saasService = {
     return record;
   },
 
-  getUserSubscriptionStatus: (user: User): {
+  getUserSubscriptionStatus: (user?: User | null): {
     status: 'trial' | 'active' | 'expired';
     daysRemaining: number;
     hoursRemaining: number;
@@ -127,6 +273,16 @@ export const saasService = {
     isPartner?: boolean;
     partnerCompany?: string;
   } => {
+    if (!user || !user.email) {
+      return {
+        status: 'expired',
+        daysRemaining: 0,
+        hoursRemaining: 0,
+        expiresAt: new Date(),
+        isExpired: true
+      };
+    }
+
     // Administrador tem acesso infinito
     if (saasService.isAdmin(user)) {
       return {
@@ -345,8 +501,8 @@ export const saasService = {
     }
   },
 
-  // Ativa assinatura Pro (PIX pago) e sincroniza no Supabase
-  activateSubscriptionForUser: async (email: string, daysToAdd: number = 30, note?: string) => {
+  // Ativa assinatura (PIX pago) e sincroniza no Supabase (suporta plano basic ou pro)
+  activateSubscriptionForUser: async (email: string, daysToAdd: number = 30, plan: SubscriptionPlanId = 'pro', note?: string) => {
     const users = saasService.getAllUsers();
     const record = users.find(u => u.email.toLowerCase() === email.toLowerCase());
     const now = new Date();
@@ -356,9 +512,24 @@ export const saasService = {
 
     if (record) {
       record.subscriptionStatus = 'active';
+      record.plan = plan;
       record.subscriptionValidUntil = newExpiry;
       if (note) record.lastPaymentNote = note;
       saasService.saveUserRecord(record);
+
+      // Atualiza também o objeto do usuário na sessão local se for o mesmo
+      try {
+        const currentSaved = localStorage.getItem('orcafacil_user');
+        if (currentSaved) {
+          const u = JSON.parse(currentSaved);
+          if (u.email?.toLowerCase() === email.toLowerCase()) {
+            u.subscriptionStatus = 'active';
+            u.plan = plan;
+            u.subscriptionValidUntil = newExpiry;
+            localStorage.setItem('orcafacil_user', JSON.stringify(u));
+          }
+        }
+      } catch {}
     }
 
     // Persiste no Supabase profiles se conectado
@@ -369,6 +540,7 @@ export const saasService = {
           .from('profiles')
           .update({
             subscription_status: 'active',
+            plan: plan,
             subscription_valid_until: newExpiry
           })
           .ilike('email', email.trim());
@@ -395,6 +567,9 @@ export const saasService = {
       const updates: Partial<SaaSUserRecord> = {};
       if (data.subscription_status) {
         updates.subscriptionStatus = data.subscription_status;
+      }
+      if (data.plan) {
+        updates.plan = data.plan === 'basic' ? 'basic' : 'pro';
       }
       if (data.partner_company) {
         updates.partnerCompany = data.partner_company;
@@ -473,8 +648,9 @@ export const saasService = {
           name: p.name || (p.email.split('@')[0]),
           createdAt: createdAt,
           trialEndsAt: p.trial_ends_at || defaultTrialEnd,
-          subscriptionStatus: isOwner ? 'active' : (p.status === 'blocked' ? 'expired' : (p.plan === 'pro' || p.plan === 'enterprise' ? 'active' : 'trial')),
+          subscriptionStatus: isOwner ? 'active' : (p.status === 'blocked' ? 'expired' : (p.plan === 'pro' || p.plan === 'enterprise' || p.plan === 'basic' ? 'active' : 'trial')),
           subscriptionValidUntil: isOwner ? new Date(2099, 11, 31).toISOString() : (p.subscription_valid_until || undefined),
+          plan: isOwner ? 'pro' : (p.plan === 'basic' ? 'basic' : 'pro'),
           role: isOwner ? 'admin' : (p.role === 'admin' ? 'admin' : 'user'),
           companyId: p.company_id || `comp_${p.id || Date.now()}`,
           partnerCompany: p.partner_company || undefined,

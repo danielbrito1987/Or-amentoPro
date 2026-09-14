@@ -47,10 +47,36 @@ CREATE TABLE IF NOT EXISTS public.provider_info (
   updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
+-- 4. Tabela de Perfis e Assinaturas dos Usuários (SaaS)
+CREATE TABLE IF NOT EXISTS public.profiles (
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  email TEXT UNIQUE NOT NULL,
+  name TEXT DEFAULT '',
+  company_id TEXT,
+  role TEXT DEFAULT 'user', -- 'admin' ou 'user'
+  plan TEXT DEFAULT 'pro', -- 'basic' (R$ 29,90) ou 'pro' (R$ 59,90)
+  subscription_status TEXT DEFAULT 'trial', -- 'trial', 'active', 'expired', 'partner'
+  trial_ends_at TIMESTAMPTZ DEFAULT (timezone('utc'::text, now()) + interval '7 days'),
+  subscription_valid_until TIMESTAMPTZ,
+  partner_company TEXT,
+  partner_code TEXT,
+  status TEXT DEFAULT 'active', -- 'active' ou 'blocked' / 'suspended'
+  created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Se a tabela profiles já existir no seu Supabase, adicione apenas as novas colunas se necessário:
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS plan TEXT DEFAULT 'pro';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS subscription_status TEXT DEFAULT 'trial';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMPTZ;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS subscription_valid_until TIMESTAMPTZ;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS partner_company TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS partner_code TEXT;
+
 -- Políticas de segurança RLS
 ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.quotes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.provider_info ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Permitir acesso total a produtos para anon" 
   ON public.products FOR ALL 
@@ -69,6 +95,36 @@ CREATE POLICY "Permitir acesso total a dados do prestador para anon"
   TO anon, authenticated 
   USING (true) 
   WITH CHECK (true);
+
+CREATE POLICY "Permitir leitura e escrita em profiles" 
+  ON public.profiles FOR ALL 
+  TO anon, authenticated 
+  USING (true) 
+  WITH CHECK (true);
+
+-- Gatilho Automático opcional: quando um usuário se cadastra no auth.users, cria o perfil automaticamente
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger AS $$
+BEGIN
+  INSERT INTO public.profiles (id, email, name, company_id, plan, subscription_status, trial_ends_at)
+  VALUES (
+    new.id,
+    new.email,
+    COALESCE(new.raw_user_meta_data->>'name', split_part(new.email, '@', 1)),
+    COALESCE(new.raw_user_meta_data->>'company_id', 'comp_' || substr(md5(random()::text), 1, 8)),
+    'pro', -- inicia o trial com recursos completos do Pro
+    'trial',
+    now() + interval '7 days'
+  )
+  ON CONFLICT (id) DO NOTHING;
+  RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
 
 -- ============================================================
 -- COMANDOS PRONTOS PARA DESABILITAR / REATIVAR CLIENTES (INADIMPLÊNCIA)

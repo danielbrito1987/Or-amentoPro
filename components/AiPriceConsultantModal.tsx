@@ -1,10 +1,29 @@
 import React, { useState } from 'react';
-import { Sparkles, X, Loader2, Check, Clock, TrendingUp, Info, Lightbulb, MapPin, Plus, Minus } from 'lucide-react';
+import { 
+  Sparkles, 
+  X, 
+  Loader2, 
+  Check, 
+  Clock, 
+  TrendingUp, 
+  Info, 
+  Lightbulb, 
+  MapPin, 
+  Plus, 
+  Minus,
+  Lock,
+  CheckCircle2,
+  Zap,
+  ShieldAlert
+} from 'lucide-react';
 import { Button } from './Button';
 import { PriceSuggestion } from '../types';
 import { estimateServicePrice } from '../services/geminiService';
 import { normalizeUnit } from '../services/marketEstimator';
 import { formatCurrency } from '../utils/formatters';
+import { useAuth } from '../contexts/AuthContext';
+import { saasService, SUBSCRIPTION_PLANS } from '../services/saasService';
+import { SubscriptionPaywallModal } from './SubscriptionPaywallModal';
 
 interface AiPriceConsultantModalProps {
   isOpen: boolean;
@@ -51,6 +70,8 @@ export const AiPriceConsultantModal: React.FC<AiPriceConsultantModalProps> = ({
   mode,
   onApply,
 }) => {
+  const { user, refreshUserStatus } = useAuth();
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [serviceName, setServiceName] = useState(initialServiceName);
   const [location, setLocation] = useState(defaultLocation);
   const [details, setDetails] = useState('');
@@ -64,6 +85,9 @@ export const AiPriceConsultantModal: React.FC<AiPriceConsultantModalProps> = ({
   const [chosenUnit, setChosenUnit] = useState<string>('un');
   const [billingMode, setBillingMode] = useState<'unit' | 'package'>('unit');
   const [saveToCatalog, setSaveToCatalog] = useState(false);
+
+  // Permissão do plano para usar o Consultor IA
+  const aiPermission = saasService.canUseAiConsultant(user);
 
   // Sincroniza se abrir com nome inicial
   React.useEffect(() => {
@@ -81,7 +105,117 @@ export const AiPriceConsultantModal: React.FC<AiPriceConsultantModalProps> = ({
 
   if (!isOpen) return null;
 
+  // Se o usuário não puder usar a IA (ex: plano Básico ativo), exibe a tela de Upgrade para o Plano Pro
+  if (!aiPermission.allowed) {
+    return (
+      <>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl border border-slate-100 overflow-hidden flex flex-col relative animate-in zoom-in-95">
+            <div className="p-6 bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-900 text-white flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="p-2.5 bg-amber-400/20 text-amber-300 rounded-2xl border border-amber-400/30">
+                  <Sparkles className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg text-white">Consultor de Preços com IA</h3>
+                  <span className="inline-block text-[11px] font-bold text-amber-300 bg-amber-950/60 px-2 py-0.5 rounded-md border border-amber-500/30 mt-0.5">
+                    Exclusivo do Plano Pro
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={onClose}
+                className="p-2 rounded-xl text-white/80 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                aria-label="Fechar"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 sm:p-7 text-center space-y-5">
+              <div className="w-16 h-16 rounded-3xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto shadow-inner border border-indigo-100">
+                <Lock className="w-8 h-8" />
+              </div>
+
+              <div>
+                <h4 className="text-xl font-black text-slate-900 mb-2">
+                  Recurso Disponível no Plano Pro
+                </h4>
+                <p className="text-xs sm:text-sm text-slate-600 leading-relaxed max-w-md mx-auto">
+                  {aiPermission.reason || 'O Consultor de Preços com Inteligência Artificial é exclusivo do Plano Pro (R$ 59,90/mês). Faça o upgrade para consultar tabelas do mercado!'}
+                </p>
+              </div>
+
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-left space-y-2.5">
+                <span className="text-xs font-black text-slate-700 uppercase tracking-wider block">
+                  Vantagens do Plano Pro ({formatCurrency(SUBSCRIPTION_PLANS.pro.price)}/mês):
+                </span>
+                <ul className="space-y-2 text-xs text-slate-600">
+                  <li className="flex items-center gap-2 font-semibold text-indigo-950">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Consultor IA com faixas de preço mínimas, sugeridas e máximas</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Orçamentos 100% ILIMITADOS (sem limite mensal de 20)</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Estimativa personalizada baseada no mercado brasileiro</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="space-y-2 pt-1">
+                <Button
+                  variant="primary"
+                  size="lg"
+                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold shadow-lg shadow-blue-600/25"
+                  onClick={() => setShowUpgradeModal(true)}
+                  icon={<Zap className="w-4 h-4 text-amber-300" />}
+                >
+                  Fazer Upgrade para o Plano Pro ({formatCurrency(SUBSCRIPTION_PLANS.pro.price)}/mês)
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full text-slate-500 hover:text-slate-800 font-medium"
+                  onClick={onClose}
+                >
+                  Continuar no Plano Básico
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {showUpgradeModal && (
+          <SubscriptionPaywallModal
+            userEmail={user?.email}
+            userName={user?.name}
+            onLogout={() => { setShowUpgradeModal(false); onClose(); }}
+            onClose={() => setShowUpgradeModal(false)}
+            onCheckStatus={() => {
+              if (refreshUserStatus) refreshUserStatus();
+              setShowUpgradeModal(false);
+            }}
+            initialPlan="pro"
+            customBadge="Upgrade de Assinatura"
+            customTitle="Assine o Plano Pro com IA"
+            customSubtitle="Tenha acesso ilimitado ao Consultor de Preços por IA e emita quantos orçamentos desejar sem limites."
+          />
+        )}
+      </>
+    );
+  }
+
   const handleConsult = async () => {
+    if (!aiPermission.allowed) {
+      setError(aiPermission.reason || 'Recurso exclusivo do Plano Pro.');
+      return;
+    }
+
     if (!serviceName.trim()) {
       setError('Por favor, informe o nome ou descrição do serviço.');
       return;
