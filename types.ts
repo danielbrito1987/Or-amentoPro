@@ -66,8 +66,10 @@ export interface User {
   role?: 'admin' | 'user' | string;
   createdAt?: string;
   trialEndsAt?: string;
-  subscriptionStatus?: 'trial' | 'active' | 'expired';
+  subscriptionStatus?: 'trial' | 'active' | 'expired' | 'partner';
   subscriptionValidUntil?: string;
+  partnerCompany?: string;
+  partnerCode?: string;
 }
 
 export interface AuthState {

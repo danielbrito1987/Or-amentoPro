@@ -1,9 +1,10 @@
 
 import React, { useState } from 'react';
 import { Button } from '../components/Button';
-import { Mail, Lock, User as UserIcon, Loader2, AlertCircle, CheckCircle2, Database, ArrowLeft, UserCheck, Sparkles } from 'lucide-react';
+import { Mail, Lock, User as UserIcon, Loader2, AlertCircle, CheckCircle2, Database, ArrowLeft, UserCheck, Sparkles, Building2, Tag } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { isSupabaseConfigured } from '../services/supabase';
+import { partnerService } from '../services/partnerService';
 import orcaLogo from '../src/assets/images/orcafacil_quote_logo_1788895951950.jpg';
 
 interface LoginPageProps {
@@ -20,10 +21,27 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [partnerCode, setPartnerCode] = useState('');
+  const [partnerMessage, setPartnerMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isDemoLoading, setIsDemoLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  const handlePartnerCodeChange = (val: string) => {
+    const uppercaseVal = val.toUpperCase().replace(/\s+/g, '');
+    setPartnerCode(uppercaseVal);
+    if (uppercaseVal.length >= 3) {
+      const res = partnerService.validateCode(uppercaseVal);
+      if (res.valid && res.partner) {
+        setPartnerMessage(`Parceria com ${res.partner.name} identificada! Acesso liberado sem cobrança.`);
+      } else {
+        setPartnerMessage(null);
+      }
+    } else {
+      setPartnerMessage(null);
+    }
+  };
 
   const handleDemoAccess = async () => {
     setError(null);
@@ -59,7 +77,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 
     try {
       if (mode === 'register') {
-        const res = await register(email, password, name);
+        const res = await register(email, password, name, partnerCode || undefined);
         if (res.message) {
           setSuccessMessage(res.message);
         }
@@ -213,6 +231,40 @@ export const LoginPage: React.FC<LoginPageProps> = ({
               </div>
             </div>
 
+            {mode === 'register' && (
+              <div className="bg-slate-950/60 p-3 rounded-2xl border border-slate-800 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                    <Tag className="w-3.5 h-3.5 text-blue-400" />
+                    <span>Possui Código de Parceria / Convênio? (Opcional)</span>
+                  </label>
+                </div>
+                <div className="relative group">
+                  <Building2 className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-blue-400 transition-colors" />
+                  <input
+                    id="input-partner-code"
+                    type="text"
+                    value={partnerCode}
+                    onChange={(e) => handlePartnerCodeChange(e.target.value)}
+                    placeholder="Ex: PARCEIRO-VIP"
+                    className="w-full bg-slate-800/80 border border-slate-700 text-white text-xs font-mono uppercase pl-10 pr-4 py-2 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/50 transition-all placeholder:text-slate-500"
+                  />
+                </div>
+                {partnerMessage && (
+                  <p className="text-[11px] text-emerald-400 font-semibold flex items-center gap-1 mt-1 animate-in fade-in">
+                    <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />
+                    <span>{partnerMessage}</span>
+                  </p>
+                )}
+                {!partnerMessage && partnerCode.length >= 3 && (
+                  <p className="text-[11px] text-amber-400 font-semibold flex items-center gap-1 mt-1">
+                    <AlertCircle className="w-3 h-3 text-amber-400 shrink-0" />
+                    <span>Código não encontrado ou inativo.</span>
+                  </p>
+                )}
+              </div>
+            )}
+
             <Button
               id="btn-login-submit"
               type="submit"
@@ -225,7 +277,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   {mode === 'register' ? 'Criando sua conta na nuvem...' : 'Entrando...'}
                 </>
               ) : (
-                mode === 'register' ? 'Criar Conta e Testar 7 Dias Grátis' : 'Entrar'
+                mode === 'register' 
+                  ? (partnerMessage ? 'Criar Conta com Parceria Liberada' : 'Criar Conta e Testar 7 Dias Grátis') 
+                  : 'Entrar'
               )}
             </Button>
           </form>

@@ -14,12 +14,14 @@ export interface SaaSUserRecord {
   name: string;
   createdAt: string;
   trialEndsAt: string;
-  subscriptionStatus: 'trial' | 'active' | 'expired';
+  subscriptionStatus: 'trial' | 'active' | 'expired' | 'partner';
   subscriptionValidUntil?: string;
   lastPaymentNote?: string;
   role: 'admin' | 'user';
   companyId: string;
   quotesCount?: number;
+  partnerCompany?: string; // Nome da empresa parceira associada
+  partnerCode?: string; // Código utilizado
 }
 
 export const saasService = {
@@ -122,6 +124,8 @@ export const saasService = {
     hoursRemaining: number;
     expiresAt: Date;
     isExpired: boolean;
+    isPartner?: boolean;
+    partnerCompany?: string;
   } => {
     // Administrador tem acesso infinito
     if (saasService.isAdmin(user)) {
@@ -154,6 +158,52 @@ export const saasService = {
     }
 
     const now = new Date().getTime();
+
+    // 1. Caso de Parceria / Convênio Liberado
+    if (record.subscriptionStatus === 'partner') {
+      // Se tiver data de validade (ex: 1 ano)
+      if (record.subscriptionValidUntil) {
+        const validUntilTime = new Date(record.subscriptionValidUntil).getTime();
+        if (now <= validUntilTime) {
+          const diffMs = validUntilTime - now;
+          const days = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+          const hours = Math.ceil(diffMs / (1000 * 60 * 60));
+          return {
+            status: 'active',
+            daysRemaining: days,
+            hoursRemaining: hours,
+            expiresAt: new Date(validUntilTime),
+            isExpired: false,
+            isPartner: true,
+            partnerCompany: record.partnerCompany
+          };
+        } else {
+          // Venceu o convênio
+          record.subscriptionStatus = 'expired';
+          saasService.saveUserRecord(record);
+          return {
+            status: 'expired',
+            daysRemaining: 0,
+            hoursRemaining: 0,
+            expiresAt: new Date(validUntilTime),
+            isExpired: true,
+            isPartner: true,
+            partnerCompany: record.partnerCompany
+          };
+        }
+      }
+
+      // Parceria Vitalícia (sem expiração)
+      return {
+        status: 'active',
+        daysRemaining: 9999,
+        hoursRemaining: 999999,
+        expiresAt: new Date(2099, 11, 31),
+        isExpired: false,
+        isPartner: true,
+        partnerCompany: record.partnerCompany || 'Empresa Parceira'
+      };
+    }
 
     // Se já foi ativado com pagamento mensal
     if (record.subscriptionStatus === 'active' && record.subscriptionValidUntil) {
@@ -213,34 +263,160 @@ export const saasService = {
     };
   },
 
-  // Ações Administrativas para gerenciar clientes
-  activateSubscriptionForUser: (email: string, daysToAdd: number = 30, note?: string) => {
+  resetTrialForUser: async (email: string, days: number = 7) => {
     const users = saasService.getAllUsers();
     const record = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+    const now = new Date();
+    const newTrialEnd = new Date(now.getTime() + days * 24 * 60 * 60 * 1000).toISOString();
+
     if (record) {
-      const now = new Date();
-      // Se já tinha data válida futura, soma a ela; caso contrário, conta a partir de agora
-      const currentValid = record.subscriptionValidUntil ? new Date(record.subscriptionValidUntil) : now;
-      const baseTime = currentValid > now ? currentValid.getTime() : now.getTime();
-      const newExpiry = new Date(baseTime + daysToAdd * 24 * 60 * 60 * 1000);
-
-      record.subscriptionStatus = 'active';
-      record.subscriptionValidUntil = newExpiry.toISOString();
-      if (note) record.lastPaymentNote = note;
-
-      saasService.saveUserRecord(record);
-    }
-  },
-
-  resetTrialForUser: (email: string, days: number = 7) => {
-    const users = saasService.getAllUsers();
-    const record = users.find(u => u.email.toLowerCase() === email.toLowerCase());
-    if (record) {
-      const now = new Date();
-      record.trialEndsAt = new Date(now.getTime() + days * 24 * 60 * 60 * 1000).toISOString();
+      record.trialEndsAt = newTrialEnd;
       record.subscriptionStatus = 'trial';
       delete record.subscriptionValidUntil;
       saasService.saveUserRecord(record);
+    }
+
+    const supabase = getSupabase();
+    if (supabase) {
+      try {
+        await supabase
+          .from('profiles')
+          .update({
+            subscription_status: 'trial',
+            trial_ends_at: newTrialEnd
+          })
+          .ilike('email', email.trim());
+      } catch (e) {
+        console.warn('Erro ao atualizar trial no Supabase:', e);
+      }
+    }
+  },
+
+  // Concede acesso de parceria/convênio a um usuário (vitalício ou com prazo)
+  setPartnerAccessForUser: async (email: string, partnerName: string, partnerCode: string, days?: number) => {
+    const users = saasService.getAllUsers();
+    const record = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+    
+    const expiry = (days && days > 0)
+      ? new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString()
+      : new Date(2099, 11, 31).toISOString(); // Vitalício
+
+    if (record) {
+      record.subscriptionStatus = 'partner';
+      record.partnerCompany = partnerName;
+      record.partnerCode = partnerCode.toUpperCase();
+      record.lastPaymentNote = `Acesso liberado via parceria: ${partnerName} (Cupom: ${partnerCode.toUpperCase()})`;
+      record.subscriptionValidUntil = expiry;
+
+      saasService.saveUserRecord(record);
+
+      // Atualiza também se for o usuário salvo atualmente
+      try {
+        const currentSaved = localStorage.getItem('orcafacil_user');
+        if (currentSaved) {
+          const u = JSON.parse(currentSaved);
+          if (u.email?.toLowerCase() === email.toLowerCase()) {
+            u.subscriptionStatus = 'partner';
+            u.partnerCompany = partnerName;
+            u.partnerCode = partnerCode;
+            localStorage.setItem('orcafacil_user', JSON.stringify(u));
+          }
+        }
+      } catch {}
+    }
+
+    // Persiste também no Supabase (se tabela profiles existir ou metadata)
+    const supabase = getSupabase();
+    if (supabase) {
+      try {
+        // Tenta atualizar a linha do usuário na tabela profiles
+        await supabase
+          .from('profiles')
+          .update({
+            subscription_status: 'partner',
+            partner_company: partnerName,
+            partner_code: partnerCode.toUpperCase(),
+            subscription_valid_until: expiry
+          })
+          .ilike('email', email.trim());
+      } catch (e) {
+        console.warn('Tentativa de sincronizar parceiro no Supabase profiles:', e);
+      }
+    }
+  },
+
+  // Ativa assinatura Pro (PIX pago) e sincroniza no Supabase
+  activateSubscriptionForUser: async (email: string, daysToAdd: number = 30, note?: string) => {
+    const users = saasService.getAllUsers();
+    const record = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+    const now = new Date();
+    const currentValid = (record && record.subscriptionValidUntil) ? new Date(record.subscriptionValidUntil) : now;
+    const baseTime = currentValid > now ? currentValid.getTime() : now.getTime();
+    const newExpiry = new Date(baseTime + daysToAdd * 24 * 60 * 60 * 1000).toISOString();
+
+    if (record) {
+      record.subscriptionStatus = 'active';
+      record.subscriptionValidUntil = newExpiry;
+      if (note) record.lastPaymentNote = note;
+      saasService.saveUserRecord(record);
+    }
+
+    // Persiste no Supabase profiles se conectado
+    const supabase = getSupabase();
+    if (supabase) {
+      try {
+        await supabase
+          .from('profiles')
+          .update({
+            subscription_status: 'active',
+            subscription_valid_until: newExpiry
+          })
+          .ilike('email', email.trim());
+      } catch (e) {
+        console.warn('Tentativa de atualizar assinatura no Supabase profiles:', e);
+      }
+    }
+  },
+
+  // Consulta o perfil remoto no Supabase para saber se o dono mudou o status do cliente
+  fetchRemoteSubscriptionStatus: async (email: string): Promise<Partial<SaaSUserRecord> | null> => {
+    const supabase = getSupabase();
+    if (!supabase || !email) return null;
+
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .ilike('email', email.trim())
+        .maybeSingle();
+
+      if (error || !data) return null;
+
+      const updates: Partial<SaaSUserRecord> = {};
+      if (data.subscription_status) {
+        updates.subscriptionStatus = data.subscription_status;
+      }
+      if (data.partner_company) {
+        updates.partnerCompany = data.partner_company;
+      }
+      if (data.partner_code) {
+        updates.partnerCode = data.partner_code;
+      }
+      if (data.subscription_valid_until) {
+        updates.subscriptionValidUntil = data.subscription_valid_until;
+      }
+
+      // Se encontrou dados remotos atualizados, sincroniza o registro local
+      const users = saasService.getAllUsers();
+      const existing = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+      if (existing) {
+        Object.assign(existing, updates);
+        saasService.saveUserRecord(existing);
+      }
+
+      return updates;
+    } catch {
+      return null;
     }
   },
 
@@ -300,14 +476,21 @@ export const saasService = {
           subscriptionStatus: isOwner ? 'active' : (p.status === 'blocked' ? 'expired' : (p.plan === 'pro' || p.plan === 'enterprise' ? 'active' : 'trial')),
           subscriptionValidUntil: isOwner ? new Date(2099, 11, 31).toISOString() : (p.subscription_valid_until || undefined),
           role: isOwner ? 'admin' : (p.role === 'admin' ? 'admin' : 'user'),
-          companyId: p.company_id || `comp_${p.id || Date.now()}` 
+          companyId: p.company_id || `comp_${p.id || Date.now()}`,
+          partnerCompany: p.partner_company || undefined,
+          partnerCode: p.partner_code || undefined
         };
+
+        // Respeita o status do banco: 'partner', 'active', 'expired', 'trial'
+        if (p.subscription_status) {
+          record.subscriptionStatus = p.subscription_status;
+        }
 
         if (existingIndex >= 0) {
           users[existingIndex] = {
             ...users[existingIndex],
             ...record,
-            subscriptionStatus: users[existingIndex].subscriptionStatus === 'active' ? 'active' : record.subscriptionStatus
+            subscriptionStatus: record.subscriptionStatus || users[existingIndex].subscriptionStatus
           };
         } else {
           users.push(record);

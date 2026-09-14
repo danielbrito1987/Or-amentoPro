@@ -4,6 +4,7 @@ import { User } from '../types';
 import { authService } from '../services/authService';
 import { getSupabase } from '../services/supabase';
 import { saasService } from '../services/saasService';
+import { partnerService } from '../services/partnerService';
 
 interface AuthContextType {
   user: User | null;
@@ -18,9 +19,11 @@ interface AuthContextType {
     hoursRemaining: number;
     expiresAt: Date;
     isExpired: boolean;
+    isPartner?: boolean;
+    partnerCompany?: string;
   };
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, name?: string) => Promise<{ message?: string }>;
+  register: (email: string, password: string, name?: string, partnerCode?: string) => Promise<{ message?: string }>;
   loginAsDemo: () => Promise<void>;
   logout: () => void;
   refreshUserStatus: () => Promise<void>;
@@ -52,14 +55,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const supabase = getSupabase();
     if (supabase) {
       // Faz verificação do usuário atual na inicialização
-      authService.checkFreshUserStatus().then(freshUser => {
+      authService.checkFreshUserStatus().then(async (freshUser) => {
         if (freshUser) {
+          // Consulta se houve atualização de assinatura ou parceria remota no Supabase profiles
+          await saasService.fetchRemoteSubscriptionStatus(freshUser.email);
           saasService.registerNewUser(freshUser);
           setUser(freshUser);
         }
       });
 
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
         if (session && session.user) {
           const meta = session.user.user_metadata || {};
           const appMeta = session.user.app_metadata || {};
@@ -83,6 +88,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               : (meta.role || appMeta.role || 'user')
           };
 
+          // Atualiza status remoto do banco de dados (ex: se o dono marcou como parceiro)
+          await saasService.fetchRemoteSubscriptionStatus(usr.email);
           saasService.registerNewUser(usr);
           setUser(usr);
           setToken(session.access_token);
@@ -103,6 +110,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const refreshUserStatus = async () => {
     const freshUser = await authService.checkFreshUserStatus();
     if (freshUser) {
+      await saasService.fetchRemoteSubscriptionStatus(freshUser.email);
       saasService.registerNewUser(freshUser);
       setUser(freshUser);
     }
@@ -115,11 +123,44 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setToken(result.token);
   };
 
-  const register = async (email: string, password: string, name?: string) => {
+  const register = async (email: string, password: string, name?: string, partnerCode?: string) => {
+    let partnerInfo: { name: string; code: string; days?: number } | null = null;
+
+    if (partnerCode && partnerCode.trim()) {
+      const validation = partnerService.validateCode(partnerCode);
+      if (!validation.valid || !validation.partner) {
+        throw new Error(validation.message || 'Código de parceria inválido.');
+      }
+      partnerInfo = {
+        name: validation.partner.name,
+        code: validation.partner.code,
+        days: validation.partner.accessType === 'dias' ? validation.partner.accessDays : undefined
+      };
+    }
+
     const result = await authService.register(email, password, name);
     if (result.token !== 'pending_confirmation') {
-      saasService.registerNewUser(result.user);
-      setUser(result.user);
+      const userToRegister = { ...result.user };
+
+      if (partnerInfo) {
+        userToRegister.subscriptionStatus = 'partner';
+        userToRegister.partnerCompany = partnerInfo.name;
+        userToRegister.partnerCode = partnerInfo.code;
+        partnerService.incrementUsage(partnerInfo.code);
+      }
+
+      saasService.registerNewUser(userToRegister);
+
+      if (partnerInfo) {
+        saasService.setPartnerAccessForUser(
+          userToRegister.email,
+          partnerInfo.name,
+          partnerInfo.code,
+          partnerInfo.days
+        );
+      }
+
+      setUser(userToRegister);
       setToken(result.token);
     }
     return { message: result.message };

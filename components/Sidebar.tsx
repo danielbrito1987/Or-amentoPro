@@ -37,7 +37,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onLogout,
   onOpenGuide
 }) => {
-  const { user } = useAuth();
+  const { user, subscriptionInfo } = useAuth();
 
   // Persiste a preferência do usuário de menu recolhido
   const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
@@ -211,6 +211,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   {user?.email?.toLowerCase() === 'damasceno1871@gmail.com' ? (
                     <span className="text-[9px] bg-purple-500/30 text-purple-300 font-bold px-1.5 py-0.2 rounded border border-purple-500/40 shrink-0">
                       DONO
+                    </span>
+                  ) : subscriptionInfo?.isPartner || user?.subscriptionStatus === 'partner' ? (
+                    <span 
+                      title={subscriptionInfo?.partnerCompany ? `Parceria: ${subscriptionInfo.partnerCompany}` : 'Parceiro Comercial'}
+                      className="text-[9px] bg-emerald-500/30 text-emerald-300 font-bold px-1.5 py-0.2 rounded border border-emerald-500/40 shrink-0"
+                    >
+                      PARCEIRO
                     </span>
                   ) : (
                     <span className="text-[9px] bg-blue-500/30 text-blue-300 font-bold px-1.5 py-0.2 rounded border border-blue-500/40 shrink-0">
