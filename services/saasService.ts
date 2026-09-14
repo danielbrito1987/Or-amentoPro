@@ -701,3 +701,16 @@ export const saasService = {
     }
   },
 };
+
+// Exportação direta da função para permitir import { canUseContracts } from '../services/saasService'
+export const canUseContracts = (plan?: string): boolean => {
+  if (!plan) return false;
+  const p = plan.toLowerCase();
+  return p === 'pro' || p === 'premium' || p === 'enterprise' || p === 'admin';
+};
+
+export const canUseAI = (plan?: string): boolean => {
+  if (!plan) return false;
+  const p = plan.toLowerCase();
+  return p === 'pro' || p === 'premium' || p === 'enterprise' || p === 'admin';
+};
