@@ -461,10 +461,6 @@ const AppContent: React.FC = () => {
             />
           )}
 
-          /*{activeTab === 'contracts' && !isEditingContract && !selectedContract && (
-            <ContractsPage onUpgradeToPremium={() => setIsPaywallOpen(true)} />
-          )}*/
-
           {activeTab === 'catalog' && (
             <CatalogPage 
               catalog={catalog} 
