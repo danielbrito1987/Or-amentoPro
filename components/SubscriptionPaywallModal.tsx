@@ -24,6 +24,7 @@ import { Button } from './Button';
 import { 
   saasService, 
   SubscriptionPlanId, 
+  BillingCycle,
   SUBSCRIPTION_PLANS, 
   BASIC_MONTHLY_QUOTES_LIMIT 
 } from '../services/saasService';
@@ -36,6 +37,7 @@ interface SubscriptionPaywallModalProps {
   onLogout: () => void;
   onCheckStatus?: () => void;
   initialPlan?: SubscriptionPlanId;
+  initialBillingCycle?: BillingCycle;
   onClose?: () => void;
   customBadge?: string;
   customTitle?: string;
@@ -48,12 +50,14 @@ export const SubscriptionPaywallModal: React.FC<SubscriptionPaywallModalProps> =
   onLogout,
   onCheckStatus,
   initialPlan = 'pro',
+  initialBillingCycle = 'monthly',
   onClose,
   customBadge,
   customTitle,
   customSubtitle
 }) => {
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlanId>(initialPlan);
+  const [billingCycle, setBillingCycle] = useState<BillingCycle>(initialBillingCycle);
   const [copied, setCopied] = useState(false);
   const [checking, setChecking] = useState(false);
   const [partnerCodeInput, setPartnerCodeInput] = useState('');
@@ -63,7 +67,7 @@ export const SubscriptionPaywallModal: React.FC<SubscriptionPaywallModalProps> =
 
   const pixKey = saasService.getPixKey();
   const currentPlanConfig = SUBSCRIPTION_PLANS[selectedPlan];
-  const price = currentPlanConfig.price;
+  const price = billingCycle === 'annual' ? currentPlanConfig.annualPrice : currentPlanConfig.price;
 
   const handleCopyPix = () => {
     navigator.clipboard.writeText(pixKey);
@@ -72,14 +76,11 @@ export const SubscriptionPaywallModal: React.FC<SubscriptionPaywallModalProps> =
   };
 
   const handleNotifyWhatsApp = () => {
-    const planLabel = selectedPlan === 'premium'
-      ? `Plano Premium com Contratos e Assinatura Digital (R$ ${formatCurrency(SUBSCRIPTION_PLANS.premium.price)})`
-      : selectedPlan === 'basic' 
-      ? `Plano Básico (R$ ${formatCurrency(SUBSCRIPTION_PLANS.basic.price)})` 
-      : `Plano Pro Completo (R$ ${formatCurrency(SUBSCRIPTION_PLANS.pro.price)})`;
+    const cycleText = billingCycle === 'annual' ? 'anual' : 'mensal';
+    const planLabel = `${currentPlanConfig.name} (${formatCurrency(price)}/${billingCycle === 'annual' ? 'ano' : 'mês'})`;
 
     const text = encodeURIComponent(
-      `Olá! Realizei o pagamento via PIX da assinatura mensal do OrçaFácil no ${planLabel} para o e-mail cadastrado: ${userEmail || ''}. Poderia confirmar a ativação do meu acesso, por gentileza?`
+      `Olá! Realizei o pagamento via PIX da assinatura ${cycleText} do OrçaFácil no ${planLabel} para o e-mail cadastrado: ${userEmail || ''}. Poderia confirmar a ativação do meu acesso, por gentileza?`
     );
     window.open(`https://wa.me/55?text=${text}`, '_blank');
   };
@@ -165,9 +166,42 @@ export const SubscriptionPaywallModal: React.FC<SubscriptionPaywallModalProps> =
             {customTitle || 'Escolha seu Plano de Assinatura'}
           </h2>
           
-          <p className="text-xs sm:text-sm text-slate-600 leading-relaxed mb-6">
+          <p className="text-xs sm:text-sm text-slate-600 leading-relaxed mb-4">
             {customSubtitle || 'Continue emitindo propostas comerciais elegantes e fechando mais serviços. Escolha o plano que melhor atende sua rotina:'}
           </p>
+
+          {/* Seletor Ciclo de Cobrança: Mensal vs Anual */}
+          <div className="flex items-center justify-center mb-5">
+            <div className="inline-flex p-1 bg-slate-100 rounded-2xl border border-slate-200 shadow-inner">
+              <button
+                type="button"
+                onClick={() => setBillingCycle('monthly')}
+                className={`px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all ${
+                  billingCycle === 'monthly'
+                    ? 'bg-white text-slate-900 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                Mensal
+              </button>
+              <button
+                type="button"
+                onClick={() => setBillingCycle('annual')}
+                className={`px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 ${
+                  billingCycle === 'annual'
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <span>Anual</span>
+                <span className={`text-[10px] font-black px-1.5 py-0.2 rounded-md ${
+                  billingCycle === 'annual' ? 'bg-emerald-400 text-slate-950' : 'bg-emerald-100 text-emerald-700'
+                }`}>
+                  Economize até 17%
+                </span>
+              </button>
+            </div>
+          </div>
 
           {/* Seletor dos 3 Planos */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6 text-left">
@@ -188,12 +222,21 @@ export const SubscriptionPaywallModal: React.FC<SubscriptionPaywallModalProps> =
                   Econômico
                 </span>
               </div>
-              <div className="mb-2">
+              <div className="mb-1">
                 <span className="text-2xl font-black text-slate-900">
-                  {formatCurrency(SUBSCRIPTION_PLANS.basic.price)}
+                  {billingCycle === 'annual' 
+                    ? formatCurrency(SUBSCRIPTION_PLANS.basic.annualPrice)
+                    : formatCurrency(SUBSCRIPTION_PLANS.basic.price)}
                 </span>
-                <span className="text-xs text-slate-500">/mês</span>
+                <span className="text-xs text-slate-500">
+                  {billingCycle === 'annual' ? '/ano' : '/mês'}
+                </span>
               </div>
+              {billingCycle === 'annual' && (
+                <p className="text-[10px] text-emerald-600 font-semibold mb-2">
+                  Equivalente a {formatCurrency(SUBSCRIPTION_PLANS.basic.annualPrice / 12)}/mês
+                </p>
+              )}
               <p className="text-[11px] text-slate-600 mb-3">
                 Para profissionais que precisam de propostas organizadas com custo reduzido.
               </p>
@@ -232,15 +275,24 @@ export const SubscriptionPaywallModal: React.FC<SubscriptionPaywallModalProps> =
                   Plano Pro
                 </span>
                 <span className="text-[10px] font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200">
-                  Ilimitado
+                  Mais Escolhido
                 </span>
               </div>
-              <div className="mb-2">
+              <div className="mb-1">
                 <span className="text-2xl font-black text-indigo-950">
-                  {formatCurrency(SUBSCRIPTION_PLANS.pro.price)}
+                  {billingCycle === 'annual' 
+                    ? formatCurrency(SUBSCRIPTION_PLANS.pro.annualPrice)
+                    : formatCurrency(SUBSCRIPTION_PLANS.pro.price)}
                 </span>
-                <span className="text-xs text-slate-500">/mês</span>
+                <span className="text-xs text-slate-500">
+                  {billingCycle === 'annual' ? '/ano' : '/mês'}
+                </span>
               </div>
+              {billingCycle === 'annual' && (
+                <p className="text-[10px] text-emerald-600 font-semibold mb-2">
+                  Equivalente a {formatCurrency(SUBSCRIPTION_PLANS.pro.annualPrice / 12)}/mês
+                </p>
+              )}
               <p className="text-[11px] text-slate-600 mb-3">
                 Acesso irrestrito com inteligência artificial para orçar e fechar negócios.
               </p>
@@ -285,12 +337,21 @@ export const SubscriptionPaywallModal: React.FC<SubscriptionPaywallModalProps> =
                   Contratos
                 </span>
               </div>
-              <div className="mb-2">
+              <div className="mb-1">
                 <span className="text-2xl font-black text-amber-950">
-                  {formatCurrency(SUBSCRIPTION_PLANS.premium.price)}
+                  {billingCycle === 'annual' 
+                    ? formatCurrency(SUBSCRIPTION_PLANS.premium.annualPrice)
+                    : formatCurrency(SUBSCRIPTION_PLANS.premium.price)}
                 </span>
-                <span className="text-xs text-slate-500">/mês</span>
+                <span className="text-xs text-slate-500">
+                  {billingCycle === 'annual' ? '/ano' : '/mês'}
+                </span>
               </div>
+              {billingCycle === 'annual' && (
+                <p className="text-[10px] text-amber-800 font-semibold mb-2">
+                  Equivalente a {formatCurrency(SUBSCRIPTION_PLANS.premium.annualPrice / 12)}/mês
+                </p>
+              )}
               <p className="text-[11px] text-slate-600 mb-3">
                 Orçamentos com geração de contrato e assinatura digital com valor jurídico.
               </p>
@@ -320,10 +381,10 @@ export const SubscriptionPaywallModal: React.FC<SubscriptionPaywallModalProps> =
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
                 <QrCode className="w-4 h-4 text-blue-600" />
-                Pagamento via PIX ({currentPlanConfig.name}):
+                Pagamento via PIX ({currentPlanConfig.name} - {billingCycle === 'annual' ? 'Anual' : 'Mensal'}):
               </span>
               <span className="text-xs font-bold text-slate-900 bg-white px-2.5 py-1 rounded-lg border border-slate-200">
-                Valor: <strong className="text-blue-600">{formatCurrency(price)}</strong>/mês
+                Valor: <strong className="text-blue-600">{formatCurrency(price)}</strong>/{billingCycle === 'annual' ? 'ano' : 'mês'}
               </span>
             </div>
 
@@ -353,7 +414,7 @@ export const SubscriptionPaywallModal: React.FC<SubscriptionPaywallModalProps> =
             </div>
 
             <p className="text-[11px] text-slate-500 leading-relaxed">
-              * Ao fazer o PIX de <strong>{formatCurrency(price)}</strong> referente ao {currentPlanConfig.name}, envie o comprovante no WhatsApp informando seu e-mail (<strong>{userEmail}</strong>) para ativarmos seu plano na hora.
+              * Ao fazer o PIX de <strong>{formatCurrency(price)}</strong> referente ao {currentPlanConfig.name} ({billingCycle === 'annual' ? 'Plano Anual' : 'Plano Mensal'}), envie o comprovante no WhatsApp informando seu e-mail (<strong>{userEmail}</strong>) para ativarmos seu plano na hora.
             </p>
           </div>
 

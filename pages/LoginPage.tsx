@@ -1,23 +1,40 @@
 
 import React, { useState } from 'react';
 import { Button } from '../components/Button';
-import { Mail, Lock, User as UserIcon, Loader2, AlertCircle, CheckCircle2, Database, ArrowLeft, UserCheck, Sparkles, Building2, Tag } from 'lucide-react';
+import { Mail, Lock, User as UserIcon, Loader2, AlertCircle, CheckCircle2, Database, ArrowLeft, UserCheck, Sparkles, Building2, Tag, Check, Crown } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { isSupabaseConfigured } from '../services/supabase';
 import { partnerService } from '../services/partnerService';
+import { 
+  SubscriptionPlanId, 
+  BillingCycle, 
+  PLAN_BASIC_PRICE, 
+  PLAN_BASIC_ANNUAL_PRICE, 
+  PLAN_PRO_PRICE, 
+  PLAN_PRO_ANNUAL_PRICE, 
+  PLAN_PREMIUM_PRICE, 
+  PLAN_PREMIUM_ANNUAL_PRICE 
+} from '../services/saasService';
+import { formatCurrency } from '../utils/formatters';
 import orcaLogo from '../src/assets/images/orcafacil_quote_logo_1788895951950.jpg';
 
 interface LoginPageProps {
   initialMode?: 'login' | 'register';
+  initialPlan?: SubscriptionPlanId;
+  initialBillingCycle?: BillingCycle;
   onBackToLanding?: () => void;
 }
 
 export const LoginPage: React.FC<LoginPageProps> = ({ 
   initialMode = 'login',
+  initialPlan = 'pro',
+  initialBillingCycle = 'monthly',
   onBackToLanding 
 }) => {
   const { login, register, loginAsDemo } = useAuth();
   const [mode, setMode] = useState<'login' | 'register'>(initialMode);
+  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlanId>(initialPlan);
+  const [billingCycle, setBillingCycle] = useState<BillingCycle>(initialBillingCycle);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -77,7 +94,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 
     try {
       if (mode === 'register') {
-        const res = await register(email, password, name, partnerCode || undefined);
+        const res = await register(
+          email, 
+          password, 
+          name, 
+          partnerCode || undefined,
+          selectedPlan,
+          billingCycle
+        );
         if (res.message) {
           setSuccessMessage(res.message);
         }
@@ -108,7 +132,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       <div className="absolute top-[-10%] left-[-10%] w-[45%] h-[45%] bg-blue-600/15 rounded-full blur-[130px] pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[45%] h-[45%] bg-indigo-600/15 rounded-full blur-[130px] pointer-events-none" />
 
-      <div className="w-full max-w-md animate-in fade-in zoom-in duration-300 relative z-10">
+      <div className={`w-full ${mode === 'register' ? 'max-w-2xl' : 'max-w-md'} animate-in fade-in zoom-in duration-300 relative z-10 transition-all`}>
         <div className="text-center mb-6">
           <div className="relative inline-block mb-3">
             <div className="absolute inset-0 bg-blue-500/20 rounded-3xl blur-xl" />
@@ -232,6 +256,212 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             </div>
 
             {mode === 'register' && (
+              <div className="pt-2 border-t border-slate-800 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <span className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-blue-400" />
+                      Escolha seu Plano de Acesso
+                    </span>
+                    <p className="text-[11px] text-slate-400">
+                      Você pode alterar ou cancelar a qualquer momento.
+                    </p>
+                  </div>
+
+                  {/* Alternador Mensal / Anual */}
+                  <div className="inline-flex p-0.5 bg-slate-950 rounded-xl border border-slate-800 self-start sm:self-auto">
+                    <button
+                      id="btn-billing-monthly"
+                      type="button"
+                      onClick={() => setBillingCycle('monthly')}
+                      className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all ${
+                        billingCycle === 'monthly'
+                          ? 'bg-slate-800 text-white shadow-sm'
+                          : 'text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      Mensal
+                    </button>
+                    <button
+                      id="btn-billing-annual"
+                      type="button"
+                      onClick={() => setBillingCycle('annual')}
+                      className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all flex items-center gap-1 ${
+                        billingCycle === 'annual'
+                          ? 'bg-blue-600 text-white shadow-sm'
+                          : 'text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      <span>Anual</span>
+                      <span className="text-[9px] bg-emerald-400 text-slate-950 font-black px-1.5 py-0.2 rounded">
+                        Economize ~2 meses
+                      </span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Cards dos 3 Planos */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  {/* Plano Básico */}
+                  <div
+                    id="plan-card-basic"
+                    onClick={() => setSelectedPlan('basic')}
+                    className={`p-3.5 rounded-2xl border cursor-pointer transition-all relative flex flex-col justify-between ${
+                      selectedPlan === 'basic'
+                        ? 'bg-blue-600/10 border-blue-500 ring-2 ring-blue-500/30 shadow-md'
+                        : 'bg-slate-950/60 border-slate-800 hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="absolute top-3 right-3">
+                      <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                        selectedPlan === 'basic' ? 'border-blue-500 bg-blue-500 text-white' : 'border-slate-600'
+                      }`}>
+                        {selectedPlan === 'basic' && <Check className="w-2.5 h-2.5" />}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1 mb-1">
+                        <span className="text-xs font-bold text-white">Básico</span>
+                      </div>
+                      <div className="flex items-baseline gap-1 my-1">
+                        <span className="text-base font-black text-white">
+                          {billingCycle === 'annual' ? formatCurrency(PLAN_BASIC_ANNUAL_PRICE) : formatCurrency(PLAN_BASIC_PRICE)}
+                        </span>
+                        <span className="text-[10px] text-slate-400">
+                          {billingCycle === 'annual' ? '/ano' : '/mês'}
+                        </span>
+                      </div>
+                      {billingCycle === 'annual' && (
+                        <p className="text-[10px] text-emerald-400 font-semibold mb-1">
+                          Equiv. {formatCurrency(PLAN_BASIC_ANNUAL_PRICE / 12)}/mês
+                        </p>
+                      )}
+                      <p className="text-[11px] text-slate-400 leading-snug mt-1">
+                        Até 20 orçamentos/mês, PDF no WhatsApp e catálogo.
+                      </p>
+                    </div>
+                    <div className="mt-3 pt-2 border-t border-slate-800/80">
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-500/30">
+                        <Check className="w-2.5 h-2.5" /> 7 dias grátis
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Plano Pro (Recomendado) */}
+                  <div
+                    id="plan-card-pro"
+                    onClick={() => setSelectedPlan('pro')}
+                    className={`p-3.5 rounded-2xl border cursor-pointer transition-all relative flex flex-col justify-between ${
+                      selectedPlan === 'pro'
+                        ? 'bg-blue-600/15 border-blue-500 ring-2 ring-blue-500/40 shadow-lg shadow-blue-500/10'
+                        : 'bg-slate-950/60 border-slate-800 hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="absolute top-3 right-3">
+                      <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                        selectedPlan === 'pro' ? 'border-blue-500 bg-blue-500 text-white' : 'border-slate-600'
+                      }`}>
+                        {selectedPlan === 'pro' && <Check className="w-2.5 h-2.5" />}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <span className="text-xs font-bold text-white">Pro Completo</span>
+                        <span className="text-[9px] bg-blue-600 text-white font-black px-1.5 py-0.2 rounded">
+                          Mais Escolhido
+                        </span>
+                      </div>
+                      <div className="flex items-baseline gap-1 my-1">
+                        <span className="text-base font-black text-white">
+                          {billingCycle === 'annual' ? formatCurrency(PLAN_PRO_ANNUAL_PRICE) : formatCurrency(PLAN_PRO_PRICE)}
+                        </span>
+                        <span className="text-[10px] text-slate-400">
+                          {billingCycle === 'annual' ? '/ano' : '/mês'}
+                        </span>
+                      </div>
+                      {billingCycle === 'annual' && (
+                        <p className="text-[10px] text-emerald-400 font-semibold mb-1">
+                          Equiv. {formatCurrency(PLAN_PRO_ANNUAL_PRICE / 12)}/mês
+                        </p>
+                      )}
+                      <p className="text-[11px] text-slate-400 leading-snug mt-1">
+                        Orçamentos ilimitados, Consultor IA e suporte VIP.
+                      </p>
+                    </div>
+                    <div className="mt-3 pt-2 border-t border-slate-800/80">
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-500/30">
+                        <Check className="w-2.5 h-2.5" /> 7 dias grátis
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Plano Premium (Sem teste grátis) */}
+                  <div
+                    id="plan-card-premium"
+                    onClick={() => setSelectedPlan('premium')}
+                    className={`p-3.5 rounded-2xl border cursor-pointer transition-all relative flex flex-col justify-between ${
+                      selectedPlan === 'premium'
+                        ? 'bg-amber-500/10 border-amber-400 ring-2 ring-amber-400/30 shadow-lg shadow-amber-500/10'
+                        : 'bg-slate-950/60 border-slate-800 hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="absolute top-3 right-3">
+                      <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                        selectedPlan === 'premium' ? 'border-amber-400 bg-amber-400 text-slate-950' : 'border-slate-600'
+                      }`}>
+                        {selectedPlan === 'premium' && <Check className="w-2.5 h-2.5" />}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1 mb-1">
+                        <Crown className="w-3.5 h-3.5 text-amber-400" />
+                        <span className="text-xs font-bold text-amber-300">Premium</span>
+                      </div>
+                      <div className="flex items-baseline gap-1 my-1">
+                        <span className="text-base font-black text-amber-400">
+                          {billingCycle === 'annual' ? formatCurrency(PLAN_PREMIUM_ANNUAL_PRICE) : formatCurrency(PLAN_PREMIUM_PRICE)}
+                        </span>
+                        <span className="text-[10px] text-slate-400">
+                          {billingCycle === 'annual' ? '/ano' : '/mês'}
+                        </span>
+                      </div>
+                      {billingCycle === 'annual' && (
+                        <p className="text-[10px] text-amber-300/80 font-semibold mb-1">
+                          Equiv. {formatCurrency(PLAN_PREMIUM_ANNUAL_PRICE / 12)}/mês
+                        </p>
+                      )}
+                      <p className="text-[11px] text-slate-400 leading-snug mt-1">
+                        Contratos com Assinatura Digital + Tudo do Plano Pro.
+                      </p>
+                    </div>
+                    <div className="mt-3 pt-2 border-t border-slate-800/80">
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-400 bg-amber-950/60 px-2 py-0.5 rounded-md border border-amber-500/30">
+                        Sem teste • Ativação Pix
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Feedback Informativo de Trial */}
+                {selectedPlan === 'premium' ? (
+                  <div className="bg-amber-500/10 border border-amber-500/25 text-amber-300 p-2.5 rounded-xl text-xs flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold">Atenção sobre o Plano Premium:</span> Este plano não possui os 7 dias de teste grátis. A ativação é feita diretamente via chave PIX disponibilizada após a criação da conta.
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 p-2.5 rounded-xl text-xs flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>
+                      <strong>Período de Teste Grátis:</strong> Você terá <strong>7 dias gratuitos</strong> para utilizar o {selectedPlan === 'pro' ? 'Plano Pro' : 'Plano Básico'} sem nenhuma cobrança inicial.
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {mode === 'register' && (
               <div className="bg-slate-950/60 p-3 rounded-2xl border border-slate-800 space-y-1.5">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
@@ -278,7 +508,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 </>
               ) : (
                 mode === 'register' 
-                  ? (partnerMessage ? 'Criar Conta com Parceria Liberada' : 'Criar Conta e Testar 7 Dias Grátis') 
+                  ? (partnerMessage 
+                      ? 'Criar Conta com Parceria Liberada' 
+                      : selectedPlan === 'premium'
+                        ? `Criar Conta no Plano Premium (${billingCycle === 'annual' ? formatCurrency(PLAN_PREMIUM_ANNUAL_PRICE) + '/ano' : formatCurrency(PLAN_PREMIUM_PRICE) + '/mês'})`
+                        : `Criar Conta e Iniciar 7 Dias Grátis (${selectedPlan === 'pro' ? 'Plano Pro' : 'Plano Básico'})`
+                    )
                   : 'Entrar'
               )}
             </Button>

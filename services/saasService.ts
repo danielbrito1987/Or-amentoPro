@@ -4,18 +4,24 @@ import { User } from '../types';
 export const ADMIN_EMAIL = 'damasceno1871@gmail.com';
 export const PIX_KEY = 'damasceno1871@gmail.com';
 export const PLAN_BASIC_PRICE = 29.90;
+export const PLAN_BASIC_ANNUAL_PRICE = 299.90;
 export const PLAN_PRO_PRICE = 59.90;
+export const PLAN_PRO_ANNUAL_PRICE = 599.90;
 export const PLAN_PREMIUM_PRICE = 199.90;
+export const PLAN_PREMIUM_ANNUAL_PRICE = 1999.90;
 export const MONTHLY_PRICE = PLAN_PRO_PRICE;
 export const TRIAL_DAYS = 7;
 export const BASIC_MONTHLY_QUOTES_LIMIT = 20;
 
 export type SubscriptionPlanId = 'basic' | 'pro' | 'premium';
+export type BillingCycle = 'monthly' | 'annual';
 
 export interface PlanConfig {
   id: SubscriptionPlanId;
   name: string;
   price: number;
+  annualPrice: number;
+  hasFreeTrial: boolean;
   monthlyQuotesLimit: number | null; // null = sem limite
   hasAiConsultant: boolean;
   description: string;
@@ -28,6 +34,8 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlanId, PlanConfig> = {
     id: 'basic',
     name: 'Plano Básico',
     price: PLAN_BASIC_PRICE,
+    annualPrice: PLAN_BASIC_ANNUAL_PRICE,
+    hasFreeTrial: true,
     monthlyQuotesLimit: BASIC_MONTHLY_QUOTES_LIMIT,
     hasAiConsultant: false,
     description: 'Para profissionais autônomos que buscam organizar propostas com custo reduzido.',
@@ -45,6 +53,8 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlanId, PlanConfig> = {
     id: 'pro',
     name: 'Plano Pro Completo',
     price: PLAN_PRO_PRICE,
+    annualPrice: PLAN_PRO_ANNUAL_PRICE,
+    hasFreeTrial: true,
     monthlyQuotesLimit: null, // Ilimitado
     hasAiConsultant: true,
     description: 'Acesso total e irrestrito para fechar mais negócios e nunca errar nos preços.',
@@ -63,6 +73,8 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlanId, PlanConfig> = {
     id: 'premium',
     name: 'Plano Premium',
     price: PLAN_PREMIUM_PRICE,
+    annualPrice: PLAN_PREMIUM_ANNUAL_PRICE,
+    hasFreeTrial: false, // O Plano Premium NÃO possui 7 dias grátis
     monthlyQuotesLimit: null, // Ilimitado
     hasAiConsultant: true,
     description: 'Gestão completa de orçamentos, contratos com assinatura digital e validade jurídica.',
@@ -90,7 +102,8 @@ export interface SaaSUserRecord {
   trialEndsAt: string;
   subscriptionStatus: 'trial' | 'active' | 'expired' | 'partner';
   subscriptionValidUntil?: string;
-  plan?: 'basic' | 'pro' | 'premium';
+  plan?: SubscriptionPlanId;
+  billingCycle?: BillingCycle;
   lastPaymentNote?: string;
   role: 'admin' | 'user';
   companyId: string;
@@ -104,10 +117,72 @@ export const saasService = {
   getPixKey: () => PIX_KEY,
   getMonthlyPrice: () => MONTHLY_PRICE,
   getBasicPrice: () => PLAN_BASIC_PRICE,
+  getBasicAnnualPrice: () => PLAN_BASIC_ANNUAL_PRICE,
   getProPrice: () => PLAN_PRO_PRICE,
+  getProAnnualPrice: () => PLAN_PRO_ANNUAL_PRICE,
+  getPremiumPrice: () => PLAN_PREMIUM_PRICE,
+  getPremiumAnnualPrice: () => PLAN_PREMIUM_ANNUAL_PRICE,
   getBasicQuotesLimit: () => BASIC_MONTHLY_QUOTES_LIMIT,
   getTrialDays: () => TRIAL_DAYS,
   getPlanConfig: (planId: SubscriptionPlanId = 'pro') => SUBSCRIPTION_PLANS[planId] || SUBSCRIPTION_PLANS.pro,
+  getPlanPrice: (planId: SubscriptionPlanId = 'pro', cycle: BillingCycle = 'monthly'): number => {
+    const config = SUBSCRIPTION_PLANS[planId] || SUBSCRIPTION_PLANS.pro;
+    return cycle === 'annual' ? config.annualPrice : config.price;
+  },
+  hasPlanTrial: (planId: SubscriptionPlanId): boolean => {
+    return planId !== 'premium';
+  },
+  getUserBillingCycle: (user?: User | null): BillingCycle => {
+    if (!user || !user.email) return 'monthly';
+    const users = saasService.getAllUsers();
+    const record = users.find(u => u.email.toLowerCase() === user.email.toLowerCase());
+    if (record && record.billingCycle) return record.billingCycle;
+    if (user.billingCycle) return user.billingCycle;
+    return 'monthly';
+  },
+  switchToTrialPlan: async (email: string, targetPlan: 'basic' | 'pro'): Promise<void> => {
+    const users = saasService.getAllUsers();
+    const record = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+    const now = new Date();
+    const trialEnd = new Date(now.getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000).toISOString();
+
+    if (record) {
+      record.plan = targetPlan;
+      record.subscriptionStatus = 'trial';
+      record.trialEndsAt = trialEnd;
+      delete record.subscriptionValidUntil;
+      record.lastPaymentNote = `Migrado para ${targetPlan.toUpperCase()} com 7 dias de teste grátis`;
+      saasService.saveUserRecord(record);
+    }
+
+    try {
+      const currentSaved = localStorage.getItem('orcafacil_user');
+      if (currentSaved) {
+        const u = JSON.parse(currentSaved);
+        if (u.email?.toLowerCase() === email.toLowerCase()) {
+          u.plan = targetPlan;
+          u.subscriptionStatus = 'trial';
+          u.trialEndsAt = trialEnd;
+          delete u.subscriptionValidUntil;
+          localStorage.setItem('orcafacil_user', JSON.stringify(u));
+        }
+      }
+    } catch {}
+
+    const supabase = getSupabase();
+    if (supabase) {
+      try {
+        await supabase
+          .from('profiles')
+          .update({
+            plan: targetPlan,
+            subscription_status: 'trial',
+            trial_ends_at: trialEnd
+          })
+          .ilike('email', email.trim());
+      } catch {}
+    }
+  },
 
   getUserPlan: (user?: User | null): SubscriptionPlanId => {
     if (!user || !user.email) return 'pro';
@@ -268,12 +343,15 @@ export const saasService = {
     localStorage.setItem(USERS_REGISTRY_KEY, JSON.stringify(users));
   },
 
-  registerNewUser: (user: User): SaaSUserRecord => {
+  registerNewUser: (user: User, options?: { plan?: SubscriptionPlanId; billingCycle?: BillingCycle }): SaaSUserRecord => {
     const users = saasService.getAllUsers();
     const existing = users.find(u => u.email.toLowerCase() === user.email.toLowerCase());
 
     const isSystemAdmin = user.email.trim().toLowerCase() === ADMIN_EMAIL.toLowerCase();
     const isTestDemo = user.email.trim().toLowerCase() === 'teste@orcafacil.com.br' || user.email.trim().toLowerCase() === 'demo@orcafacil.com.br';
+
+    const chosenPlan: SubscriptionPlanId = options?.plan || user.plan || 'pro';
+    const chosenCycle: BillingCycle = options?.billingCycle || user.billingCycle || 'monthly';
 
     if (existing) {
       if (isSystemAdmin) {
@@ -284,12 +362,30 @@ export const saasService = {
         existing.subscriptionStatus = 'active';
         existing.subscriptionValidUntil = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
       }
+      if (options?.plan) existing.plan = options.plan;
+      if (options?.billingCycle) existing.billingCycle = options.billingCycle;
       saasService.saveUserRecord(existing);
       return existing;
     }
 
     const now = new Date();
-    const trialEnd = new Date(now.getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
+    // Básico e Pro têm 7 dias de teste grátis; Premium NÃO tem período de teste grátis (ativação direta via PIX)
+    const isPremium = chosenPlan === 'premium';
+    const hasTrial = !isPremium;
+    const trialDaysToAdd = hasTrial ? TRIAL_DAYS : 0;
+    const trialEnd = new Date(now.getTime() + trialDaysToAdd * 24 * 60 * 60 * 1000);
+
+    let initialStatus: 'trial' | 'active' | 'expired' | 'partner' = 'trial';
+    if (isSystemAdmin || isTestDemo) {
+      initialStatus = 'active';
+    } else if (user.subscriptionStatus === 'partner') {
+      initialStatus = 'partner';
+    } else if (isPremium) {
+      // Plano Premium: sem período de teste grátis, requer pagamento para ativação
+      initialStatus = 'expired';
+    } else {
+      initialStatus = 'trial';
+    }
 
     const record: SaaSUserRecord = {
       id: user.id || 'usr_' + Math.random().toString(36).substring(2, 9),
@@ -297,16 +393,51 @@ export const saasService = {
       name: user.name || user.email.split('@')[0],
       createdAt: now.toISOString(),
       trialEndsAt: trialEnd.toISOString(),
-      subscriptionStatus: (isSystemAdmin || isTestDemo) ? 'active' : 'trial',
+      subscriptionStatus: initialStatus,
       subscriptionValidUntil: isSystemAdmin 
         ? new Date(2099, 11, 31).toISOString() 
         : (isTestDemo ? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString() : undefined),
+      plan: chosenPlan,
+      billingCycle: chosenCycle,
+      lastPaymentNote: isPremium ? 'Plano Premium selecionado no cadastro - aguardando ativação via PIX' : undefined,
       role: isSystemAdmin ? 'admin' : 'user', // O usuário de teste é estritamente 'user' (não-dono)
       companyId: user.companyId || 'comp_' + Math.random().toString(36).substring(2, 9)
     };
 
     users.push(record);
     localStorage.setItem(USERS_REGISTRY_KEY, JSON.stringify(users));
+
+    // Atualiza também objeto em memória se for o usuário salvo atualmente
+    try {
+      const currentSaved = localStorage.getItem('orcafacil_user');
+      if (currentSaved) {
+        const u = JSON.parse(currentSaved);
+        if (u.email?.toLowerCase() === user.email.toLowerCase()) {
+          u.plan = chosenPlan;
+          u.billingCycle = chosenCycle;
+          u.subscriptionStatus = initialStatus;
+          localStorage.setItem('orcafacil_user', JSON.stringify(u));
+        }
+      }
+    } catch {}
+
+    // Sincroniza plano e status no Supabase profiles se disponível
+    const supabase = getSupabase();
+    if (supabase) {
+      try {
+        supabase
+          .from('profiles')
+          .update({
+            plan: chosenPlan,
+            billing_cycle: chosenCycle,
+            subscription_status: initialStatus,
+            trial_ends_at: trialEnd.toISOString()
+          })
+          .ilike('email', user.email.trim())
+          .then(() => {});
+      } catch {}
+    }
+
     return record;
   },
 
@@ -433,6 +564,17 @@ export const saasService = {
           isExpired: true
         };
       }
+    }
+
+    // 2. Se for Plano Premium sem pagamento ativo: não possui 7 dias grátis
+    if (record.plan === 'premium' && record.subscriptionStatus !== 'active') {
+      return {
+        status: 'expired',
+        daysRemaining: 0,
+        hoursRemaining: 0,
+        expiresAt: new Date(record.trialEndsAt || now),
+        isExpired: true
+      };
     }
 
     // Caso de Período de Teste (Trial de 7 dias)

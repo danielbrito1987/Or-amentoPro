@@ -73,6 +73,7 @@ export interface User {
   subscriptionStatus?: 'trial' | 'active' | 'expired' | 'partner';
   subscriptionValidUntil?: string;
   plan?: 'basic' | 'pro' | 'premium';
+  billingCycle?: 'monthly' | 'annual';
   partnerCompany?: string;
   partnerCode?: string;
 }

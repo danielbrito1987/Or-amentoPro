@@ -3,7 +3,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import { User } from '../types';
 import { authService } from '../services/authService';
 import { getSupabase } from '../services/supabase';
-import { saasService } from '../services/saasService';
+import { saasService, SubscriptionPlanId, BillingCycle } from '../services/saasService';
 import { partnerService } from '../services/partnerService';
 
 interface AuthContextType {
@@ -23,7 +23,14 @@ interface AuthContextType {
     partnerCompany?: string;
   };
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, name?: string, partnerCode?: string) => Promise<{ message?: string }>;
+  register: (
+    email: string, 
+    password: string, 
+    name?: string, 
+    partnerCode?: string,
+    plan?: SubscriptionPlanId,
+    billingCycle?: BillingCycle
+  ) => Promise<{ message?: string }>;
   loginAsDemo: () => Promise<void>;
   logout: () => void;
   refreshUserStatus: () => Promise<void>;
@@ -148,7 +155,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setToken(result.token);
   };
 
-  const register = async (email: string, password: string, name?: string, partnerCode?: string) => {
+  const register = async (
+    email: string, 
+    password: string, 
+    name?: string, 
+    partnerCode?: string,
+    plan: SubscriptionPlanId = 'pro',
+    billingCycle: BillingCycle = 'monthly'
+  ) => {
     let partnerInfo: { name: string; code: string; days?: number } | null = null;
 
     if (partnerCode && partnerCode.trim()) {
@@ -163,9 +177,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       };
     }
 
-    const result = await authService.register(email, password, name);
+    const result = await authService.register(email, password, name, plan, billingCycle);
     if (result.token !== 'pending_confirmation') {
-      const userToRegister = { ...result.user };
+      const userToRegister = { 
+        ...result.user,
+        plan,
+        billingCycle
+      };
 
       if (partnerInfo) {
         userToRegister.subscriptionStatus = 'partner';
@@ -174,7 +192,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         partnerService.incrementUsage(partnerInfo.code);
       }
 
-      saasService.registerNewUser(userToRegister);
+      saasService.registerNewUser(userToRegister, { plan, billingCycle });
 
       if (partnerInfo) {
         saasService.setPartnerAccessForUser(

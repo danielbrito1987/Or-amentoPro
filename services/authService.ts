@@ -31,7 +31,9 @@ const mapSupabaseUser = (sbUser: any, token: string): { token: string; user: Use
     companyId,
     status,
     statusReason,
-    role: meta.role || appMeta.role || 'user'
+    role: meta.role || appMeta.role || 'user',
+    plan: meta.plan || 'pro',
+    billingCycle: meta.billing_cycle || 'monthly'
   };
 
   localStorage.setItem(TOKEN_KEY, token);
@@ -172,7 +174,13 @@ export const authService = {
     return { token: localToken, user: localUser };
   },
 
-  register: async (email: string, password: string, name?: string): Promise<{ token: string; user: User; message?: string }> => {
+  register: async (
+    email: string, 
+    password: string, 
+    name?: string,
+    plan: 'basic' | 'pro' | 'premium' = 'pro',
+    billingCycle: 'monthly' | 'annual' = 'monthly'
+  ): Promise<{ token: string; user: User; message?: string }> => {
     const cleanEmail = email.trim().toLowerCase();
     const supabase = getSupabase();
 
@@ -184,7 +192,9 @@ export const authService = {
         options: {
           data: {
             name: name || cleanEmail.split('@')[0],
-            company_id: safeCompanyId
+            company_id: safeCompanyId,
+            plan,
+            billing_cycle: billingCycle
           }
         }
       });
@@ -211,7 +221,9 @@ export const authService = {
             id: data.user.id,
             email: cleanEmail,
             name: name || cleanEmail.split('@')[0],
-            companyId: safeCompanyId
+            companyId: safeCompanyId,
+            plan,
+            billingCycle
           },
           message: 'Conta criada com sucesso! Verifique seu e-mail para confirmar seu cadastro ou desative a confirmação no painel do Supabase.'
         };
@@ -219,7 +231,11 @@ export const authService = {
     }
 
     // Modo local / sem Supabase configurado
-    return authService.login(cleanEmail, password);
+    const loginRes = await authService.login(cleanEmail, password);
+    loginRes.user.plan = plan;
+    loginRes.user.billingCycle = billingCycle;
+    localStorage.setItem(USER_KEY, JSON.stringify(loginRes.user));
+    return loginRes;
   },
 
   loginAsDemo: async (): Promise<{ token: string; user: User }> => {

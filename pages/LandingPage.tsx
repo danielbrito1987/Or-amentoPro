@@ -29,9 +29,12 @@ import { formatCurrency } from '../utils/formatters';
 import { 
   PLAN_BASIC_PRICE, 
   PLAN_PRO_PRICE, 
+  PLAN_PREMIUM_PRICE,
+  PLAN_BASIC_ANNUAL_PRICE,
+  PLAN_PRO_ANNUAL_PRICE,
+  PLAN_PREMIUM_ANNUAL_PRICE,
   BASIC_MONTHLY_QUOTES_LIMIT, 
-  TRIAL_DAYS, 
-PLAN_PREMIUM_PRICE
+  TRIAL_DAYS
 } from '../services/saasService';
 import orcaLogo from '../src/assets/images/orcafacil_quote_logo_1788895951950.jpg';
 
@@ -46,6 +49,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 }) => {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [activeSegment, setActiveSegment] = useState<'eletrica' | 'climatizacao' | 'pintura' | 'geral'>('eletrica');
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
 
   const toggleFaq = (index: number) => {
     setOpenFaq(openFaq === index ? null : index);
@@ -589,20 +593,49 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       {/* PLANOS & PREÇOS */}
       <section id="planos" className="py-20 bg-slate-900/60 border-t border-slate-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-2xl mx-auto mb-14">
+          <div className="text-center max-w-2xl mx-auto mb-10">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold mb-3">
-              <span>{TRIAL_DAYS} Dias Grátis nos 2 Planos</span>
+              <span>Planos Transparentes e Sem Surpresas</span>
             </div>
             <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
               Escolha o Plano Perfeito Para o Seu Negócio
             </h2>
             <p className="text-slate-400 text-sm sm:text-base mt-2">
-              Comece agora sem pagar nada. Você tem {TRIAL_DAYS} dias de teste gratuito em ambos os planos para comprovar o retorno!
+              Teste os planos Básico e Pro gratuitamente por 7 dias. Ou opte pelo Plano Premium completo com contratos e assinatura digital.
             </p>
+
+            {/* Alternador Mensal / Anual */}
+            <div className="mt-6 inline-flex p-1 bg-slate-900 rounded-2xl border border-slate-800 shadow-inner">
+              <button
+                type="button"
+                onClick={() => setBillingCycle('monthly')}
+                className={`px-4 py-2 text-xs sm:text-sm font-bold rounded-xl transition-all ${
+                  billingCycle === 'monthly'
+                    ? 'bg-slate-800 text-white shadow-md'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                Cobrança Mensal
+              </button>
+              <button
+                type="button"
+                onClick={() => setBillingCycle('annual')}
+                className={`px-4 py-2 text-xs sm:text-sm font-bold rounded-xl transition-all flex items-center gap-2 ${
+                  billingCycle === 'annual'
+                    ? 'bg-blue-600 text-white shadow-md'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <span>Plano Anual</span>
+                <span className="text-[10px] bg-emerald-400 text-slate-950 font-black px-2 py-0.5 rounded-full">
+                  Economize ~2 meses
+                </span>
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto items-stretch">
-            {/* Card Plano Básico - R$ 29,90 */}
+            {/* Card Plano Básico */}
             <div className="bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-3xl p-6 sm:p-8 flex flex-col justify-between transition-all relative">
               <div>
                 <div className="flex items-center justify-between mb-4">
@@ -618,11 +651,22 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 <div className="py-4 border-y border-slate-800 my-2">
                   <div className="flex items-baseline gap-1">
                     <span className="text-sm font-semibold text-slate-400">R$</span>
-                    <span className="text-4xl sm:text-5xl font-black text-white">{formatCurrency(PLAN_BASIC_PRICE).replace('R$', '').trim()}</span>
-                    <span className="text-slate-400 text-xs font-medium">/mês</span>
+                    <span className="text-4xl sm:text-5xl font-black text-white">
+                      {billingCycle === 'annual'
+                        ? formatCurrency(PLAN_BASIC_ANNUAL_PRICE).replace('R$', '').trim()
+                        : formatCurrency(PLAN_BASIC_PRICE).replace('R$', '').trim()}
+                    </span>
+                    <span className="text-slate-400 text-xs font-medium">
+                      {billingCycle === 'annual' ? '/ano' : '/mês'}
+                    </span>
                   </div>
-                  <p className="text-[11px] text-emerald-400 font-semibold mt-2">
-                    7 dias de teste grátis • Sem compromisso
+                  {billingCycle === 'annual' && (
+                    <p className="text-[11px] text-blue-400 font-semibold mt-1">
+                      Equivalente a {formatCurrency(PLAN_BASIC_ANNUAL_PRICE / 12)}/mês
+                    </p>
+                  )}
+                  <p className="text-[11px] text-emerald-400 font-semibold mt-2 flex items-center gap-1">
+                    <Check className="w-3.5 h-3.5" /> 7 dias de teste grátis • Sem cobrança hoje
                   </p>
                 </div>
 
@@ -660,7 +704,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   onClick={onGoToRegister}
                   className="w-full py-3.5 text-sm sm:text-base font-bold rounded-2xl bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 transition-all active:scale-[0.98] cursor-pointer"
                 >
-                  Criar Conta e Testar Plano Básico
+                  Criar Conta e Testar 7 Dias Grátis
                 </button>
                 <p className="text-[11px] text-slate-500 text-center mt-2.5">
                   7 dias grátis para testar sem pagar nada hoje
@@ -668,7 +712,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               </div>
             </div>
 
-            {/* Card Plano Pro - R$ 59,90 */}
+            {/* Card Plano Pro */}
             <div className="bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 border-2 border-blue-500 rounded-3xl p-6 sm:p-8 flex flex-col justify-between shadow-2xl shadow-blue-950/60 relative transition-all">
               <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-black text-xs uppercase tracking-wider px-4 py-1 rounded-full shadow-lg flex items-center gap-1.5 whitespace-nowrap">
                 <Sparkles className="w-3.5 h-3.5 text-amber-300" />
@@ -691,11 +735,22 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 <div className="py-4 border-y border-slate-800 my-2">
                   <div className="flex items-baseline gap-1">
                     <span className="text-sm font-semibold text-slate-400">R$</span>
-                    <span className="text-4xl sm:text-5xl font-black text-white">{formatCurrency(PLAN_PRO_PRICE).replace('R$', '').trim()}</span>
-                    <span className="text-slate-400 text-xs font-medium">/mês</span>
+                    <span className="text-4xl sm:text-5xl font-black text-white">
+                      {billingCycle === 'annual'
+                        ? formatCurrency(PLAN_PRO_ANNUAL_PRICE).replace('R$', '').trim()
+                        : formatCurrency(PLAN_PRO_PRICE).replace('R$', '').trim()}
+                    </span>
+                    <span className="text-slate-400 text-xs font-medium">
+                      {billingCycle === 'annual' ? '/ano' : '/mês'}
+                    </span>
                   </div>
-                  <p className="text-[11px] text-emerald-400 font-semibold mt-2">
-                    7 dias de teste grátis com todos os recursos liberados
+                  {billingCycle === 'annual' && (
+                    <p className="text-[11px] text-blue-300 font-semibold mt-1">
+                      Equivalente a {formatCurrency(PLAN_PRO_ANNUAL_PRICE / 12)}/mês
+                    </p>
+                  )}
+                  <p className="text-[11px] text-emerald-400 font-semibold mt-2 flex items-center gap-1">
+                    <Check className="w-3.5 h-3.5" /> 7 dias de teste grátis com todos os recursos liberados
                   </p>
                 </div>
 
@@ -745,7 +800,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               </div>
             </div>
 
-            {/* Card Plano Premium - R$ 199,90 */}
+            {/* Card Plano Premium */}
             <div className="relative rounded-3xl p-8 bg-gradient-to-b from-slate-900 via-amber-950/20 to-slate-900 border-2 border-amber-400/80 shadow-2xl shadow-amber-500/20 flex flex-col justify-between overflow-hidden ring-1 ring-amber-400/30">
               <div className="absolute top-0 right-0 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-600 text-slate-950 text-[10px] font-black uppercase tracking-wider py-1.5 px-4 rounded-bl-xl shadow-lg shadow-amber-500/30 flex items-center gap-1">
                 <Crown className="w-3.5 h-3.5" />
@@ -767,11 +822,22 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 <div className="py-4 border-y border-slate-800 my-2">
                   <div className="flex items-baseline gap-1">
                     <span className="text-sm font-semibold text-slate-400">R$</span>
-                    <span className="text-4xl sm:text-5xl font-black text-white">{formatCurrency(PLAN_PREMIUM_PRICE).replace('R$', '').trim()}</span>
-                    <span className="text-slate-400 text-xs font-medium">/mês</span>
+                    <span className="text-4xl sm:text-5xl font-black text-white">
+                      {billingCycle === 'annual'
+                        ? formatCurrency(PLAN_PREMIUM_ANNUAL_PRICE).replace('R$', '').trim()
+                        : formatCurrency(PLAN_PREMIUM_PRICE).replace('R$', '').trim()}
+                    </span>
+                    <span className="text-slate-400 text-xs font-medium">
+                      {billingCycle === 'annual' ? '/ano' : '/mês'}
+                    </span>
                   </div>
-                  <p className="text-[11px] text-emerald-400 font-semibold mt-2">
-                    ✨ Teste 7 dias grátis sem compromisso
+                  {billingCycle === 'annual' && (
+                    <p className="text-[11px] text-amber-300 font-semibold mt-1">
+                      Equivalente a {formatCurrency(PLAN_PREMIUM_ANNUAL_PRICE / 12)}/mês
+                    </p>
+                  )}
+                  <p className="text-[11px] text-amber-400 font-semibold mt-2 flex items-center gap-1">
+                    <span>⚡ Sem teste grátis • Ativação direta via Pix</span>
                   </p>
                 </div>
 
@@ -811,7 +877,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 onClick={onGoToRegister}
                 className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 hover:from-yellow-400 hover:to-amber-500 text-slate-950 font-black text-sm shadow-xl shadow-amber-500/25 transition-all transform hover:scale-[1.02] flex items-center justify-center gap-2"
               >
-                <span>Iniciar Teste Grátis</span>
+                <span>Cadastrar no Plano Premium</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>
