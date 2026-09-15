@@ -65,16 +65,17 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionPlanId, PlanConfig> = {
     price: PLAN_PREMIUM_PRICE,
     monthlyQuotesLimit: null, // Ilimitado
     hasAiConsultant: true,
-    description: 'Todas as funcionalidades do plano Pro, mais a gestão de contratos.',
-    badge: 'Full',
+    description: 'Gestão completa de orçamentos, contratos com assinatura digital e validade jurídica.',
+    badge: 'Mais Completo',
     features: [
-      'Orçamentos ilimitados em PDF',
-      'Consultor de Preços com Inteligência Artificial (SINAPI e médias)',
-      'Envio rápido em PDF pelo WhatsApp em 1 clique',
-      'Catálogo de serviços e materiais sem limites',
-      'Sua logo, CNPJ/CPF e chave Pix na proposta',
-      'Sincronização em nuvem e modo offline',
-      'Suporte prioritário via WhatsApp'
+      'Geração automática de Contratos a partir de Orçamentos',
+      'Assinatura Eletrônica no sistema (Prestador e Cliente)',
+      'Envio do contrato direto por WhatsApp e E-mail',
+      'Validade jurídica (MP 2.200-2/2001 e Lei 14.063/2020)',
+      'Orçamentos ILIMITADOS em PDF com sua marca',
+      'Consultor de Preços com Inteligência Artificial',
+      'Sincronização em nuvem no Supabase e modo offline',
+      'Suporte VIP via WhatsApp'
     ]
   }
 };
@@ -89,7 +90,7 @@ export interface SaaSUserRecord {
   trialEndsAt: string;
   subscriptionStatus: 'trial' | 'active' | 'expired' | 'partner';
   subscriptionValidUntil?: string;
-  plan?: 'basic' | 'pro';
+  plan?: 'basic' | 'pro' | 'premium';
   lastPaymentNote?: string;
   role: 'admin' | 'user';
   companyId: string;
@@ -140,6 +141,32 @@ export const saasService = {
     return { allowed: true };
   },
 
+  canUseContracts: (user?: User | null): { allowed: boolean; reason?: string } => {
+    if (!user) return { allowed: false, reason: 'Usuário não autenticado.' };
+    if (saasService.isAdmin(user)) return { allowed: true };
+
+    const cleanUserEmail = user.email ? user.email.trim().toLowerCase() : '';
+    if (cleanUserEmail === 'teste@orcafacil.com.br' || cleanUserEmail === 'demo@orcafacil.com.br') {
+      return { allowed: true };
+    }
+
+    const status = saasService.getUserSubscriptionStatus(user);
+    // Durante o trial de 7 dias ou parceiros: liberado para experimentar
+    if (status.status === 'trial' || status.isPartner) {
+      return { allowed: true };
+    }
+
+    const plan = saasService.getUserPlan(user);
+    if (plan === 'premium') {
+      return { allowed: true };
+    }
+
+    return {
+      allowed: false,
+      reason: 'O Módulo de Gestão de Contratos e Assinatura Digital é exclusivo do Plano Premium (R$ 199,90/mês). Faça o upgrade para formalizar seus orçamentos com validade jurídica!'
+    };
+  },
+
   getQuotesCreatedThisMonth: (quotes: { date?: string }[] = []): number => {
     const now = new Date();
     const currentYear = now.getFullYear();
@@ -174,8 +201,8 @@ export const saasService = {
     }
 
     const plan = saasService.getUserPlan(user);
-    if (plan === 'pro') {
-      return { allowed: true, count: 0, limit: null, plan: 'pro' };
+    if (plan === 'pro' || plan === 'premium') {
+      return { allowed: true, count: 0, limit: null, plan };
     }
 
     // Plano Básico: validação de limite mensal
@@ -667,9 +694,9 @@ export const saasService = {
           name: p.name || (p.email.split('@')[0]),
           createdAt: createdAt,
           trialEndsAt: p.trial_ends_at || defaultTrialEnd,
-          subscriptionStatus: isOwner ? 'active' : (p.status === 'blocked' ? 'expired' : (p.plan === 'pro' || p.plan === 'enterprise' || p.plan === 'basic' ? 'active' : 'trial')),
+          subscriptionStatus: isOwner ? 'active' : (p.status === 'blocked' ? 'expired' : (p.plan === 'premium' || p.plan === 'pro' || p.plan === 'enterprise' || p.plan === 'basic' ? 'active' : 'trial')),
           subscriptionValidUntil: isOwner ? new Date(2099, 11, 31).toISOString() : (p.subscription_valid_until || undefined),
-          plan: isOwner ? 'pro' : (p.plan === 'basic' ? 'basic' : 'pro'),
+          plan: isOwner ? 'premium' : (p.plan === 'basic' ? 'basic' : p.plan === 'premium' ? 'premium' : 'pro'),
           role: isOwner ? 'admin' : (p.role === 'admin' ? 'admin' : 'user'),
           companyId: p.company_id || `comp_${p.id || Date.now()}`,
           partnerCompany: p.partner_company || undefined,
@@ -703,10 +730,13 @@ export const saasService = {
 };
 
 // Exportação direta da função para permitir import { canUseContracts } from '../services/saasService'
-export const canUseContracts = (plan?: string): boolean => {
-  if (!plan) return false;
-  const p = plan.toLowerCase();
-  return p === 'pro' || p === 'premium' || p === 'enterprise' || p === 'admin';
+export const canUseContracts = (planOrUser?: string | User | null): boolean => {
+  if (!planOrUser) return false;
+  if (typeof planOrUser === 'object') {
+    return saasService.canUseContracts(planOrUser).allowed;
+  }
+  const p = planOrUser.toLowerCase();
+  return p === 'premium' || p === 'enterprise' || p === 'admin';
 };
 
 export const canUseAI = (plan?: string): boolean => {

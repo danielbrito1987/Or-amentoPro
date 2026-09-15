@@ -18,6 +18,8 @@ export interface QuoteItem extends CatalogItem {
   quantity: number;
 }
 
+export type QuoteStatus = 'draft' | 'pending' | 'approved' | 'rejected';
+
 export interface Quote {
   id: string;
   number: string;
@@ -33,6 +35,8 @@ export interface Quote {
   notes: string;
   providerInfo: ProviderInfo;
   companyId?: string;
+  status?: QuoteStatus;
+  contractId?: string;
 }
 
 export interface ProviderInfo {
@@ -68,7 +72,7 @@ export interface User {
   trialEndsAt?: string;
   subscriptionStatus?: 'trial' | 'active' | 'expired' | 'partner';
   subscriptionValidUntil?: string;
-  plan?: 'basic' | 'pro';
+  plan?: 'basic' | 'pro' | 'premium';
   partnerCompany?: string;
   partnerCode?: string;
 }
@@ -99,19 +103,22 @@ export interface ContractSignature {
   name: string;
   document: string;
   email?: string;
+  phone?: string;
   signatureDataUrl?: string; // Desenho da rubrica no canvas em base64 PNG
   signedAt: string; // Data e hora no formato ISO
   ipAddress?: string;
   userAgent?: string;
   status: 'pending' | 'signed';
+  hash?: string;
 }
 
 export interface Contract {
   id: string;
-  contractNumber: string; // Ex: CONT-2026-001
+  contractNumber: string; // Ex: CONT-2026-0001
   quoteId: string;
   quoteNumber: string;
   userEmail: string; // E-mail do proprietário da conta
+  companyId?: string;
   createdAt: string;
   updatedAt: string;
   status: 'draft' | 'pending_signatures' | 'partially_signed' | 'signed' | 'cancelled';
@@ -127,10 +134,13 @@ export interface Contract {
   clientAddress: string;
   clientEmail: string;
   clientPhone: string;
+  clientCity?: string;
+  clientState?: string;
   // Conteúdo Jurídico e Assinaturas
   title: string;
   totalValue: number;
   paymentTerms: string;
+  deadline?: string;
   content: string; // Texto completo com as cláusulas
   signatures: ContractSignature[];
 }

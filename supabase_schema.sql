@@ -47,14 +47,45 @@ CREATE TABLE IF NOT EXISTS public.provider_info (
   updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- 4. Tabela de Perfis e Assinaturas dos Usuários (SaaS)
+-- 4. Tabela de Contratos de Prestação de Serviços & Assinaturas
+CREATE TABLE IF NOT EXISTS public.contracts (
+  id TEXT PRIMARY KEY,
+  contract_number TEXT NOT NULL,
+  quote_id TEXT,
+  quote_number TEXT,
+  user_email TEXT,
+  company_id TEXT,
+  status TEXT DEFAULT 'pending_signatures', -- 'draft', 'pending_signatures', 'partially_signed', 'signed', 'cancelled'
+  provider_name TEXT NOT NULL DEFAULT '',
+  provider_document TEXT DEFAULT '',
+  provider_address TEXT DEFAULT '',
+  provider_email TEXT DEFAULT '',
+  provider_phone TEXT DEFAULT '',
+  client_name TEXT NOT NULL DEFAULT '',
+  client_document TEXT DEFAULT '',
+  client_address TEXT DEFAULT '',
+  client_email TEXT DEFAULT '',
+  client_phone TEXT DEFAULT '',
+  client_city TEXT DEFAULT '',
+  client_state TEXT DEFAULT '',
+  title TEXT NOT NULL DEFAULT '',
+  total_value NUMERIC(10,2) NOT NULL DEFAULT 0.00,
+  payment_terms TEXT DEFAULT '',
+  deadline TEXT DEFAULT '',
+  content TEXT NOT NULL DEFAULT '',
+  signatures JSONB NOT NULL DEFAULT '[]'::jsonb,
+  created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- 5. Tabela de Perfis e Assinaturas dos Usuários (SaaS)
 CREATE TABLE IF NOT EXISTS public.profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   email TEXT UNIQUE NOT NULL,
   name TEXT DEFAULT '',
   company_id TEXT,
   role TEXT DEFAULT 'user', -- 'admin' ou 'user'
-  plan TEXT DEFAULT 'pro', -- 'basic' (R$ 29,90) ou 'pro' (R$ 59,90)
+  plan TEXT DEFAULT 'pro', -- 'basic' (R$ 29,90), 'pro' (R$ 59,90) ou 'premium' (R$ 199,90)
   subscription_status TEXT DEFAULT 'trial', -- 'trial', 'active', 'expired', 'partner'
   trial_ends_at TIMESTAMPTZ DEFAULT (timezone('utc'::text, now()) + interval '7 days'),
   subscription_valid_until TIMESTAMPTZ,
@@ -76,6 +107,7 @@ ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS partner_code TEXT;
 ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.quotes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.provider_info ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.contracts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Permitir acesso total a produtos para anon" 
@@ -92,6 +124,12 @@ CREATE POLICY "Permitir acesso total a orçamentos para anon"
 
 CREATE POLICY "Permitir acesso total a dados do prestador para anon" 
   ON public.provider_info FOR ALL 
+  TO anon, authenticated 
+  USING (true) 
+  WITH CHECK (true);
+
+CREATE POLICY "Permitir acesso total a contratos para anon" 
+  ON public.contracts FOR ALL 
   TO anon, authenticated 
   USING (true) 
   WITH CHECK (true);

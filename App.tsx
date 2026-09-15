@@ -84,7 +84,7 @@ const AppContent: React.FC = () => {
   const fetchContracts = useCallback(async (compId: string) => {
     setIsFetchingData(true);
     try {
-      const c = contractService.getAllContracts();
+      const c = await contractService.getAllContracts(compId);
       setContracts(c);
       setLoadedSections(prev => ({ ...prev, contracts: true }));
     } catch (e) {
@@ -463,7 +463,14 @@ const AppContent: React.FC = () => {
           )}
 
           {activeTab === 'contracts' && !isEditingContract && (
-            <ContractsPage onUpgradeToPremium={() => setIsPaywallOpen(true)} />
+            <ContractsPage 
+              onUpgradeToPremium={() => setIsPaywallOpen(true)} 
+              quotes={quotes}
+              onSelectQuote={(q) => {
+                setSelectedQuote(q);
+                setActiveTab('quotes');
+              }}
+            />
           )}
 
           {activeTab === 'catalog' && (
@@ -504,6 +511,53 @@ const AppContent: React.FC = () => {
               onBack={() => setSelectedQuote(null)} 
               onEdit={() => setIsEditingQuote(true)} 
               onDelete={() => handleRequestDeleteQuote(selectedQuote.id)}
+              onApproveQuote={async (q) => {
+                const updated = { ...q, status: 'approved' as const };
+                await storageService.saveQuote(updated);
+                setSelectedQuote(updated);
+                if (user?.companyId) await fetchQuotes(user.companyId);
+                setDeleteToast('Orçamento marcado como Aprovado!');
+                setTimeout(() => setDeleteToast(null), 3000);
+              }}
+              onGenerateContract={async (quoteToContract) => {
+                // Checa se usuário possui plano Premium
+                if (!saasService.canUseContracts(user).allowed) {
+                  setIsPaywallOpen(true);
+                  return;
+                }
+                try {
+                  setIsFetchingData(true);
+                  const newContract = await contractService.createContractFromQuote(
+                    quoteToContract,
+                    providerInfo,
+                    user?.email,
+                    user?.companyId
+                  );
+                  const updatedQuote = {
+                    ...quoteToContract,
+                    status: 'approved' as const,
+                    contractId: newContract.id
+                  };
+                  await storageService.saveQuote(updatedQuote);
+                  if (user?.companyId) {
+                    await fetchQuotes(user.companyId);
+                    await fetchContracts(user.companyId);
+                  }
+                  setSelectedQuote(null);
+                  setActiveTab('contracts');
+                  setDeleteToast(`Contrato ${newContract.contractNumber} gerado com sucesso!`);
+                  setTimeout(() => setDeleteToast(null), 4000);
+                } catch (err: any) {
+                  console.error('Erro ao gerar contrato:', err);
+                  alert('Erro ao gerar contrato: ' + (err.message || 'Tente novamente.'));
+                } finally {
+                  setIsFetchingData(false);
+                }
+              }}
+              onViewContract={(contractId) => {
+                setSelectedQuote(null);
+                setActiveTab('contracts');
+              }}
             />
           )}
         </div>

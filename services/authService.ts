@@ -52,6 +52,7 @@ export const authService = {
 
   getCurrentUserAsync: async (timeoutMs: number = 2500): Promise<User | null> => {
     const supabase = getSupabase();
+    if (!supabase) return authService.getCurrentUser();
     
     try {
       const sessionPromise = supabase.auth.getSession().catch(() => ({ data: { session: null }, error: null }));
@@ -63,7 +64,7 @@ export const authService = {
       const session = result?.data?.session || null;
       const error = result?.error || null;
 
-      if (session?.user && !error) {
+      if (session?.user && !error && supabase) {
         try {
           const { data: profile } = await supabase
             .from('profiles')
@@ -247,15 +248,6 @@ export const authService = {
     }
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
-  },
-
-  getCurrentUser: (): User | null => {
-    try {
-      const data = localStorage.getItem(USER_KEY);
-      return data ? JSON.parse(data) : null;
-    } catch {
-      return null;
-    }
   },
 
   checkFreshUserStatus: async (): Promise<User | null> => {
