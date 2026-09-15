@@ -145,18 +145,68 @@ const AppContent: React.FC = () => {
     }
   };
 
-  // Carregamento inicial (Página ativa e dados do prestador)
+  // Carregamento e sincronização completa por conta de usuário (previne vazamento de dados entre contas)
   useEffect(() => {
-    if (isAuthenticated) {
-      const currentCompId = user?.companyId || authService.getCurrentUser()?.companyId;
-      if (currentCompId) {
-        if (!loadedSections.quotes) fetchQuotes(currentCompId);
-        if (!loadedSections.contracts) fetchContracts(currentCompId);
-        if (!loadedSections.provider) fetchProvider(currentCompId);
-        if (!loadedSections.catalog) fetchCatalog(currentCompId);
-      }
+    if (!isAuthenticated || !user?.companyId) {
+      // Usuário deslogado: zera todos os dados da memória
+      setQuotes([]);
+      setContracts([]);
+      setCatalog([]);
+      setSelectedQuote(null);
+      setSelectedContract(null);
+      setIsEditingQuote(false);
+      setIsEditingContract(false);
+      setProviderInfo({
+        name: '',
+        document: '',
+        phone: '',
+        email: '',
+        address: ''
+      });
+      setLoadedSections({
+        quotes: false,
+        contracts: false,
+        catalog: false,
+        provider: false
+      });
+      return;
     }
-  }, [isAuthenticated, user, loadedSections.quotes, loadedSections.provider, loadedSections.catalog, fetchQuotes, fetchProvider, fetchCatalog]);
+
+    const currentCompId = user.companyId;
+
+    // Inicializa o providerInfo com os dados limpos do usuário atual enquanto busca os dados salvos
+    setProviderInfo({
+      name: user.name || 'Prestador de Serviços',
+      document: '',
+      phone: '',
+      email: user.email || '',
+      address: '',
+      companyId: currentCompId
+    });
+
+    // Limpa dados em memória da conta anterior
+    setQuotes([]);
+    setContracts([]);
+    setCatalog([]);
+    setSelectedQuote(null);
+    setSelectedContract(null);
+    setIsEditingQuote(false);
+    setIsEditingContract(false);
+
+    // Marca seções para carregamento da nova conta
+    setLoadedSections({
+      quotes: false,
+      contracts: false,
+      catalog: false,
+      provider: false
+    });
+
+    // Busca dados exclusivos da conta atual
+    fetchProvider(currentCompId);
+    fetchQuotes(currentCompId);
+    fetchContracts(currentCompId);
+    fetchCatalog(currentCompId);
+  }, [isAuthenticated, user?.id, user?.companyId, fetchProvider, fetchQuotes, fetchContracts, fetchCatalog]);
 
   const handleStartNewQuote = async () => {
     const currentCompId = user?.companyId || authService.getCurrentUser()?.companyId;
@@ -356,6 +406,27 @@ const AppContent: React.FC = () => {
 
   const handleLogout = () => {
     logout();
+    setQuotes([]);
+    setContracts([]);
+    setCatalog([]);
+    setSelectedQuote(null);
+    setSelectedContract(null);
+    setIsEditingQuote(false);
+    setIsEditingContract(false);
+    setProviderInfo({
+      name: '',
+      document: '',
+      phone: '',
+      email: '',
+      address: ''
+    });
+    setLoadedSections({
+      quotes: false,
+      contracts: false,
+      catalog: false,
+      provider: false
+    });
+    setActiveTab('quotes');
     setPublicView('landing');
   };
 

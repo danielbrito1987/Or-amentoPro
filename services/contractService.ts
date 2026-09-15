@@ -110,9 +110,10 @@ export const contractService = {
    * Obtém todos os contratos, sincronizando com Supabase e usando LocalStorage como cache e offline fallback
    */
   getAllContracts: async (companyId?: string): Promise<Contract[]> => {
+    const storageKey = companyId ? `orcafacil_contracts_${companyId}` : STORAGE_KEY_CONTRACTS;
     let localContracts: Contract[] = [];
     try {
-      const data = localStorage.getItem(STORAGE_KEY_CONTRACTS);
+      const data = localStorage.getItem(storageKey);
       if (data) localContracts = JSON.parse(data);
     } catch (e) {
       console.warn('Erro ao ler contratos locais:', e);
@@ -123,22 +124,26 @@ export const contractService = {
       try {
         let query = supabase.from('contracts').select('*').order('created_at', { ascending: false });
         if (companyId) {
-          query = query.or(`company_id.eq.${companyId},company_id.is.null`);
+          query = query.eq('company_id', companyId);
         }
         const { data, error } = await query;
         if (!error && data) {
           const remoteList = data.map(mapDbToContract);
 
-          // Mescla locais recentes com remotos
+          // Mescla locais recentes com remotos filtrando rigorosamente por empresa
           const mergedMap = new Map<string, Contract>();
-          localContracts.forEach(c => mergedMap.set(c.id, c));
+          localContracts.forEach(c => {
+            if (!companyId || c.companyId === companyId) {
+              mergedMap.set(c.id, c);
+            }
+          });
           remoteList.forEach(c => mergedMap.set(c.id, c));
 
           const merged = Array.from(mergedMap.values()).sort(
             (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
           );
 
-          localStorage.setItem(STORAGE_KEY_CONTRACTS, JSON.stringify(merged));
+          localStorage.setItem(storageKey, JSON.stringify(merged));
           return merged;
         }
       } catch (err) {
@@ -195,7 +200,8 @@ export const contractService = {
    */
   cacheContractLocally: (contract: Contract) => {
     try {
-      const data = localStorage.getItem(STORAGE_KEY_CONTRACTS);
+      const storageKey = contract.companyId ? `orcafacil_contracts_${contract.companyId}` : STORAGE_KEY_CONTRACTS;
+      const data = localStorage.getItem(storageKey);
       const list: Contract[] = data ? JSON.parse(data) : [];
       const idx = list.findIndex(c => c.id === contract.id);
       if (idx >= 0) {
@@ -203,7 +209,7 @@ export const contractService = {
       } else {
         list.unshift(contract);
       }
-      localStorage.setItem(STORAGE_KEY_CONTRACTS, JSON.stringify(list));
+      localStorage.setItem(storageKey, JSON.stringify(list));
     } catch (e) {
       console.warn('Erro ao atualizar cache local:', e);
     }
@@ -490,11 +496,18 @@ CLÁUSULA OITAVA - DO FORO
    */
   deleteContract: async (contractId: string): Promise<void> => {
     try {
-      const data = localStorage.getItem(STORAGE_KEY_CONTRACTS);
-      if (data) {
-        const list: Contract[] = JSON.parse(data);
-        const filtered = list.filter(c => c.id !== contractId);
-        localStorage.setItem(STORAGE_KEY_CONTRACTS, JSON.stringify(filtered));
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key === STORAGE_KEY_CONTRACTS || key.startsWith('orcafacil_contracts_'))) {
+          const data = localStorage.getItem(key);
+          if (data) {
+            try {
+              const list: Contract[] = JSON.parse(data);
+              const filtered = list.filter(c => c.id !== contractId);
+              localStorage.setItem(key, JSON.stringify(filtered));
+            } catch {}
+          }
+        }
       }
     } catch (e) {
       console.warn('Erro ao deletar contrato local:', e);

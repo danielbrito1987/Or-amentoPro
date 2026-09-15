@@ -31,6 +31,8 @@ CREATE TABLE IF NOT EXISTS public.quotes (
   notes TEXT DEFAULT '',
   provider_info JSONB DEFAULT '{}'::jsonb,
   company_id TEXT,
+  status TEXT DEFAULT 'pending', -- 'pending' ou 'approved'
+  contract_id TEXT, -- ID do contrato gerado a partir deste orçamento
   created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
@@ -102,6 +104,10 @@ ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMPTZ;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS subscription_valid_until TIMESTAMPTZ;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS partner_company TEXT;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS partner_code TEXT;
+
+-- Se as tabelas quotes ou contracts já existirem, garanta as novas colunas:
+ALTER TABLE public.quotes ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'pending';
+ALTER TABLE public.quotes ADD COLUMN IF NOT EXISTS contract_id TEXT;
 
 -- Políticas de segurança RLS
 ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;

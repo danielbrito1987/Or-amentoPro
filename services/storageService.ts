@@ -488,7 +488,9 @@ export const storageService = {
             total: Number(q.total) || 0,
             notes: q.notes,
             providerInfo: q.provider_info,
-            companyId: q.company_id
+            companyId: q.company_id,
+            status: q.status || 'pending',
+            contractId: q.contract_id || undefined
           }));
 
           // Preserva orçamentos criados offline que estão na fila de sincronização
@@ -590,7 +592,9 @@ export const storageService = {
           total: safeQuote.total,
           notes: safeQuote.notes,
           provider_info: safeQuote.providerInfo,
-          company_id: companyId
+          company_id: companyId,
+          status: safeQuote.status || 'pending',
+          contract_id: safeQuote.contractId || null
         });
         if (error) {
           syncService.enqueue('SAVE_QUOTE', safeQuote);
@@ -713,11 +717,29 @@ export const storageService = {
 
     // Para usuários reais: inicializa com os dados cadastrados pelo usuário
     const currentUser = authService.getCurrentUser();
+    const isCurrent = currentUser && (currentUser.companyId === companyId || currentUser.id === companyId);
+    let initialName = isCurrent && currentUser?.name ? currentUser.name : 'Prestador de Serviços';
+    let initialEmail = isCurrent && currentUser?.email ? currentUser.email : '';
+
+    if (supabase) {
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('name, email')
+          .eq('company_id', companyId)
+          .maybeSingle();
+        if (profile) {
+          if (profile.name) initialName = profile.name;
+          if (profile.email) initialEmail = profile.email;
+        }
+      } catch {}
+    }
+
     const realInitial: ProviderInfo = {
-      name: (currentUser && currentUser.name) || 'Prestador de Serviços',
+      name: initialName,
       document: '',
       phone: '',
-      email: (currentUser && currentUser.email) || '',
+      email: initialEmail,
       address: '',
       companyId
     };
@@ -754,7 +776,6 @@ export const storageService = {
 
     try {
       localStorage.setItem(localKey, JSON.stringify(info));
-      localStorage.setItem('orcafacil_provider', JSON.stringify(info));
     } catch (e) {
       console.error("Erro ao salvar dados do prestador localmente:", e);
     }
