@@ -24,12 +24,24 @@ import { AppLogo } from './components/AppLogo';
 import { InteractiveGuideModal } from './components/InteractiveGuideModal';
 import { ConfirmModal } from './components/ConfirmModal';
 import { saasService, BASIC_MONTHLY_QUOTES_LIMIT, SUBSCRIPTION_PLANS } from './services/saasService';
+import { LegalModal, LegalTab } from './components/LegalModal';
+import { CookieConsentBanner } from './components/CookieConsentBanner';
 
 const AppContent: React.FC = () => {
   const { user, isAuthenticated, isSuspended, subscriptionInfo, isLoading, logout, refreshUserStatus, loginAsDemo } = useAuth();
   
   // Controle de exibição pública: landing page ou tela de login/cadastro
   const [publicView, setPublicView] = useState<'landing' | 'login' | 'register'>('landing');
+
+  // Estado do modal de privacidade e termos LGPD
+  const [legalModalState, setLegalModalState] = useState<{ isOpen: boolean; tab: LegalTab }>({
+    isOpen: false,
+    tab: 'privacy'
+  });
+
+  const handleOpenLegal = (tab: LegalTab = 'privacy') => {
+    setLegalModalState({ isOpen: true, tab });
+  };
 
   const [showQuoteLimitModal, setShowQuoteLimitModal] = useState(false);
   const [activeTab, setActiveTab] = useState<'quotes' | 'contracts' | 'catalog' | 'settings' | 'admin'>('quotes');
@@ -439,29 +451,36 @@ const AppContent: React.FC = () => {
   }
 
   if (!isAuthenticated) {
-    if (publicView === 'login') {
-      return (
-        <LoginPage 
-          initialMode="login" 
-          onBackToLanding={() => setPublicView('landing')} 
-        />
-      );
-    }
-
-    if (publicView === 'register') {
-      return (
-        <LoginPage 
-          initialMode="register" 
-          onBackToLanding={() => setPublicView('landing')} 
-        />
-      );
-    }
-
     return (
-      <LandingPage 
-        onGoToLogin={() => setPublicView('login')}
-        onGoToRegister={() => setPublicView('register')}
-      />
+      <>
+        {publicView === 'login' && (
+          <LoginPage 
+            initialMode="login" 
+            onBackToLanding={() => setPublicView('landing')} 
+            onOpenLegal={handleOpenLegal}
+          />
+        )}
+        {publicView === 'register' && (
+          <LoginPage 
+            initialMode="register" 
+            onBackToLanding={() => setPublicView('landing')} 
+            onOpenLegal={handleOpenLegal}
+          />
+        )}
+        {publicView === 'landing' && (
+          <LandingPage 
+            onGoToLogin={() => setPublicView('login')}
+            onGoToRegister={() => setPublicView('register')}
+            onOpenLegal={handleOpenLegal}
+          />
+        )}
+        <CookieConsentBanner onOpenPrivacyPolicy={() => handleOpenLegal('privacy')} />
+        <LegalModal
+          isOpen={legalModalState.isOpen}
+          onClose={() => setLegalModalState(prev => ({ ...prev, isOpen: false }))}
+          initialTab={legalModalState.tab}
+        />
+      </>
     );
   }
 
@@ -516,6 +535,7 @@ const AppContent: React.FC = () => {
         onClose={() => setIsSidebarOpen(false)}
         onLogout={handleLogout}
         onOpenGuide={() => setIsGuideOpen(true)}
+        onOpenLegal={handleOpenLegal}
       />
 
       <main className="flex-1 overflow-y-auto bg-gray-50 pb-20 md:pb-0 flex flex-col">
@@ -557,6 +577,7 @@ const AppContent: React.FC = () => {
               providerInfo={providerInfo} 
               onUpdate={setProviderInfo} 
               onSave={handleSaveSettings} 
+              onOpenLegal={handleOpenLegal}
             />
           )}
 
@@ -696,6 +717,14 @@ const AppContent: React.FC = () => {
           customSubtitle={`Você atingiu o limite de ${BASIC_MONTHLY_QUOTES_LIMIT} orçamentos mensais do Plano Básico. Faça o upgrade para o Plano Pro para emitir orçamentos ilimitados e desbloquear o Consultor de Preços com IA!`}
         />
       )}
+
+      {/* Banner de Consentimento de Cookies e Modal Legal (LGPD) */}
+      <CookieConsentBanner onOpenPrivacyPolicy={() => handleOpenLegal('privacy')} />
+      <LegalModal
+        isOpen={legalModalState.isOpen}
+        onClose={() => setLegalModalState(prev => ({ ...prev, isOpen: false }))}
+        initialTab={legalModalState.tab}
+      />
     </div>
   );
 };

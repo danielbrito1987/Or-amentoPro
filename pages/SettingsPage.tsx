@@ -1,19 +1,33 @@
 
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { ProviderInfo } from '../types';
 import { Button } from '../components/Button';
-import { ImageIcon, Upload, Database, CheckCircle2, HardDrive } from 'lucide-react';
+import { ImageIcon, Upload, Database, CheckCircle2, HardDrive, ShieldCheck, Lock, ExternalLink } from 'lucide-react';
 import { maskCPF_CNPJ, maskPhone } from '../utils/formatters';
 import { isSupabaseConfigured } from '../services/supabase';
+import { LegalModal, LegalTab } from '../components/LegalModal';
 
 interface SettingsPageProps {
   providerInfo: ProviderInfo;
   onUpdate: (info: ProviderInfo) => void;
   onSave: () => void;
+  onOpenLegal?: (tab: LegalTab) => void;
 }
 
-export const SettingsPage: React.FC<SettingsPageProps> = ({ providerInfo, onUpdate, onSave }) => {
+export const SettingsPage: React.FC<SettingsPageProps> = ({ providerInfo, onUpdate, onSave, onOpenLegal }) => {
   const logoInputRef = useRef<HTMLInputElement>(null);
+  const [localLegalModal, setLocalLegalModal] = useState<{ isOpen: boolean; tab: LegalTab }>({
+    isOpen: false,
+    tab: 'privacy'
+  });
+
+  const handleOpenLegal = (tab: LegalTab = 'privacy') => {
+    if (onOpenLegal) {
+      onOpenLegal(tab);
+    } else {
+      setLocalLegalModal({ isOpen: true, tab });
+    }
+  };
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -92,6 +106,61 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ providerInfo, onUpda
           </p>
         </div>
       </div>
+
+      {/* Seção LGPD e Privacidade de Dados */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-sm space-y-4">
+        <div className="flex items-start gap-3.5">
+          <div className="p-2.5 rounded-xl bg-blue-50 text-blue-600 shrink-0 border border-blue-100">
+            <ShieldCheck className="w-5 h-5" />
+          </div>
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <h3 className="font-bold text-slate-800 text-sm sm:text-base">
+                Privacidade, Dados & Conformidade LGPD
+              </h3>
+              <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full border border-emerald-200">
+                Lei nº 13.709/2018
+              </span>
+            </div>
+            <p className="text-slate-600 text-xs mt-1 leading-relaxed">
+              O OrçaFácil Pro trata seus dados com segurança técnica, criptografia de ponta a ponta e isolamento total. Você mantém a propriedade dos orçamentos e pode consultar, exportar ou solicitar a exclusão de seus dados conforme o Artigo 18 da LGPD.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2.5 pt-1 border-t border-slate-100">
+          <button
+            type="button"
+            onClick={() => handleOpenLegal('privacy')}
+            className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
+          >
+            <Lock className="w-3.5 h-3.5 text-blue-600" />
+            <span>Consultar Política de Privacidade</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleOpenLegal('terms')}
+            className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors cursor-pointer"
+          >
+            Termos de Uso
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleOpenLegal('cookies')}
+            className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors cursor-pointer"
+          >
+            Política de Cookies
+          </button>
+        </div>
+      </div>
+
+      <LegalModal
+        isOpen={localLegalModal.isOpen}
+        onClose={() => setLocalLegalModal(prev => ({ ...prev, isOpen: false }))}
+        initialTab={localLegalModal.tab}
+      />
     </div>
   );
 };

@@ -18,6 +18,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { SyncIndicator } from './SyncIndicator';
 import { AppLogo } from './AppLogo';
 import { saasService } from '../services/saasService';
+import { LegalTab } from './LegalModal';
 
 interface SidebarProps {
   activeTab: string;
@@ -27,6 +28,7 @@ interface SidebarProps {
   onClose: () => void;
   onLogout: () => void;
   onOpenGuide?: () => void;
+  onOpenLegal?: (tab: LegalTab) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ 
@@ -36,7 +38,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isOpen, 
   onClose, 
   onLogout,
-  onOpenGuide
+  onOpenGuide,
+  onOpenLegal
 }) => {
   const { user, subscriptionInfo } = useAuth();
 
@@ -238,6 +241,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
             )}
           </div>
           
+          {/* Link para Privacidade e LGPD */}
+          {onOpenLegal && (
+            <button
+              id="btn-sidebar-legal"
+              onClick={() => { onOpenLegal('privacy'); onClose(); }}
+              title={isCollapsed ? "Privacidade & LGPD" : undefined}
+              className={`w-full flex items-center rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition-colors ${
+                isCollapsed ? 'justify-center p-2' : 'space-x-2.5 px-3 py-2 text-xs font-medium'
+              }`}
+            >
+              <ShieldCheck className="w-4 h-4 text-emerald-500/80 shrink-0" />
+              {!isCollapsed && <span>Privacidade & LGPD</span>}
+            </button>
+          )}
+
           {/* Botão de Logout */}
           <button 
             id="btn-sidebar-logout"

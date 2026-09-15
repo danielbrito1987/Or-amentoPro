@@ -26,6 +26,7 @@ import {
 Crown
 } from 'lucide-react';
 import { formatCurrency } from '../utils/formatters';
+import { LegalModal, LegalTab } from '../components/LegalModal';
 import { 
   PLAN_BASIC_PRICE, 
   PLAN_PRO_PRICE, 
@@ -41,13 +42,27 @@ import orcaLogo from '../src/assets/images/orcafacil_quote_logo_1788895951950.jp
 interface LandingPageProps {
   onGoToLogin: () => void;
   onGoToRegister: () => void;
+  onOpenLegal?: (tab: LegalTab) => void;
 }
 
 export const LandingPage: React.FC<LandingPageProps> = ({
   onGoToLogin,
-  onGoToRegister
+  onGoToRegister,
+  onOpenLegal
 }) => {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [localLegalModal, setLocalLegalModal] = useState<{ isOpen: boolean; tab: LegalTab }>({
+    isOpen: false,
+    tab: 'privacy'
+  });
+
+  const handleOpenLegal = (tab: LegalTab = 'privacy') => {
+    if (onOpenLegal) {
+      onOpenLegal(tab);
+    } else {
+      setLocalLegalModal({ isOpen: true, tab });
+    }
+  };
   const [activeSegment, setActiveSegment] = useState<'eletrica' | 'climatizacao' | 'pintura' | 'geral'>('eletrica');
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
 
@@ -920,6 +935,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               {
                 q: 'Se eu ficar sem internet na obra, ainda consigo usar?',
                 a: 'Sim! O OrçaFácil Pro possui tecnologia offline. Seus dados e orçamentos ficam gravados com segurança no seu aparelho e são sincronizados com a nuvem assim que a conexão retornar.'
+              },
+              {
+                q: 'O OrçaFácil Pro está em conformidade com a LGPD?',
+                a: 'Sim! Seguimos integralmente a Lei Geral de Proteção de Dados (Lei nº 13.709/2018). Seus dados cadastrais e as propostas dos seus clientes são protegidos por criptografia e isolamento por empresa. Não vendemos, não monetizamos e não compartilhamos suas informações com terceiros.'
               }
             ].map((faq, index) => (
               <div
@@ -971,20 +990,54 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
       {/* FOOTER */}
       <footer className="bg-slate-950 border-t border-slate-900 py-10 text-xs text-slate-500">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="flex flex-col sm:flex-row items-center gap-2 text-center sm:text-left">
             <span className="font-black text-white text-sm">
               Orça<span className="text-blue-500">Fácil</span> PRO
             </span>
-            <span>&bull; &copy; {new Date().getFullYear()} Todos os direitos reservados.</span>
+            <span className="hidden sm:inline">&bull;</span>
+            <span>&copy; {new Date().getFullYear()} Todos os direitos reservados.</span>
+            <span className="hidden sm:inline">&bull;</span>
+            <span className="text-slate-400">Ambiente Seguro & Conforme à LGPD</span>
           </div>
 
-          <div className="flex items-center gap-4 text-slate-400 font-medium">
+          <div className="flex flex-wrap items-center justify-center gap-4 text-slate-400 font-medium">
+            <button 
+              type="button"
+              onClick={() => handleOpenLegal('privacy')} 
+              className="hover:text-white transition-colors cursor-pointer"
+            >
+              Privacidade (LGPD)
+            </button>
+            <span>&bull;</span>
+            <button 
+              type="button"
+              onClick={() => handleOpenLegal('terms')} 
+              className="hover:text-white transition-colors cursor-pointer"
+            >
+              Termos de Uso
+            </button>
+            <span>&bull;</span>
+            <button 
+              type="button"
+              onClick={() => handleOpenLegal('cookies')} 
+              className="hover:text-white transition-colors cursor-pointer"
+            >
+              Cookies
+            </button>
+            <span>&bull;</span>
             <button onClick={onGoToLogin} className="hover:text-white transition-colors">Entrar</button>
-            <button onClick={onGoToRegister} className="hover:text-white transition-colors">Criar Conta</button>
+            <button onClick={onGoToRegister} className="text-blue-400 hover:text-blue-300 font-semibold transition-colors">Criar Conta</button>
           </div>
         </div>
       </footer>
+
+      {/* Modal de Privacidade e Termos de Uso */}
+      <LegalModal
+        isOpen={localLegalModal.isOpen}
+        onClose={() => setLocalLegalModal(prev => ({ ...prev, isOpen: false }))}
+        initialTab={localLegalModal.tab}
+      />
     </div>
   );
 };

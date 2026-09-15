@@ -1,10 +1,11 @@
 
 import React, { useState } from 'react';
 import { Button } from '../components/Button';
-import { Mail, Lock, User as UserIcon, Loader2, AlertCircle, CheckCircle2, Database, ArrowLeft, UserCheck, Sparkles, Building2, Tag, Check, Crown } from 'lucide-react';
+import { Mail, Lock, User as UserIcon, Loader2, AlertCircle, CheckCircle2, Database, ArrowLeft, UserCheck, Sparkles, Building2, Tag, Check, Crown, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { isSupabaseConfigured } from '../services/supabase';
 import { partnerService } from '../services/partnerService';
+import { LegalModal, LegalTab } from '../components/LegalModal';
 import { 
   SubscriptionPlanId, 
   BillingCycle, 
@@ -23,13 +24,15 @@ interface LoginPageProps {
   initialPlan?: SubscriptionPlanId;
   initialBillingCycle?: BillingCycle;
   onBackToLanding?: () => void;
+  onOpenLegal?: (tab: LegalTab) => void;
 }
 
 export const LoginPage: React.FC<LoginPageProps> = ({ 
   initialMode = 'login',
   initialPlan = 'pro',
   initialBillingCycle = 'monthly',
-  onBackToLanding 
+  onBackToLanding,
+  onOpenLegal
 }) => {
   const { login, register, loginAsDemo } = useAuth();
   const [mode, setMode] = useState<'login' | 'register'>(initialMode);
@@ -44,6 +47,18 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   const [isDemoLoading, setIsDemoLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [localLegalModal, setLocalLegalModal] = useState<{ isOpen: boolean; tab: LegalTab }>({
+    isOpen: false,
+    tab: 'privacy'
+  });
+
+  const handleOpenLegal = (tab: LegalTab = 'privacy') => {
+    if (onOpenLegal) {
+      onOpenLegal(tab);
+    } else {
+      setLocalLegalModal({ isOpen: true, tab });
+    }
+  };
 
   const handlePartnerCodeChange = (val: string) => {
     const uppercaseVal = val.toUpperCase().replace(/\s+/g, '');
@@ -495,6 +510,31 @@ export const LoginPage: React.FC<LoginPageProps> = ({
               </div>
             )}
 
+            {mode === 'register' && (
+              <div className="text-[11px] text-slate-400 bg-slate-950/60 p-3 rounded-xl border border-slate-800 flex items-start gap-2.5">
+                <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                <p className="leading-relaxed">
+                  Ao criar sua conta, você declara que leu e concorda com nossos{' '}
+                  <button
+                    type="button"
+                    onClick={() => handleOpenLegal('terms')}
+                    className="text-blue-400 hover:text-blue-300 font-semibold underline inline cursor-pointer"
+                  >
+                    Termos de Uso
+                  </button>{' '}
+                  e com a nossa{' '}
+                  <button
+                    type="button"
+                    onClick={() => handleOpenLegal('privacy')}
+                    className="text-blue-400 hover:text-blue-300 font-semibold underline inline cursor-pointer"
+                  >
+                    Política de Privacidade (LGPD)
+                  </button>
+                  . Seus dados e os dados dos seus clientes estão protegidos e não são compartilhados.
+                </p>
+              </div>
+            )}
+
             <Button
               id="btn-login-submit"
               type="submit"
@@ -561,9 +601,44 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           </div>
         </div>
 
-        <p className="text-center mt-5 text-slate-500 text-xs">
-          &copy; {new Date().getFullYear()} OrçaFácil Pro &bull; Sistema para Prestadores de Serviços
-        </p>
+        <div className="text-center mt-5 space-y-2">
+          <div className="flex items-center justify-center gap-3 text-xs text-slate-500">
+            <button
+              type="button"
+              onClick={() => handleOpenLegal('privacy')}
+              className="hover:text-slate-300 transition-colors flex items-center gap-1 cursor-pointer"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-500/70" />
+              <span>Privacidade (LGPD)</span>
+            </button>
+            <span>&bull;</span>
+            <button
+              type="button"
+              onClick={() => handleOpenLegal('terms')}
+              className="hover:text-slate-300 transition-colors cursor-pointer"
+            >
+              Termos de Uso
+            </button>
+            <span>&bull;</span>
+            <button
+              type="button"
+              onClick={() => handleOpenLegal('cookies')}
+              className="hover:text-slate-300 transition-colors cursor-pointer"
+            >
+              Cookies
+            </button>
+          </div>
+          <p className="text-slate-500 text-xs">
+            &copy; {new Date().getFullYear()} OrçaFácil Pro &bull; Sistema para Prestadores de Serviços
+          </p>
+        </div>
+
+        {/* Modal de Privacidade e Termos de Uso quando acionado internamente */}
+        <LegalModal
+          isOpen={localLegalModal.isOpen}
+          onClose={() => setLocalLegalModal(prev => ({ ...prev, isOpen: false }))}
+          initialTab={localLegalModal.tab}
+        />
       </div>
     </div>
   );
