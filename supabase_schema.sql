@@ -88,6 +88,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   company_id TEXT,
   role TEXT DEFAULT 'user', -- 'admin' ou 'user'
   plan TEXT DEFAULT 'pro', -- 'basic' (R$ 29,90), 'pro' (R$ 59,90) ou 'premium' (R$ 199,90)
+  billing_cycle TEXT DEFAULT 'monthly', -- 'monthly' ou 'annual'
   subscription_status TEXT DEFAULT 'trial', -- 'trial', 'active', 'expired', 'partner'
   trial_ends_at TIMESTAMPTZ DEFAULT (timezone('utc'::text, now()) + interval '7 days'),
   subscription_valid_until TIMESTAMPTZ,
@@ -99,6 +100,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 
 -- Se a tabela profiles já existir no seu Supabase, adicione apenas as novas colunas se necessário:
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS plan TEXT DEFAULT 'pro';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS billing_cycle TEXT DEFAULT 'monthly';
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS subscription_status TEXT DEFAULT 'trial';
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMPTZ;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS subscription_valid_until TIMESTAMPTZ;
@@ -149,18 +151,36 @@ CREATE POLICY "Permitir leitura e escrita em profiles"
 -- Gatilho Automático opcional: quando um usuário se cadastra no auth.users, cria o perfil automaticamente
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$
+DECLARE
+  chosen_plan TEXT;
+  chosen_cycle TEXT;
 BEGIN
-  INSERT INTO public.profiles (id, email, name, company_id, plan, subscription_status, trial_ends_at)
+  chosen_plan := COALESCE(new.raw_user_meta_data->>'plan', 'pro');
+  chosen_cycle := COALESCE(new.raw_user_meta_data->>'billing_cycle', 'monthly');
+
+  INSERT INTO public.profiles (
+    id, 
+    email, 
+    name, 
+    company_id, 
+    plan, 
+    billing_cycle, 
+    subscription_status, 
+    trial_ends_at
+  )
   VALUES (
     new.id,
     new.email,
     COALESCE(new.raw_user_meta_data->>'name', split_part(new.email, '@', 1)),
     COALESCE(new.raw_user_meta_data->>'company_id', 'comp_' || substr(md5(random()::text), 1, 8)),
-    'pro', -- inicia o trial com recursos completos do Pro
-    'trial',
-    now() + interval '7 days'
+    chosen_plan,
+    chosen_cycle,
+    CASE WHEN chosen_plan = 'premium' THEN 'expired' ELSE 'trial' END,
+    CASE WHEN chosen_plan = 'premium' THEN now() ELSE now() + interval '7 days' END
   )
-  ON CONFLICT (id) DO NOTHING;
+  ON CONFLICT (id) DO UPDATE SET
+    plan = EXCLUDED.plan,
+    billing_cycle = EXCLUDED.billing_cycle;
   RETURN new;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
