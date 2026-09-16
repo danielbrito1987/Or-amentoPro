@@ -62,18 +62,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
     });
   };
 
-  const NavButton = ({ tab, icon: Icon, label }: { tab: string; icon: any; label: string }) => {
+  const isPremium = saasService.isPremiumUser(user);
+
+  const NavButton = ({ 
+    tab, 
+    icon: Icon, 
+    label,
+    badge,
+    locked
+  }: { 
+    tab: string; 
+    icon: any; 
+    label: string;
+    badge?: string;
+    locked?: boolean;
+  }) => {
     const isActive = activeTab === tab;
 
     return (
       <button 
         id={`nav-tab-${tab}`}
         onClick={() => { onTabChange(tab); onClose(); }}
-        title={isCollapsed ? label : undefined}
-        className={`w-full flex items-center rounded-xl transition-all duration-200 ${
+        title={isCollapsed ? (locked ? `${label} (Exclusivo Premium)` : label) : undefined}
+        className={`w-full flex items-center justify-between rounded-xl transition-all duration-200 ${
           isCollapsed 
             ? 'justify-center py-3 px-0' 
-            : 'space-x-3 px-4 py-3'
+            : 'px-3.5 py-2.5'
         } ${
           isActive 
             ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25 font-semibold' 
@@ -81,10 +95,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
         }`}
         aria-label={label}
       >
-        <Icon className="w-5 h-5 shrink-0 transition-transform duration-200 group-hover:scale-110" />
-        {!isCollapsed && (
-          <span className="font-medium truncate transition-opacity duration-200">
-            {label}
+        <div className="flex items-center space-x-3 min-w-0">
+          <Icon className="w-5 h-5 shrink-0 transition-transform duration-200 group-hover:scale-110" />
+          {!isCollapsed && (
+            <span className="font-medium text-sm truncate transition-opacity duration-200">
+              {label}
+            </span>
+          )}
+        </div>
+        {!isCollapsed && badge && (
+          <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-amber-400/20 text-amber-300 border border-amber-400/30 shrink-0 ml-1.5">
+            {badge}
           </span>
         )}
       </button>
@@ -146,7 +167,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Lista de Navegação */}
         <div className="flex-1 px-3 space-y-2 mt-4 overflow-y-auto overflow-x-hidden">
           <NavButton tab="quotes" icon={TrendingUp} label="Orçamentos" />
-          <NavButton tab="contracts" icon={ShieldCheck} label="Contratos & Assinaturas" />
+          <NavButton 
+            tab="contracts" 
+            icon={ShieldCheck} 
+            label="Contratos & Assinaturas" 
+            badge={!isPremium ? "Premium" : undefined}
+            locked={!isPremium}
+          />
           <NavButton tab="catalog" icon={Package} label="Catálogo" />
           <NavButton tab="settings" icon={Settings} label="Meus Dados" />
 

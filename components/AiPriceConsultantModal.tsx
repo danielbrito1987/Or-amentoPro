@@ -119,7 +119,7 @@ export const AiPriceConsultantModal: React.FC<AiPriceConsultantModalProps> = ({
                 <div>
                   <h3 className="font-bold text-lg text-white">Consultor de Preços com IA</h3>
                   <span className="inline-block text-[11px] font-bold text-amber-300 bg-amber-950/60 px-2 py-0.5 rounded-md border border-amber-500/30 mt-0.5">
-                    Exclusivo do Plano Pro
+                    Planos Pro & Premium
                   </span>
                 </div>
               </div>
@@ -139,10 +139,10 @@ export const AiPriceConsultantModal: React.FC<AiPriceConsultantModalProps> = ({
 
               <div>
                 <h4 className="text-xl font-black text-slate-900 mb-2">
-                  Recurso Disponível no Plano Pro
+                  Recurso dos Planos Pro & Premium
                 </h4>
                 <p className="text-xs sm:text-sm text-slate-600 leading-relaxed max-w-md mx-auto">
-                  {aiPermission.reason || 'O Consultor de Preços com Inteligência Artificial é exclusivo do Plano Pro (R$ 59,90/mês). Faça o upgrade para consultar tabelas do mercado!'}
+                  {aiPermission.reason || 'O Consultor de Preços com Inteligência Artificial não está disponível no Plano Básico. Faça o upgrade para o Plano Pro ou Premium para consultar médias de mercado!'}
                 </p>
               </div>
 

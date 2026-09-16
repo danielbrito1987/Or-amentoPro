@@ -1,6 +1,12 @@
-import { Contract, ContractSignature, Quote, ProviderInfo, QuoteStatus } from '../types';
+import { Contract, ContractSignature, ContractItemClause, Quote, ProviderInfo, QuoteStatus } from '../types';
 import { getSupabase } from './supabase';
 import { formatCurrency } from '../utils/formatters';
+import { 
+  buildContractItemClauses, 
+  generateDynamicContractContent 
+} from './contractClausesTemplates';
+import { authService } from './authService';
+import { saasService } from './saasService';
 
 const STORAGE_KEY_CONTRACTS = 'orcafacil_contracts';
 
@@ -42,6 +48,19 @@ const mapDbToContract = (row: any): Contract => {
     }
   }
 
+  let itemClauses: ContractItemClause[] = [];
+  if (row.item_clauses) {
+    if (typeof row.item_clauses === 'string') {
+      try {
+        itemClauses = JSON.parse(row.item_clauses);
+      } catch {
+        itemClauses = [];
+      }
+    } else if (Array.isArray(row.item_clauses)) {
+      itemClauses = row.item_clauses;
+    }
+  }
+
   return {
     id: row.id,
     contractNumber: row.contract_number || `CONT-${row.id.substring(0, 6)}`,
@@ -69,6 +88,7 @@ const mapDbToContract = (row: any): Contract => {
     paymentTerms: row.payment_terms || '',
     deadline: row.deadline || '',
     content: row.content || '',
+    itemClauses,
     signatures
   };
 };
@@ -101,6 +121,7 @@ const mapContractToDb = (contract: Contract) => ({
   payment_terms: contract.paymentTerms || '',
   deadline: contract.deadline || '',
   content: contract.content,
+  item_clauses: contract.itemClauses || [],
   signatures: contract.signatures,
   updated_at: new Date().toISOString()
 });
@@ -241,75 +262,22 @@ export const contractService = {
     const targetCompanyId = companyId || quote.companyId || provider.companyId || '';
     const targetEmail = userEmail || provider.email || '';
 
-    // Formata descrição dos serviços e materiais
-    const itemsDescription = quote.items && quote.items.length > 0
-      ? quote.items
-          .map((item, idx) => {
-            const itemTotal = (item.price || 0) * (item.quantity || 1);
-            return `${idx + 1}. ${item.name} (${item.quantity} ${item.unit || 'un'}) - Valor unitário: ${formatCurrency(item.price || 0)} | Subtotal: ${formatCurrency(itemTotal)}${item.description ? `\n   Especificações: ${item.description}` : ''}`;
-          })
-          .join('\n\n')
-      : `• Execução dos serviços descritos no Orçamento nº ${quote.number}`;
+    const currentUser = authService.getCurrentUser();
+    const contractPermission = saasService.canUseContracts(currentUser);
+    if (!contractPermission.allowed) {
+      throw new Error(contractPermission.reason || 'O Módulo de Contratos é exclusivo para o Plano Premium.');
+    }
 
-    const clientLocation = [
-      quote.customerAddress,
-      quote.customerCity,
-      quote.customerState
-    ].filter(Boolean).join(', ') || 'Endereço a ser confirmado';
+    // O módulo de contratos é exclusivo do Plano Premium: compila as cláusulas dinâmicas específicas por item
+    const itemClauses = buildContractItemClauses(quote.items || []);
 
-    // Minuta contratual robusta conforme legislação brasileira (Código Civil, CDC, MP 2.200-2/2001 e Lei 14.063/2020)
-    const clauses = `INSTRUMENTO PARTICULAR DE CONTRATO DE PRESTAÇÃO DE SERVIÇOS
-
-CONTRATADA (PRESTADORA DOS SERVIÇOS):
-Razão Social/Nome: ${provider.name || 'Não informado'}
-CNPJ/CPF: ${provider.document || 'Não informado'}
-Endereço: ${provider.address || 'Não informado'}
-Telefone/WhatsApp: ${provider.phone || 'Não informado'}
-E-mail: ${provider.email || 'Não informado'}
-
-CONTRATANTE (CLIENTE):
-Nome Completo/Razão Social: ${quote.customerName || 'Não informado'}
-Telefone/WhatsApp: ${quote.customerPhone || 'Não informado'}
-E-mail: ${quote.customerEmail || 'Não informado'}
-Endereço do Local de Execução: ${clientLocation}
-
-As partes acima qualificadas têm, entre si, justo e acordado o presente Contrato de Prestação de Serviços, regido pelas cláusulas e condições seguintes:
-
-CLÁUSULA PRIMEIRA - DO OBJETO E ESPECIFICAÇÃO DOS SERVIÇOS
-1.1. O presente instrumento tem por objeto a prestação de serviços e o fornecimento de itens/materiais devidamente acordados, vinculados ao Orçamento nº ${quote.number}, compreendendo detalhadamente o seguinte escopo técnico:
-
-${itemsDescription}
-
-1.2. Quaisquer alterações, serviços complementares ou acréscimo de materiais não previstos neste instrumento exigirão prévia solicitação por escrito e aprovação de novo orçamento complementar.
-
-CLÁUSULA SEGUNDA - DO PREÇO E DAS CONDIÇÕES DE PAGAMENTO
-2.1. Pela execução dos serviços descritos neste contrato, a CONTRATANTE pagará à CONTRATADA o valor global de ${formatCurrency(quote.total)} (${numberToExtenso(quote.total)}).
-2.2. O pagamento será realizado conforme as seguintes condições acordadas:
-${quote.notes ? `• ${quote.notes}` : '• Conforme cronograma pactuado entre as partes, via PIX, transferência ou meio acordado.'}
-
-CLÁUSULA TERCEIRA - DO PRAZO E DA EXECUÇÃO
-3.1. A CONTRATADA iniciará os trabalhos após a assinatura deste contrato e confirmação do sinal/condição inicial estipulada na Cláusula Segunda.
-3.2. A conclusão dos serviços se dará dentro do prazo estimado pelas partes, ressalvados motivos de força maior, intempéries climáticas severas, falta de insumos de responsabilidade do cliente ou atrasos na liberação de acesso ao local.
-
-CLÁUSULA QUARTA - DAS OBRIGAÇÕES DA CONTRATADA
-4.1. Executar os serviços em estrita observância às normas técnicas brasileiras, boas práticas profissionais e com zelo, qualidade e segurança.
-4.2. Fornecer mão de obra qualificada e equipamentos adequados para a realização do escopo contratado.
-4.3. Garantir a integridade dos serviços executados nos termos do Artigo 26 do Código de Defesa do Consumidor (garantia legal de 90 dias para serviços duráveis).
-
-CLÁUSULA QUINTA - DAS OBRIGAÇÕES DA CONTRATANTE
-5.1. Efetuar o pagamento dos valores acordados nas datas pactuadas na Cláusula Segunda.
-5.2. Assegurar livre acesso da equipe técnica da CONTRATADA ao local onde serão executados os serviços, fornecendo, quando necessário, pontos de energia elétrica e água em condições adequadas para a realização dos trabalhos.
-5.3. Informar à CONTRATADA qualquer anormalidade ou defeito notado durante ou após a execução.
-
-CLÁUSULA SEXTA - DA RESCISÃO E PENALIDADES
-6.1. O presente contrato poderá ser rescindido por mútuo acordo entre as partes ou por inadimplemento de qualquer uma de suas cláusulas.
-6.2. Em caso de desistência injustificada por qualquer das partes após o início dos serviços, responderá a parte infratora pelo reembolso dos custos comprovadamente incorridos, acrescido de multa não compensatória de 10% (dez por cento) sobre o saldo remanescente.
-
-CLÁUSULA SÉTIMA - DA VALIDADE JURÍDICA DAS ASSINATURAS ELETRÔNICAS
-7.1. As partes reconhecem expressamente a plena validade, higidez e autenticidade da assinatura eletrônica deste documento por meios digitais (rubrica em tela, endereço IP, registro temporal de data/hora e hash de verificação de integridade), nos termos do Art. 10, § 2º da Medida Provisória nº 2.200-2/2001 e dos Arts. 4º e 5º da Lei Federal nº 14.063/2020, produzindo todos os efeitos legais de documento assinado de próprio punho.
-
-CLÁUSULA OITAVA - DO FORO
-8.1. Para dirimir quaisquer litígios decorrentes da interpretação ou execução deste contrato, as partes elegem o foro da Comarca onde se localiza o imóvel/estabelecimento da prestação dos serviços, com renúncia expressa a qualquer outro.`;
+    // Minuta contratual robusta e dinâmica conforme legislação brasileira (Código Civil, CDC, MP 2.200-2/2001 e Lei 14.063/2020)
+    const clauses = generateDynamicContractContent({
+      contractNumber,
+      quote,
+      provider,
+      itemClauses
+    });
 
     const signatures: ContractSignature[] = [
       {
@@ -359,6 +327,7 @@ CLÁUSULA OITAVA - DO FORO
       paymentTerms: quote.notes || 'A combinar',
       deadline: 'A definir de acordo com cronograma',
       content: clauses,
+      itemClauses,
       signatures
     };
 
@@ -376,6 +345,89 @@ CLÁUSULA OITAVA - DO FORO
     }
 
     return newContract;
+  },
+
+  /**
+   * Atualiza as cláusulas específicas de itens e opcionalmente regenera a minuta contratual
+   */
+  updateContractItemClauses: async (
+    contractId: string, 
+    itemClauses: ContractItemClause[],
+    regenerateContent: boolean = true,
+    quote?: Quote
+  ): Promise<Contract | null> => {
+    const contract = await contractService.getContractById(contractId);
+    if (!contract) return null;
+
+    let updatedContent = contract.content;
+
+    if (regenerateContent) {
+      // Se tiver orçamento de referência, usa para reconstruir com máxima fidelidade
+      const fallbackQuote: Quote = quote || {
+        id: contract.quoteId,
+        number: contract.quoteNumber,
+        date: contract.createdAt.split('T')[0],
+        customerName: contract.clientName,
+        customerPhone: contract.clientPhone,
+        customerEmail: contract.clientEmail,
+        customerAddress: contract.clientAddress,
+        customerCity: contract.clientCity || '',
+        customerState: contract.clientState || '',
+        items: (itemClauses || []).map(ic => ({
+          id: ic.itemId || '',
+          name: ic.itemName,
+          description: '',
+          price: 0,
+          quantity: ic.quantity || 1,
+          type: ic.itemType,
+          unit: ic.unit || 'un',
+          contractClause: ic.clauseText
+        })),
+        total: contract.totalValue,
+        notes: contract.paymentTerms,
+        providerInfo: {
+          name: contract.providerName,
+          document: contract.providerDocument,
+          phone: contract.providerPhone,
+          email: contract.providerEmail,
+          address: contract.providerAddress
+        }
+      };
+
+      updatedContent = generateDynamicContractContent({
+        contractNumber: contract.contractNumber,
+        quote: fallbackQuote,
+        provider: fallbackQuote.providerInfo,
+        itemClauses
+      });
+    }
+
+    const updatedContract: Contract = {
+      ...contract,
+      itemClauses,
+      content: updatedContent,
+      updatedAt: new Date().toISOString()
+    };
+
+    await contractService.saveContract(updatedContract);
+    return updatedContract;
+  },
+
+  /**
+   * Atualiza diretamente o texto completo da minuta do contrato
+   */
+  updateContractContent: async (contractId: string, newContent: string): Promise<Contract | null> => {
+    const contract = await contractService.getContractById(contractId);
+    if (!contract) return null;
+
+    const updatedContract: Contract = {
+      ...contract,
+      content: newContent,
+      updatedAt: new Date().toISOString()
+    };
+
+    await contractService.saveContract(updatedContract);
+    return updatedContract;
   },
 
   /**

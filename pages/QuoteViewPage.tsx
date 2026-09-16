@@ -18,6 +18,8 @@ import {
 import { formatCurrency } from '../utils/formatters';
 import { normalizeUnit } from '../services/marketEstimator';
 import { shareOrDownloadPdf } from '../utils/pdfGenerator';
+import { useAuth } from '../contexts/AuthContext';
+import { saasService } from '../services/saasService';
 
 interface QuoteViewPageProps {
   quote: Quote;
@@ -42,6 +44,8 @@ export const QuoteViewPage: React.FC<QuoteViewPageProps> = ({
 }) => {
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const { user } = useAuth();
+  const canUseContracts = saasService.canUseContracts(user).allowed;
 
   const isApproved = quote.status === 'approved' || !!quote.contractId;
   const hasContract = !!quote.contractId;
@@ -173,7 +177,7 @@ export const QuoteViewPage: React.FC<QuoteViewPageProps> = ({
                   className="w-full sm:w-auto bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs sm:text-sm px-5 py-2.5 shadow-md shadow-amber-500/30"
                   icon={<Sparkles className="w-4 h-4" />}
                 >
-                  Gerar Contrato Oficial
+                  {canUseContracts ? 'Gerar Contrato Oficial' : 'Gerar Contrato (Plano Premium)'}
                 </Button>
               )}
             </div>
@@ -187,7 +191,10 @@ export const QuoteViewPage: React.FC<QuoteViewPageProps> = ({
               <div>
                 <h4 className="text-sm font-bold text-slate-800">O cliente aprovou esta proposta?</h4>
                 <p className="text-xs text-slate-500">
-                  Ao aprovar, você poderá emitir o contrato de prestação de serviços com validade jurídica e colher assinaturas digitais.
+                  {canUseContracts 
+                    ? 'Ao aprovar, você poderá emitir o contrato de prestação de serviços com validade jurídica e colher assinaturas digitais.'
+                    : 'Marque o orçamento como aprovado. A emissão de contratos com assinatura digital é exclusiva do Plano Premium.'
+                  }
                 </p>
               </div>
             </div>
@@ -208,7 +215,7 @@ export const QuoteViewPage: React.FC<QuoteViewPageProps> = ({
                 className="w-full sm:w-auto text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-bold"
                 icon={<FileCheck className="w-3.5 h-3.5" />}
               >
-                Gerar Contrato
+                {canUseContracts ? 'Gerar Contrato' : 'Gerar Contrato (Premium)'}
               </Button>
             </div>
           </div>

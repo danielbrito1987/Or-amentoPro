@@ -186,7 +186,7 @@ export const saasService = {
 
   getUserPlan: (user?: User | null): SubscriptionPlanId => {
     if (!user || !user.email) return 'pro';
-    if (saasService.isAdmin(user)) return 'pro';
+    if (saasService.isAdmin(user)) return 'premium';
 
     const users = saasService.getAllUsers();
     const record = users.find(u => u.email.toLowerCase() === user.email.toLowerCase());
@@ -195,25 +195,57 @@ export const saasService = {
     return 'pro';
   },
 
+  /**
+   * Determina se o usuário assinou o Plano Premium (ou é admin/demo/parceiro com plano premium ativo).
+   * Restringe as funcionalidades exclusivas de minutas dinâmicas e cláusulas contratuais por item.
+   */
+  isPremiumUser: (user?: User | null): boolean => {
+    if (!user || !user.email) return false;
+    if (saasService.isAdmin(user)) return true;
+
+    const cleanEmail = user.email.trim().toLowerCase();
+    if (cleanEmail === 'teste@orcafacil.com.br' || cleanEmail === 'demo@orcafacil.com.br') {
+      return true;
+    }
+
+    const plan = saasService.getUserPlan(user);
+    if (plan !== 'premium') return false;
+
+    const status = saasService.getUserSubscriptionStatus(user);
+    return status.status === 'active' || status.isPartner === true;
+  },
+
+  canUseDynamicContractClauses: (user?: User | null): boolean => {
+    return saasService.isPremiumUser(user);
+  },
+
   canUseAiConsultant: (user?: User | null): { allowed: boolean; reason?: string } => {
     if (!user) return { allowed: false, reason: 'Usuário não autenticado.' };
     if (saasService.isAdmin(user)) return { allowed: true };
 
+    const plan = saasService.getUserPlan(user);
+    // No plano básico não tem o consultor de preços por IA (mesmo em período de trial)
+    if (plan === 'basic') {
+      return {
+        allowed: false,
+        reason: 'O Consultor de Preços com Inteligência Artificial não está disponível no Plano Básico. Faça o upgrade para o Plano Pro (R$ 59,90/mês) ou Premium para consultar tabelas do mercado com IA!'
+      };
+    }
+
     const status = saasService.getUserSubscriptionStatus(user);
-    // Durante o trial de 7 dias ou para parceiros: liberado para experimentar
+    // Durante o trial de 7 dias ou para parceiros: liberado para experimentar (Planos Pro e Premium)
     if (status.status === 'trial' || status.isPartner) {
       return { allowed: true };
     }
 
-    const plan = saasService.getUserPlan(user);
-    if (plan === 'basic') {
-      return {
-        allowed: false,
-        reason: 'O Consultor de Preços com Inteligência Artificial é exclusivo do Plano Pro (R$ 59,90/mês). Faça o upgrade para consultar tabelas do mercado!'
-      };
+    if (status.status === 'active') {
+      return { allowed: true };
     }
 
-    return { allowed: true };
+    return {
+      allowed: false,
+      reason: 'Sua assinatura expirou. Renove seu plano para continuar usando o Consultor de Preços com IA.'
+    };
   },
 
   canUseContracts: (user?: User | null): { allowed: boolean; reason?: string } => {
@@ -225,20 +257,23 @@ export const saasService = {
       return { allowed: true };
     }
 
-    const status = saasService.getUserSubscriptionStatus(user);
-    // Durante o trial de 7 dias ou parceiros: liberado para experimentar
-    if (status.status === 'trial' || status.isPartner) {
-      return { allowed: true };
+    const plan = saasService.getUserPlan(user);
+    // Os planos Básico e Pro NÃO podem ter acesso ao módulo de contratos. Esse módulo é exclusivo para o plano Premium.
+    if (plan !== 'premium') {
+      return {
+        allowed: false,
+        reason: 'O Módulo de Gestão de Contratos e Assinatura Digital é exclusivo do Plano Premium (R$ 199,90/mês). Os planos Básico e Pro não têm acesso ao módulo de contratos. Faça o upgrade para formalizar seus orçamentos com validade jurídica!'
+      };
     }
 
-    const plan = saasService.getUserPlan(user);
-    if (plan === 'premium') {
+    const status = saasService.getUserSubscriptionStatus(user);
+    if (status.status === 'active' || status.isPartner) {
       return { allowed: true };
     }
 
     return {
       allowed: false,
-      reason: 'O Módulo de Gestão de Contratos e Assinatura Digital é exclusivo do Plano Premium (R$ 199,90/mês). Faça o upgrade para formalizar seus orçamentos com validade jurídica!'
+      reason: 'Sua assinatura do Plano Premium não está ativa. Realize a ativação para continuar gerando contratos.'
     };
   },
 
@@ -757,7 +792,7 @@ export const saasService = {
         updates.subscriptionStatus = data.subscription_status;
       }
       if (data.plan) {
-        updates.plan = data.plan === 'basic' ? 'basic' : 'pro';
+        updates.plan = data.plan === 'basic' ? 'basic' : data.plan === 'premium' ? 'premium' : 'pro';
       }
       if (data.partner_company) {
         updates.partnerCompany = data.partner_company;

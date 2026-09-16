@@ -22,9 +22,17 @@ import {
   Building,
   UserCheck,
   Send,
-  RefreshCw
+  RefreshCw,
+  Box,
+  Briefcase,
+  Edit3,
+  Save,
+  Layers,
+  HelpCircle,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
-import { Contract, Quote, ProviderInfo } from '../types';
+import { Contract, Quote, ProviderInfo, ContractItemClause, ItemType } from '../types';
 import { contractService } from '../services/contractService';
 import { generateContractPdf } from '../services/contractPdfService';
 import { saasService } from '../services/saasService';
@@ -33,6 +41,7 @@ import { DigitalSignatureModal } from '../components/DigitalSignatureModal';
 import { Button } from '../components/Button';
 import { formatCurrency } from '../utils/formatters';
 import { storageService } from '../services/storageService';
+import { CONTRACT_CLAUSE_PRESETS, generateDefaultItemClause, buildContractItemClauses } from '../services/contractClausesTemplates';
 
 interface ContractsPageProps {
   onUpgradeToPremium: () => void;
@@ -54,6 +63,13 @@ export const ContractsPage: React.FC<ContractsPageProps> = ({
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedText, setCopiedText] = useState(false);
 
+  // Estados de edição de minuta dinâmica e cláusulas de itens
+  const [isEditingContent, setIsEditingContent] = useState(false);
+  const [editableContent, setEditableContent] = useState('');
+  const [editingItemClauseIndex, setEditingItemClauseIndex] = useState<number | null>(null);
+  const [tempItemClauseText, setTempItemClauseText] = useState('');
+  const [isSavingClauses, setIsSavingClauses] = useState(false);
+
   // Modal de Assinatura Eletrônica
   const [isSignModalOpen, setIsSignModalOpen] = useState(false);
   const [signTarget, setSignTarget] = useState<'provider' | 'client'>('provider');
@@ -64,6 +80,7 @@ export const ContractsPage: React.FC<ContractsPageProps> = ({
   const [isCreating, setIsCreating] = useState(false);
 
   const permission = saasService.canUseContracts(user);
+  const isPremium = saasService.isPremiumUser(user);
 
   const loadContracts = async () => {
     setLoading(true);
@@ -216,6 +233,103 @@ export const ContractsPage: React.FC<ContractsPageProps> = ({
     setTimeout(() => setCopiedText(false), 3000);
   };
 
+  useEffect(() => {
+    if (selectedContract) {
+      setEditableContent(selectedContract.content);
+      setIsEditingContent(false);
+      setEditingItemClauseIndex(null);
+    }
+  }, [selectedContract?.id]);
+
+  // Lista consolidada de cláusulas dos itens para o contrato selecionado
+  const displayedItemClauses: ContractItemClause[] = useMemo(() => {
+    if (!selectedContract) return [];
+    if (selectedContract.itemClauses && selectedContract.itemClauses.length > 0) {
+      return selectedContract.itemClauses;
+    }
+    const matchingQuote = quotes.find(q => q.id === selectedContract.quoteId);
+    if (matchingQuote && matchingQuote.items && matchingQuote.items.length > 0) {
+      return buildContractItemClauses(matchingQuote.items);
+    }
+    return [];
+  }, [selectedContract, quotes]);
+
+  // Detalhes do orçamento selecionado no modal de criação
+  const selectedQuoteForCreation = useMemo(() => {
+    return quotes.find(q => q.id === selectedQuoteForContract);
+  }, [quotes, selectedQuoteForContract]);
+
+  const handleSaveEditedContent = async () => {
+    if (!selectedContract) return;
+    setIsSavingClauses(true);
+    try {
+      const updated = await contractService.updateContractContent(
+        selectedContract.id,
+        editableContent
+      );
+      if (updated) {
+        setSelectedContract(updated);
+        setContracts(prev => prev.map(c => c.id === updated.id ? updated : c));
+        setIsEditingContent(false);
+      }
+    } finally {
+      setIsSavingClauses(false);
+    }
+  };
+
+  const handleSaveItemClause = async () => {
+    if (!selectedContract || editingItemClauseIndex === null) return;
+    setIsSavingClauses(true);
+    try {
+      const currentClauses = [...displayedItemClauses];
+      if (currentClauses[editingItemClauseIndex]) {
+        currentClauses[editingItemClauseIndex] = {
+          ...currentClauses[editingItemClauseIndex],
+          clauseText: tempItemClauseText.trim()
+        };
+      }
+
+      const matchingQuote = quotes.find(q => q.id === selectedContract.quoteId);
+      const updated = await contractService.updateContractItemClauses(
+        selectedContract.id,
+        currentClauses,
+        true,
+        matchingQuote
+      );
+
+      if (updated) {
+        setSelectedContract(updated);
+        setEditableContent(updated.content);
+        setContracts(prev => prev.map(c => c.id === updated.id ? updated : c));
+        setEditingItemClauseIndex(null);
+      }
+    } finally {
+      setIsSavingClauses(false);
+    }
+  };
+
+  const handleRegenerateFromClauses = async () => {
+    if (!selectedContract) return;
+    if (!window.confirm('Deseja regenerar a minuta completa com base nas cláusulas específicas dos produtos e serviços deste contrato?')) return;
+    setIsSavingClauses(true);
+    try {
+      const matchingQuote = quotes.find(q => q.id === selectedContract.quoteId);
+      const updated = await contractService.updateContractItemClauses(
+        selectedContract.id,
+        displayedItemClauses,
+        true,
+        matchingQuote
+      );
+      if (updated) {
+        setSelectedContract(updated);
+        setEditableContent(updated.content);
+        setContracts(prev => prev.map(c => c.id === updated.id ? updated : c));
+      }
+    } finally {
+      setIsSavingClauses(false);
+    }
+  };
+
   // Se o usuário não possui permissão (não é Premium / Enterprise / Admin)
   if (!permission.allowed) {
     return (
@@ -228,7 +342,7 @@ export const ContractsPage: React.FC<ContractsPageProps> = ({
           <div className="relative z-10 max-w-3xl">
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-amber-400/20 to-amber-400/10 border border-amber-400/30 text-amber-300 text-xs font-black uppercase tracking-wider mb-6">
               <Sparkles className="w-4 h-4 text-amber-400" />
-              Novo Módulo Exclusivo • Plano Premium
+              Módulo Exclusivo • Plano Premium
             </div>
 
             <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight leading-tight mb-4">
@@ -236,7 +350,7 @@ export const ContractsPage: React.FC<ContractsPageProps> = ({
             </h1>
 
             <p className="text-slate-300 text-sm sm:text-base leading-relaxed mb-8">
-              Assim que o cliente aprova o orçamento, transforme a proposta em um contrato oficial de prestação de serviços com validade jurídica plena (MP 2.200-2/2001 e Lei 14.063/2020), enviado por WhatsApp ou E-mail e assinado pelo celular por ambas as partes.
+              Os planos Básico e Pro não têm acesso ao módulo de contratos. Faça o upgrade para o <strong className="text-amber-400">Plano Premium</strong> para transformar propostas em contratos oficiais de prestação de serviços com validade jurídica plena (MP 2.200-2/2001 e Lei 14.063/2020), enviados por WhatsApp ou E-mail e assinados diretamente no celular.
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
@@ -738,30 +852,181 @@ export const ContractsPage: React.FC<ContractsPageProps> = ({
                   </div>
                 </div>
 
+                {/* Cláusulas Específicas por Produto e Serviço (Minuta Dinâmica - Exclusivo Plano Premium) */}
+                {isPremium && (
+                  <div className="bg-slate-50/80 border border-slate-200/80 rounded-2xl p-4 sm:p-5 space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-200/60">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <Layers className="w-4 h-4 text-indigo-600" />
+                          <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                            Cláusulas Dinâmicas por Item Contratado
+                          </h3>
+                          <span className="bg-indigo-100 text-indigo-700 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                            {displayedItemClauses.length} {displayedItemClauses.length === 1 ? 'item' : 'itens'}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          Cada produto ou serviço possui termos e garantias específicas integrados à Cláusula Segunda da minuta.
+                        </p>
+                      </div>
+
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleRegenerateFromClauses}
+                        disabled={isSavingClauses}
+                        className="text-xs h-7 self-start sm:self-auto border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                        title="Regenerar o texto completo da minuta aplicando as cláusulas atuais de cada item"
+                      >
+                        <RefreshCw className={`w-3 h-3 mr-1 ${isSavingClauses ? 'animate-spin' : ''}`} />
+                        Regenerar Minuta
+                      </Button>
+                    </div>
+
+                    {displayedItemClauses.length === 0 ? (
+                      <p className="text-xs text-slate-500 italic">
+                        Nenhum item específico registrado neste contrato.
+                      </p>
+                    ) : (
+                      <div className="grid grid-cols-1 gap-2.5 max-h-72 overflow-y-auto pr-1">
+                        {displayedItemClauses.map((clause, idx) => {
+                          const isService = clause.itemType === ItemType.SERVICE;
+                          return (
+                            <div 
+                              key={clause.itemId || idx}
+                              className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs hover:border-indigo-200 transition-colors"
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="flex items-center gap-2">
+                                  <span className={`p-1.5 rounded-lg text-xs ${
+                                    isService ? 'bg-indigo-50 text-indigo-600' : 'bg-amber-50 text-amber-600'
+                                  }`}>
+                                    {isService ? <Briefcase className="w-3.5 h-3.5" /> : <Box className="w-3.5 h-3.5" />}
+                                  </span>
+                                  <div>
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <span className="text-xs font-bold text-slate-800">{clause.itemName}</span>
+                                      <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.2 rounded font-bold bg-slate-100 text-slate-600">
+                                        {isService ? 'Serviço' : 'Produto'}
+                                      </span>
+                                      {clause.quantity && (
+                                        <span className="text-[10px] text-slate-400">
+                                          • Qtd: {clause.quantity} {clause.unit || 'un'}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingItemClauseIndex(idx);
+                                    setTempItemClauseText(clause.clauseText);
+                                  }}
+                                  className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 hover:underline shrink-0"
+                                >
+                                  <Edit3 className="w-3 h-3" />
+                                  <span>Editar Cláusula</span>
+                                </button>
+                              </div>
+
+                              <div className="mt-2 text-[11px] text-slate-600 bg-slate-50/70 p-2.5 rounded-lg border border-slate-100 font-sans leading-relaxed">
+                                <span className="font-semibold text-slate-700">Disposição Contratual: </span>
+                                {clause.clauseText}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Minuta Contratual / Cláusulas Formatadas */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                      Minuta Contratual Completa
-                    </h3>
-                    <button
-                      onClick={() => handleCopyClauses(selectedContract.content)}
-                      className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-1"
-                    >
-                      {copiedText ? (
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                        Minuta Contratual Completa
+                      </h3>
+                      {isEditingContent && (
+                        <span className="text-[10px] font-bold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-md">
+                          Modo de Edição Manual
+                        </span>
+                      )}
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      {isEditingContent ? (
                         <>
-                          <Check className="w-3.5 h-3.5 text-emerald-600" /> Cláusulas Copiadas
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            className="text-xs h-7"
+                            onClick={() => {
+                              setEditableContent(selectedContract.content);
+                              setIsEditingContent(false);
+                            }}
+                          >
+                            Cancelar
+                          </Button>
+                          <Button
+                            size="sm"
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold h-7"
+                            onClick={handleSaveEditedContent}
+                            disabled={isSavingClauses}
+                          >
+                            <Save className="w-3 h-3 mr-1" />
+                            {isSavingClauses ? 'Salvando...' : 'Salvar Minuta'}
+                          </Button>
                         </>
                       ) : (
                         <>
-                          <Copy className="w-3.5 h-3.5" /> Copiar Cláusulas
+                          <button
+                            onClick={() => setIsEditingContent(true)}
+                            className="text-xs text-slate-600 hover:text-indigo-600 font-semibold flex items-center gap-1 transition-colors"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" /> Editar Texto
+                          </button>
+                          <button
+                            onClick={() => handleCopyClauses(selectedContract.content)}
+                            className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-1 transition-colors"
+                          >
+                            {copiedText ? (
+                              <>
+                                <Check className="w-3.5 h-3.5 text-emerald-600" /> Cláusulas Copiadas
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="w-3.5 h-3.5" /> Copiar Cláusulas
+                              </>
+                            )}
+                          </button>
                         </>
                       )}
-                    </button>
+                    </div>
                   </div>
-                  <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 sm:p-5 max-h-96 overflow-y-auto text-xs font-mono text-slate-700 whitespace-pre-wrap leading-relaxed select-text">
-                    {selectedContract.content}
-                  </div>
+
+                  {isEditingContent ? (
+                    <div className="space-y-2">
+                      <textarea
+                        value={editableContent}
+                        onChange={e => setEditableContent(e.target.value)}
+                        rows={16}
+                        className="w-full bg-white border-2 border-indigo-500/50 focus:border-indigo-600 rounded-2xl p-4 text-xs font-mono text-slate-800 leading-relaxed outline-none shadow-inner"
+                        placeholder="Edite o texto completo da minuta..."
+                      />
+                      <p className="text-[11px] text-slate-500">
+                        Dica: As alterações manuais aqui salvas serão preservadas no contrato oficial e exibidas para assinatura do cliente.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 sm:p-5 max-h-96 overflow-y-auto text-xs font-mono text-slate-700 whitespace-pre-wrap leading-relaxed select-text">
+                      {selectedContract.content}
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (
@@ -769,6 +1034,84 @@ export const ContractsPage: React.FC<ContractsPageProps> = ({
                 Selecione um contrato na lista ao lado para ver os detalhes.
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal para Editar Cláusula Específica do Item no Contrato (Exclusivo Plano Premium) */}
+      {isPremium && editingItemClauseIndex !== null && displayedItemClauses[editingItemClauseIndex] && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <FileCheck className="w-5 h-5 text-indigo-600" />
+                <h3 className="font-bold text-slate-800">Editar Cláusula do Item no Contrato</h3>
+              </div>
+              <button 
+                onClick={() => setEditingItemClauseIndex(null)}
+                className="text-slate-400 hover:text-slate-600 p-1 text-sm font-medium"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="py-4 space-y-3">
+              <div>
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-0.5">
+                  Item Vinculado
+                </span>
+                <p className="text-sm font-bold text-slate-800">
+                  {displayedItemClauses[editingItemClauseIndex].itemName}
+                </p>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">
+                  Texto da Cláusula (Inserido automaticamente na Cláusula Segunda da minuta)
+                </label>
+                <textarea
+                  value={tempItemClauseText}
+                  onChange={e => setTempItemClauseText(e.target.value)}
+                  rows={4}
+                  className="w-full p-3 text-xs rounded-xl border border-slate-300 outline-none focus:ring-2 focus:ring-indigo-500 font-normal leading-relaxed text-slate-700"
+                  placeholder="Especifique os termos, condições de execução, garantia ou responsabilidades deste item..."
+                />
+              </div>
+
+              {/* Modelos rápidos */}
+              <div>
+                <span className="text-[11px] font-bold text-slate-500 block mb-1">
+                  Modelos Rápidos Sugeridos:
+                </span>
+                <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto">
+                  {CONTRACT_CLAUSE_PRESETS
+                    .filter(p => p.category === 'geral' || (displayedItemClauses[editingItemClauseIndex].itemType === ItemType.SERVICE ? p.category === 'servico' : p.category === 'produto'))
+                    .map(preset => (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        onClick={() => setTempItemClauseText(preset.clauseText)}
+                        className="text-[10px] bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 text-slate-600 px-2 py-1 rounded-md border border-slate-200 transition-colors"
+                      >
+                        {preset.title}
+                      </button>
+                    ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+              <Button variant="secondary" onClick={() => setEditingItemClauseIndex(null)}>
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleSaveItemClause}
+                disabled={isSavingClauses}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold"
+              >
+                {isSavingClauses ? 'Atualizando Minuta...' : 'Salvar e Atualizar Minuta'}
+              </Button>
+            </div>
           </div>
         </div>
       )}
@@ -850,6 +1193,43 @@ export const ContractsPage: React.FC<ContractsPageProps> = ({
               </div>
             )}
 
+            {/* Prévia das Cláusulas Dinâmicas do Orçamento Selecionado (Exclusivo Plano Premium) */}
+            {isPremium && selectedQuoteForCreation && selectedQuoteForCreation.items.length > 0 && (
+              <div className="mb-5 p-3.5 bg-indigo-50/70 rounded-xl border border-indigo-100 animate-in fade-in">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Layers className="w-4 h-4 text-indigo-600" />
+                  <span className="text-xs font-bold text-indigo-900">
+                    Cláusulas Dinâmicas que comporão a Minuta ({selectedQuoteForCreation.items.length} itens)
+                  </span>
+                </div>
+                <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                  {selectedQuoteForCreation.items.map((item, i) => {
+                    const isService = item.type === ItemType.SERVICE;
+                    const clauseText = item.contractClause || generateDefaultItemClause(item.name, item.type || ItemType.SERVICE, item.description);
+                    return (
+                      <div key={item.id || i} className="bg-white p-2 rounded-lg border border-indigo-100/80 text-[11px]">
+                        <div className="flex items-center justify-between font-semibold text-slate-800">
+                          <div className="flex items-center gap-1.5 truncate">
+                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0" />
+                            <span className="truncate">{item.name}</span>
+                          </div>
+                          <span className="text-[9px] uppercase px-1 py-0.2 rounded bg-slate-100 text-slate-600 shrink-0">
+                            {isService ? 'Serviço' : 'Produto'}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-slate-500 italic mt-0.5 line-clamp-2">
+                          "{clauseText}"
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="text-[10px] text-indigo-700/80 mt-2">
+                  ✓ As cláusulas acima serão compiladas na minuta com garantia e termos legais específicos de cada item.
+                </p>
+              </div>
+            )}
+
             <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
               <Button
                 variant="outline"
@@ -863,7 +1243,9 @@ export const ContractsPage: React.FC<ContractsPageProps> = ({
                 disabled={!selectedQuoteForContract || isCreating}
                 className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold"
               >
-                {isCreating ? 'Gerando Minuta...' : 'Gerar Contrato'}
+                {isCreating 
+                  ? (isPremium ? 'Gerando Minuta Dinâmica...' : 'Gerando Contrato...') 
+                  : (isPremium ? 'Gerar Minuta Dinâmica' : 'Gerar Contrato')}
               </Button>
             </div>
           </div>

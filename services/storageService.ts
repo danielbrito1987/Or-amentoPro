@@ -41,7 +41,8 @@ const getInitialCatalog = (companyId: string): CatalogItem[] => [
     price: 85.00,
     type: ItemType.SERVICE,
     unit: 'un',
-    companyId
+    companyId,
+    contractClause: 'Instalação em conformidade com a NBR 5410. Garantia técnica de 12 meses sobre conexões. O cliente deve fornecer ponto de energia desobstruído e quadro de distribuição operante.'
   },
   {
     id: 'item-2',
@@ -50,7 +51,8 @@ const getInitialCatalog = (companyId: string): CatalogItem[] => [
     price: 180.00,
     type: ItemType.SERVICE,
     unit: 'un',
-    companyId
+    companyId,
+    contractClause: 'A CONTRATANTE disponibilizará ponto elétrico 220V e dreno. A CONTRATADA fornece 01 (um) ano de garantia de mão de obra com teste de estanqueidade e vácuo mecânico inferior a 500 microns.'
   },
   {
     id: 'item-3',
@@ -59,7 +61,8 @@ const getInitialCatalog = (companyId: string): CatalogItem[] => [
     price: 90.00,
     type: ItemType.SERVICE,
     unit: 'un',
-    companyId
+    companyId,
+    contractClause: 'Garantia técnica de 90 dias sobre a substituição e aperto dos bornes. Não estão cobertos vícios ou fiações antigas degradadas preexistentes.'
   },
   {
     id: 'item-4',
@@ -68,7 +71,8 @@ const getInitialCatalog = (companyId: string): CatalogItem[] => [
     price: 45.00,
     type: ItemType.SERVICE,
     unit: 'm²',
-    companyId
+    companyId,
+    contractClause: 'Garantia de 90 dias quanto à aderência e uniformidade. O contratante deve afastar móveis previamente. Não cobre fissuras de acomodação estrutural ou infiltrações ascendentes.'
   },
   {
     id: 'item-5',
@@ -77,7 +81,8 @@ const getInitialCatalog = (companyId: string): CatalogItem[] => [
     price: 48.00,
     type: ItemType.PRODUCT,
     unit: 'un',
-    companyId
+    companyId,
+    contractClause: 'Produto com garantia de fábrica do fabricante (12 meses). Fornecido com cláusula de reserva de domínio até a quitação integral.'
   },
   {
     id: 'item-6',
@@ -86,7 +91,8 @@ const getInitialCatalog = (companyId: string): CatalogItem[] => [
     price: 240.00,
     type: ItemType.PRODUCT,
     unit: 'un',
-    companyId
+    companyId,
+    contractClause: 'Material novo e selado, normatizado pelo Inmetro. Reserva de domínio em favor da CONTRATADA até o pagamento total dos valores contratados.'
   },
   {
     id: 'item-7',
@@ -95,7 +101,8 @@ const getInitialCatalog = (companyId: string): CatalogItem[] => [
     price: 26.50,
     type: ItemType.PRODUCT,
     unit: 'un',
-    companyId
+    companyId,
+    contractClause: 'Garantia de fábrica de 1 ano contra defeitos de fabricação mediante apresentação deste contrato/comprovante.'
   }
 ];
 
@@ -266,7 +273,8 @@ export const storageService = {
             price: Number(d.price) || 0,
             type: d.type as ItemType,
             unit: d.unit || 'un',
-            companyId: d.company_id
+            companyId: d.company_id,
+            contractClause: d.contract_clause || d.contractClause || ''
           }));
 
           // Preserva itens salvos localmente que ainda estão na fila de sincronização
@@ -355,7 +363,8 @@ export const storageService = {
           price: safeItem.price,
           type: safeItem.type,
           unit: safeItem.unit || 'un',
-          company_id: companyId
+          company_id: companyId,
+          contract_clause: safeItem.contractClause || ''
         });
         if (error) {
           syncService.enqueue('SAVE_CATALOG_ITEM', safeItem);
@@ -400,7 +409,8 @@ export const storageService = {
           price: item.price,
           type: item.type,
           unit: item.unit || 'un',
-          company_id: companyId
+          company_id: companyId,
+          contract_clause: item.contractClause || ''
         });
         if (error) {
           syncService.enqueue('SAVE_CATALOG_ITEM', item);

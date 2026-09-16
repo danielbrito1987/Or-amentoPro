@@ -75,6 +75,7 @@ CREATE TABLE IF NOT EXISTS public.contracts (
   payment_terms TEXT DEFAULT '',
   deadline TEXT DEFAULT '',
   content TEXT NOT NULL DEFAULT '',
+  item_clauses JSONB DEFAULT '[]'::jsonb,
   signatures JSONB NOT NULL DEFAULT '[]'::jsonb,
   created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL,
   updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
@@ -110,6 +111,7 @@ ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS partner_code TEXT;
 -- Se as tabelas quotes ou contracts já existirem, garanta as novas colunas:
 ALTER TABLE public.quotes ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'pending';
 ALTER TABLE public.quotes ADD COLUMN IF NOT EXISTS contract_id TEXT;
+ALTER TABLE public.contracts ADD COLUMN IF NOT EXISTS item_clauses JSONB DEFAULT '[]'::jsonb;
 
 -- Políticas de segurança RLS
 ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;

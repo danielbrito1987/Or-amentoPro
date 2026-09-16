@@ -17,12 +17,16 @@ import {
   ChevronDown, 
   ChevronUp,
   Calculator,
-  ArrowDown
+  ArrowDown,
+  FileText
 } from 'lucide-react';
 import { maskPhone, formatCurrency } from '../utils/formatters';
 import { generateQuoteNotes } from '../services/geminiService';
 import { normalizeUnit } from '../services/marketEstimator';
 import { AiPriceConsultantModal } from '../components/AiPriceConsultantModal';
+import { CONTRACT_CLAUSE_PRESETS, generateDefaultItemClause } from '../services/contractClausesTemplates';
+import { useAuth } from '../contexts/AuthContext';
+import { saasService } from '../services/saasService';
 
 interface QuoteEditorPageProps {
   quote: Quote;
@@ -41,6 +45,10 @@ export const QuoteEditorPage: React.FC<QuoteEditorPageProps> = ({
   onUpdateQuote,
   onSaveCatalogItem 
 }) => {
+  const { user } = useAuth();
+  const isPremium = saasService.isPremiumUser(user);
+  const hasAiConsultant = saasService.canUseAiConsultant(user).allowed;
+
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   const [showFullAddress, setShowFullAddress] = useState(
     Boolean(quote.customerAddress && quote.customerAddress.trim() !== '')
@@ -57,6 +65,14 @@ export const QuoteEditorPage: React.FC<QuoteEditorPageProps> = ({
   const [itemUnit, setItemUnit] = useState<string>('un');
   const [itemType, setItemType] = useState<ItemType>(ItemType.SERVICE);
   const [itemDescription, setItemDescription] = useState<string>('');
+  const [itemContractClause, setItemContractClause] = useState<string>('');
+  const [showItemClauseInput, setShowItemClauseInput] = useState<boolean>(false);
+  const [showClausePresetsDropdown, setShowClausePresetsDropdown] = useState<boolean>(false);
+
+  // Estado para editar cláusula de um item já adicionado à lista do orçamento
+  const [editingClauseItemIndex, setEditingClauseItemIndex] = useState<number | null>(null);
+  const [tempClauseModalText, setTempClauseModalText] = useState<string>('');
+
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
 
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -103,6 +119,10 @@ export const QuoteEditorPage: React.FC<QuoteEditorPageProps> = ({
     setItemUnit(item.unit || 'un');
     setItemType(item.type || ItemType.SERVICE);
     setItemDescription(item.description || '');
+    setItemContractClause(item.contractClause || '');
+    if (item.contractClause) {
+      setShowItemClauseInput(true);
+    }
     setSearchQuery(item.name);
     setIsDropdownOpen(false);
     
@@ -125,6 +145,9 @@ export const QuoteEditorPage: React.FC<QuoteEditorPageProps> = ({
 
     const price = parsedPrice;
     const quantity = parsedQuantity;
+    const clauseToUse = isPremium 
+      ? (itemContractClause.trim() || selectedCatalogItem?.contractClause || '')
+      : undefined;
 
     const newItem: QuoteItem = {
       id: selectedCatalogItem ? selectedCatalogItem.id : ('item_' + Date.now()),
@@ -134,6 +157,7 @@ export const QuoteEditorPage: React.FC<QuoteEditorPageProps> = ({
       description: itemDescription.trim(),
       type: itemType,
       quantity: quantity,
+      contractClause: clauseToUse || undefined,
     };
 
     // Verifica se o item já existe na lista atual do orçamento
@@ -150,6 +174,7 @@ export const QuoteEditorPage: React.FC<QuoteEditorPageProps> = ({
         quantity: updatedItems[existingIndex].quantity + quantity,
         price: price, // atualiza valor unitário caso o usuário tenha ajustado
         unit: normalizeUnit(itemUnit) || updatedItems[existingIndex].unit,
+        contractClause: isPremium ? (clauseToUse || updatedItems[existingIndex].contractClause) : undefined
       };
     } else {
       updatedItems = [...quote.items, newItem];
@@ -168,6 +193,8 @@ export const QuoteEditorPage: React.FC<QuoteEditorPageProps> = ({
     setItemQuantity(1);
     setItemUnit('un');
     setItemDescription('');
+    setItemContractClause('');
+    setShowItemClauseInput(false);
     setSelectedCatalogItem(null);
     setSearchQuery('');
     setIsDropdownOpen(false);
@@ -399,14 +426,16 @@ export const QuoteEditorPage: React.FC<QuoteEditorPageProps> = ({
                 </p>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setIsAiModalOpen(true)}
-                className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 text-blue-700 text-xs font-semibold border border-blue-200/70 transition-all shadow-sm"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                <span>Calcular Preço com IA</span>
-              </button>
+              {hasAiConsultant && (
+                <button
+                  type="button"
+                  onClick={() => setIsAiModalOpen(true)}
+                  className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 text-blue-700 text-xs font-semibold border border-blue-200/70 transition-all shadow-sm"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Calcular Preço com IA</span>
+                </button>
+              )}
             </div>
 
             {/* FORMULÁRIO DE PESQUISA, QUANTIDADE E CÁLCULO DE VALOR */}
@@ -639,6 +668,102 @@ export const QuoteEditorPage: React.FC<QuoteEditorPageProps> = ({
                 </div>
               </div>
 
+              {/* Toggle de Cláusula Contratual Específica para Minuta Dinâmica (Exclusivo Plano Premium) */}
+              {isPremium && (
+                <div className="pt-2 border-t border-slate-100">
+                  <div className="flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => setShowItemClauseInput(!showItemClauseInput)}
+                      className="text-xs font-semibold text-slate-600 hover:text-indigo-600 flex items-center gap-1.5 transition-colors"
+                    >
+                      <FileText className="w-3.5 h-3.5 text-indigo-500" />
+                      <span>Cláusula Contratual deste Item (Minuta Dinâmica)</span>
+                      {itemContractClause ? (
+                        <span className="bg-indigo-100 text-indigo-700 text-[10px] font-bold px-1.5 py-0.2 rounded-full">
+                          Definida
+                        </span>
+                      ) : null}
+                      {showItemClauseInput ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                    </button>
+
+                    {showItemClauseInput && (
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => setShowClausePresetsDropdown(!showClausePresetsDropdown)}
+                          className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded-lg border border-indigo-200/50 flex items-center gap-1"
+                        >
+                          <span>Modelos Prontos</span>
+                          <ChevronDown className="w-3 h-3" />
+                        </button>
+
+                        {showClausePresetsDropdown && (
+                          <div className="absolute right-0 top-full mt-1.5 w-72 bg-white rounded-xl shadow-xl border border-slate-200 z-30 p-2 max-h-64 overflow-y-auto">
+                            <p className="text-[10px] uppercase font-bold text-slate-400 p-1 border-b border-slate-100 mb-1">
+                              Modelos rápidos de cláusulas
+                            </p>
+                            {CONTRACT_CLAUSE_PRESETS
+                              .filter(p => p.category === 'geral' || (itemType === ItemType.SERVICE ? p.category === 'servico' : p.category === 'produto'))
+                              .map(preset => (
+                                <button
+                                  key={preset.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setItemContractClause(preset.clauseText);
+                                    setShowClausePresetsDropdown(false);
+                                  }}
+                                  className="w-full text-left p-2 rounded-lg hover:bg-indigo-50/80 transition-colors mb-1"
+                                >
+                                  <p className="text-xs font-semibold text-slate-800">{preset.title}</p>
+                                  <p className="text-[10px] text-slate-500 line-clamp-2 mt-0.5">{preset.description}</p>
+                                </button>
+                              ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {showItemClauseInput && (
+                    <div className="mt-2 space-y-1.5 animate-in fade-in">
+                      <p className="text-[11px] text-slate-500 leading-tight">
+                        Esta cláusula específica será inserida na Cláusula Segunda da minuta contratual quando este orçamento for convertido em contrato.
+                      </p>
+                      <textarea
+                        value={itemContractClause}
+                        onChange={e => setItemContractClause(e.target.value)}
+                        rows={2}
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-indigo-500 font-normal leading-relaxed"
+                        placeholder="Ex: Garantia legal de 90 dias com acréscimo de 12 meses sobre peças e mão de obra..."
+                      />
+                      <div className="flex items-center justify-between">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const clause = generateDefaultItemClause(itemName || 'Serviço', itemType, itemDescription);
+                            setItemContractClause(clause);
+                          }}
+                          className="text-[11px] text-indigo-600 hover:text-indigo-800 font-medium underline flex items-center gap-1"
+                        >
+                          <Sparkles className="w-3 h-3 text-amber-500" />
+                          <span>Sugerir cláusula com base no item</span>
+                        </button>
+                        {itemContractClause && (
+                          <button
+                            type="button"
+                            onClick={() => setItemContractClause('')}
+                            className="text-[11px] text-rose-500 hover:underline"
+                          >
+                            Limpar
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Mensagem de Feedback de Inclusão */}
               {feedbackMessage && (
                 <div className="mt-3 p-2 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-semibold text-emerald-700 flex items-center gap-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
@@ -647,6 +772,99 @@ export const QuoteEditorPage: React.FC<QuoteEditorPageProps> = ({
                 </div>
               )}
             </div>
+
+            {/* Modal de Edição de Cláusula de Item Já Incluído (Exclusivo Plano Premium) */}
+            {isPremium && editingClauseItemIndex !== null && quote.items[editingClauseItemIndex] && (
+              <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
+                <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                    <div className="flex items-center gap-2">
+                      <FileText className="w-5 h-5 text-indigo-600" />
+                      <h3 className="font-bold text-slate-800">Cláusula Contratual do Item</h3>
+                    </div>
+                    <button 
+                      onClick={() => setEditingClauseItemIndex(null)}
+                      className="text-slate-400 hover:text-slate-600 p-1 text-sm font-medium"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  
+                  <div className="py-4 space-y-3">
+                    <div>
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-0.5">
+                        Item do Orçamento
+                      </span>
+                      <p className="text-sm font-bold text-slate-800">
+                        {quote.items[editingClauseItemIndex].name}
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-semibold text-slate-700 block mb-1">
+                        Cláusula Específica (Regulamenta garantia, escopo e obrigações deste item no contrato)
+                      </label>
+                      <textarea
+                        value={tempClauseModalText}
+                        onChange={e => setTempClauseModalText(e.target.value)}
+                        rows={4}
+                        className="w-full p-3 text-xs rounded-xl border border-slate-300 outline-none focus:ring-2 focus:ring-indigo-500 font-normal leading-relaxed text-slate-700"
+                        placeholder="Digite os termos específicos, prazos de garantia ou condições de instalação deste item..."
+                      />
+                    </div>
+
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const currentItem = quote.items[editingClauseItemIndex];
+                          const clause = generateDefaultItemClause(
+                            currentItem.name, 
+                            currentItem.type || ItemType.SERVICE, 
+                            currentItem.description
+                          );
+                          setTempClauseModalText(clause);
+                        }}
+                        className="text-xs text-indigo-600 hover:text-indigo-800 font-medium underline flex items-center gap-1"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                        <span>Gerar cláusula técnica recomendada</span>
+                      </button>
+
+                      {tempClauseModalText && (
+                        <button
+                          type="button"
+                          onClick={() => setTempClauseModalText('')}
+                          className="text-xs text-rose-500 hover:underline"
+                        >
+                          Remover cláusula (usar padrão geral)
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                    <Button variant="secondary" onClick={() => setEditingClauseItemIndex(null)}>
+                      Cancelar
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        const updatedItems = [...quote.items];
+                        updatedItems[editingClauseItemIndex] = {
+                          ...updatedItems[editingClauseItemIndex],
+                          contractClause: tempClauseModalText.trim() || undefined
+                        };
+                        onUpdateQuote({ ...quote, items: updatedItems });
+                        setEditingClauseItemIndex(null);
+                      }}
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold"
+                    >
+                      Salvar Cláusula no Item
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* LISTAGEM DE ITENS INCLUÍDOS NO ORÇAMENTO */}
             <div className="space-y-3">
@@ -687,14 +905,16 @@ export const QuoteEditorPage: React.FC<QuoteEditorPageProps> = ({
                       <Search className="w-3.5 h-3.5 text-blue-600" />
                       Buscar no Catálogo
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => setIsAiModalOpen(true)}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-xl bg-white border border-blue-200 text-blue-700 hover:bg-blue-50 shadow-sm"
-                    >
-                      <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                      Consultar Preço com IA
-                    </button>
+                    {hasAiConsultant && (
+                      <button
+                        type="button"
+                        onClick={() => setIsAiModalOpen(true)}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-xl bg-white border border-blue-200 text-blue-700 hover:bg-blue-50 shadow-sm"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                        Consultar Preço com IA
+                      </button>
+                    )}
                   </div>
                 </div>
               ) : (
@@ -708,7 +928,7 @@ export const QuoteEditorPage: React.FC<QuoteEditorPageProps> = ({
                       >
                         {/* Info do Item */}
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-xs font-bold text-slate-400 w-5">#{idx + 1}</span>
                             <p className="font-semibold text-slate-800 text-sm truncate">
                               {item.name}
@@ -716,10 +936,44 @@ export const QuoteEditorPage: React.FC<QuoteEditorPageProps> = ({
                             <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-medium shrink-0">
                               {normalizeUnit(item.unit)}
                             </span>
+                            {isPremium && (
+                              item.contractClause ? (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingClauseItemIndex(idx);
+                                    setTempClauseModalText(item.contractClause || '');
+                                  }}
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[10px] font-semibold border border-indigo-200/60 transition-colors"
+                                  title="Ver ou editar cláusula específica deste item no contrato"
+                                >
+                                  <FileText className="w-3 h-3 text-indigo-600" />
+                                  <span>Cláusula no Contrato</span>
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingClauseItemIndex(idx);
+                                    setTempClauseModalText(generateDefaultItemClause(item.name, item.type || ItemType.SERVICE, item.description));
+                                  }}
+                                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                                  title="Definir cláusula personalizada para este item na minuta do contrato"
+                                >
+                                  <FileText className="w-3 h-3" />
+                                  <span>+ Cláusula Contratual</span>
+                                </button>
+                              )
+                            )}
                           </div>
-                          <p className="text-xs text-slate-500 mt-0.5 pl-7">
-                            Valor unitário: {formatCurrency(item.price)}
-                          </p>
+                          <div className="flex items-center gap-3 text-xs text-slate-500 mt-0.5 pl-7">
+                            <span>Valor unitário: {formatCurrency(item.price)}</span>
+                            {isPremium && item.contractClause && (
+                              <span className="text-[11px] text-indigo-600/80 italic truncate max-w-xs">
+                                Cláusula: "{item.contractClause.slice(0, 50)}..."
+                              </span>
+                            )}
+                          </div>
                         </div>
 
                         {/* Controles: Quantidade, Subtotal e Exclusão */}
@@ -776,14 +1030,16 @@ export const QuoteEditorPage: React.FC<QuoteEditorPageProps> = ({
           <div className="bg-white p-5 md:p-6 rounded-2xl border border-gray-200 shadow-sm">
             <div className="flex justify-between items-center mb-3">
               <h3 className="font-bold text-base text-slate-800">Observações e Condições</h3>
-              <button 
-                type="button"
-                onClick={generateAI} 
-                className="text-blue-600 text-xs font-semibold hover:underline flex items-center gap-1"
-              >
-                <TrendingUp size={14} /> 
-                Gerar com IA
-              </button>
+              {hasAiConsultant && (
+                <button 
+                  type="button"
+                  onClick={generateAI} 
+                  className="text-blue-600 text-xs font-semibold hover:underline flex items-center gap-1"
+                >
+                  <TrendingUp size={14} /> 
+                  Gerar com IA
+                </button>
+              )}
             </div>
             <textarea 
               value={quote.notes} 
@@ -834,14 +1090,16 @@ export const QuoteEditorPage: React.FC<QuoteEditorPageProps> = ({
               Clique em um item para carregá-lo no formulário e definir a quantidade:
             </p>
 
-            <button
-              type="button"
-              onClick={() => setIsAiModalOpen(true)}
-              className="w-full flex items-center justify-center gap-2 p-2.5 mb-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold text-xs shadow-sm shadow-blue-500/20 transition-all"
-            >
-              <Sparkles className="w-4 h-4 text-amber-300" />
-              <span>Calcular Preço com IA</span>
-            </button>
+            {hasAiConsultant && (
+              <button
+                type="button"
+                onClick={() => setIsAiModalOpen(true)}
+                className="w-full flex items-center justify-center gap-2 p-2.5 mb-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold text-xs shadow-sm shadow-blue-500/20 transition-all"
+              >
+                <Sparkles className="w-4 h-4 text-amber-300" />
+                <span>Calcular Preço com IA</span>
+              </button>
+            )}
 
             <div className="space-y-1.5 max-h-[360px] overflow-y-auto pr-1.5 custom-scrollbar">
               {catalog.map(item => (

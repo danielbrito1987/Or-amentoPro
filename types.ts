@@ -12,10 +12,12 @@ export interface CatalogItem {
   type: ItemType;
   unit?: string; // e.g., "un", "m", "h"
   companyId?: string;
+  contractClause?: string; // Cláusula específica para minuta contratual
 }
 
 export interface QuoteItem extends CatalogItem {
   quantity: number;
+  contractClause?: string; // Cláusula contratual específica para este item neste orçamento
 }
 
 export type QuoteStatus = 'draft' | 'pending' | 'approved' | 'rejected';
@@ -113,6 +115,16 @@ export interface ContractSignature {
   hash?: string;
 }
 
+export interface ContractItemClause {
+  itemId?: string;
+  itemName: string;
+  itemType: ItemType;
+  quantity?: number;
+  unit?: string;
+  clauseTitle?: string;
+  clauseText: string;
+}
+
 export interface Contract {
   id: string;
   contractNumber: string; // Ex: CONT-2026-0001
@@ -143,5 +155,6 @@ export interface Contract {
   paymentTerms: string;
   deadline?: string;
   content: string; // Texto completo com as cláusulas
+  itemClauses?: ContractItemClause[]; // Cláusulas específicas dos produtos/serviços deste contrato
   signatures: ContractSignature[];
 }

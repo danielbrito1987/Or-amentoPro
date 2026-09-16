@@ -718,6 +718,23 @@ const AppContent: React.FC = () => {
         />
       )}
 
+      {isPaywallOpen && (
+        <SubscriptionPaywallModal
+          userEmail={user?.email}
+          userName={user?.name}
+          onLogout={() => { setIsPaywallOpen(false); handleLogout(); }}
+          onClose={() => setIsPaywallOpen(false)}
+          onCheckStatus={() => {
+            if (refreshUserStatus) refreshUserStatus();
+            setIsPaywallOpen(false);
+          }}
+          initialPlan="premium"
+          customBadge="Módulo Exclusivo • Plano Premium"
+          customTitle="Acesso Exclusivo ao Módulo de Contratos"
+          customSubtitle="Os planos Básico e Pro não têm acesso ao módulo de contratos. Faça o upgrade para o Plano Premium para emitir contratos de prestação de serviços com validade jurídica e assinatura digital!"
+        />
+      )}
+
       {/* Banner de Consentimento de Cookies e Modal Legal (LGPD) */}
       <CookieConsentBanner onOpenPrivacyPolicy={() => handleOpenLegal('privacy')} />
       <LegalModal
