@@ -27,7 +27,10 @@ import {
   Trash2,
   Edit2,
   Copy,
-  Check
+  Check,
+  Crown,
+  Layers,
+  Zap
 } from 'lucide-react';
 import { saasService, SaaSUserRecord, SubscriptionPlanId } from '../services/saasService';
 import { partnerService, PartnerCompany } from '../services/partnerService';
@@ -45,6 +48,12 @@ export const AdminDashboardPage: React.FC = () => {
   const [feedback, setFeedback] = useState<string | null>(null);
   const [userToBlock, setUserToBlock] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
+
+  // Modal para alterar o plano do cliente (Básico, Pro ou Premium)
+  const [userToChangePlan, setUserToChangePlan] = useState<SaaSUserRecord | null>(null);
+  const [selectedPlanToSet, setSelectedPlanToSet] = useState<SubscriptionPlanId>('pro');
+  const [alsoActivateDays, setAlsoActivateDays] = useState<boolean>(false);
+  const [activateDaysCount, setActivateDaysCount] = useState<number>(30);
 
   // Modal para associar usuário a uma parceria
   const [userToPartner, setUserToPartner] = useState<SaaSUserRecord | null>(null);
@@ -108,11 +117,42 @@ export const AdminDashboardPage: React.FC = () => {
     handleSyncSupabase();
   }, []);
 
-  const handleActivate = async (email: string, days: number = 30, plan: SubscriptionPlanId = 'pro') => {
-    await saasService.activateSubscriptionForUser(email, days, plan, `Liberado pelo Administrador em ${new Date().toLocaleDateString('pt-BR')}`);
+  const handleOpenChangePlan = (u: SaaSUserRecord) => {
+    setUserToChangePlan(u);
+    setSelectedPlanToSet(u.plan || 'pro');
+    setAlsoActivateDays(false);
+    setActivateDaysCount(30);
+  };
+
+  const confirmChangePlan = async () => {
+    if (!userToChangePlan) return;
+    const planName = selectedPlanToSet === 'premium' ? 'Premium' : selectedPlanToSet === 'pro' ? 'Pro' : 'Básico';
+
+    await saasService.updateUserPlan(userToChangePlan.email, selectedPlanToSet);
+
+    if (alsoActivateDays && activateDaysCount > 0) {
+      await saasService.activateSubscriptionForUser(
+        userToChangePlan.email,
+        activateDaysCount,
+        selectedPlanToSet,
+        `Plano atualizado para ${planName} com liberação de +${activateDaysCount} dias pelo Administrador em ${new Date().toLocaleDateString('pt-BR')}`
+      );
+    }
+
     loadData();
     refreshUserStatus();
-    setFeedback(`Assinatura (${plan.toUpperCase()}) de ${email} ativada por mais ${days} dias com sucesso!`);
+    setFeedback(`Plano de ${userToChangePlan.name || userToChangePlan.email} alterado para ${planName.toUpperCase()} com sucesso!`);
+    setUserToChangePlan(null);
+    setTimeout(() => setFeedback(null), 4000);
+  };
+
+  const handleActivate = async (email: string, days: number = 30, plan?: SubscriptionPlanId) => {
+    const existing = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+    const targetPlan = plan || (existing && existing.plan) || 'pro';
+    await saasService.activateSubscriptionForUser(email, days, targetPlan, `Liberado pelo Administrador em ${new Date().toLocaleDateString('pt-BR')}`);
+    loadData();
+    refreshUserStatus();
+    setFeedback(`Assinatura (${targetPlan.toUpperCase()}) de ${email} ativada por mais ${days} dias com sucesso!`);
     setTimeout(() => setFeedback(null), 4000);
   };
 
@@ -270,7 +310,12 @@ export const AdminDashboardPage: React.FC = () => {
   const partnerUsers = users.filter(u => u.subscriptionStatus === 'partner').length;
   const trialUsers = users.filter(u => u.subscriptionStatus === 'trial').length;
   const expiredUsers = users.filter(u => u.subscriptionStatus === 'expired').length;
-  const monthlyRevenue = activePaidUsers * saasService.getMonthlyPrice();
+  const monthlyRevenue = users
+    .filter(u => u.subscriptionStatus === 'active' && u.role !== 'admin')
+    .reduce((acc, u) => {
+      const plan = u.plan || 'pro';
+      return acc + (plan === 'premium' ? 199.90 : plan === 'basic' ? 29.90 : 59.90);
+    }, 0);
 
   const filteredUsers = users.filter(u => 
     u.email.toLowerCase().includes(search.toLowerCase()) ||
@@ -293,7 +338,7 @@ export const AdminDashboardPage: React.FC = () => {
               Gestão de Assinantes &bull; OrçaFácil Pro
             </h1>
             <p className="text-slate-300 text-sm mt-1 max-w-xl">
-              Gerencie quem tem acesso ao sistema, libere acessos para empresas parceiras e aprove pagamentos PIX.
+              Gerencie quem tem acesso ao sistema, altere os planos dos clientes (Básico, Pro e Premium), libere parceiros e aprove PIX.
             </p>
           </div>
 
@@ -348,7 +393,7 @@ export const AdminDashboardPage: React.FC = () => {
             <CheckCircle2 className="w-4 h-4 text-emerald-600" />
           </div>
           <span className="text-2xl sm:text-3xl font-black text-emerald-600">{activePaidUsers}</span>
-          <p className="text-[11px] text-slate-400 mt-1">Plano Pro (R$ 59,90/mês)</p>
+          <p className="text-[11px] text-slate-400 mt-1">Básico, Pro e Premium</p>
         </div>
 
         <div className="bg-white p-4 sm:p-5 rounded-2xl border border-indigo-200/90 shadow-sm bg-gradient-to-br from-indigo-50/50 to-white">
@@ -466,7 +511,8 @@ export const AdminDashboardPage: React.FC = () => {
                   <tr>
                     <th className="py-3.5 px-4 sm:px-6">Usuário / E-mail</th>
                     <th className="py-3.5 px-4">Cadastro</th>
-                    <th className="py-3.5 px-4">Status / Plano</th>
+                    <th className="py-3.5 px-4">Status</th>
+                    <th className="py-3.5 px-4">Plano Atual</th>
                     <th className="py-3.5 px-4">Validade do Acesso</th>
                     <th className="py-3.5 px-4 sm:px-6 text-right">Ações Rápidas</th>
                   </tr>
@@ -478,6 +524,7 @@ export const AdminDashboardPage: React.FC = () => {
                     const isTrial = u.subscriptionStatus === 'trial';
                     const isActive = u.subscriptionStatus === 'active';
                     const isExpired = u.subscriptionStatus === 'expired';
+                    const userPlan: SubscriptionPlanId = (isMasterAdmin ? 'premium' : (u.plan || 'pro'));
 
                     // Cálculo de dias restantes
                     const trialEnd = new Date(u.trialEndsAt);
@@ -520,6 +567,7 @@ export const AdminDashboardPage: React.FC = () => {
                           {new Date(u.createdAt).toLocaleDateString('pt-BR')}
                         </td>
 
+                        {/* Status da Conta */}
                         <td className="py-3.5 px-4 whitespace-nowrap">
                           {isMasterAdmin ? (
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-100 text-purple-800 border border-purple-200">
@@ -527,11 +575,11 @@ export const AdminDashboardPage: React.FC = () => {
                             </span>
                           ) : isPartner || u.isPartnerAccount ? (
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-100 text-indigo-800 border border-indigo-200">
-                              <Sparkles className="w-3 h-3 text-amber-500" /> Parceiro VIP (Gratuito)
+                              <Sparkles className="w-3 h-3 text-amber-500" /> Parceiro VIP
                             </span>
                           ) : isActive ? (
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                              <CheckCircle2 className="w-3 h-3" /> Assinante Pro
+                              <CheckCircle2 className="w-3 h-3" /> Assinante Ativo
                             </span>
                           ) : isTrial ? (
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
@@ -541,6 +589,41 @@ export const AdminDashboardPage: React.FC = () => {
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-200">
                               <AlertCircle className="w-3 h-3" /> Vencido / Bloqueado
                             </span>
+                          )}
+                        </td>
+
+                        {/* Plano do Usuário (com botão de edição rápida) */}
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          {isMasterAdmin ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-black bg-purple-50 text-purple-700 border border-purple-200">
+                              <Crown className="w-3.5 h-3.5 text-purple-600" /> Premium Total
+                            </span>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              {userPlan === 'premium' ? (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-black bg-gradient-to-r from-amber-50 to-amber-100 text-amber-900 border border-amber-300 shadow-sm">
+                                  <Crown className="w-3.5 h-3.5 text-amber-600" />
+                                  <span>Premium (R$ 199)</span>
+                                </span>
+                              ) : userPlan === 'basic' ? (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold bg-slate-100 text-slate-800 border border-slate-200">
+                                  <Layers className="w-3.5 h-3.5 text-slate-600" />
+                                  <span>Básico (R$ 29)</span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold bg-blue-50 text-blue-800 border border-blue-200">
+                                  <Zap className="w-3.5 h-3.5 text-blue-600" />
+                                  <span>Pro (R$ 59)</span>
+                                </span>
+                              )}
+                              <button
+                                onClick={() => handleOpenChangePlan(u)}
+                                className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                                title="Alterar plano deste cliente (Básico, Pro ou Premium)"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           )}
                         </td>
 
@@ -569,6 +652,16 @@ export const AdminDashboardPage: React.FC = () => {
                             <span className="text-xs text-slate-400 italic">Conta Mestre</span>
                           ) : (
                             <div className="flex items-center justify-end gap-1.5">
+                              {/* Botão de Alterar Plano */}
+                              <button
+                                onClick={() => handleOpenChangePlan(u)}
+                                className="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold text-xs rounded-xl shadow-sm transition-all flex items-center gap-1"
+                                title="Alterar plano (Básico, Pro ou Premium) para este cliente"
+                              >
+                                <Crown className="w-3.5 h-3.5 text-amber-600" />
+                                <span>Mudar Plano</span>
+                              </button>
+
                               {/* Botão de Vincular Parceiro */}
                               <button
                                 onClick={() => handleAssignPartner(u)}
@@ -582,7 +675,7 @@ export const AdminDashboardPage: React.FC = () => {
                               <button
                                 onClick={() => handleActivate(u.email, 30)}
                                 className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all flex items-center gap-1"
-                                title="Aprovar pagamento PIX e conceder 30 dias de acesso"
+                                title="Aprovar pagamento PIX e conceder 30 dias de acesso no plano atual"
                               >
                                 <PlusCircle className="w-3.5 h-3.5" />
                                 <span>Liberar +30 Dias</span>
@@ -1244,6 +1337,221 @@ export const AdminDashboardPage: React.FC = () => {
                 </div>
               );
             })()}
+          </div>
+        </div>
+      )}
+
+      {/* Modal para Alterar Plano do Cliente (Básico, Pro ou Premium) */}
+      {userToChangePlan && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 my-auto space-y-5 shadow-2xl border border-slate-200">
+            <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-100 border border-amber-200 flex items-center justify-center text-amber-700 shadow-sm">
+                  <Crown className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-slate-900">
+                    Alterar Plano do Cliente
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Altere o plano de qualquer cliente (antigo ou recente) pelo seu painel.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setUserToChangePlan(null)}
+                className="text-slate-400 hover:text-slate-600 text-lg font-bold p-1"
+              >
+                &times;
+              </button>
+            </div>
+
+            {/* Informações do Usuário */}
+            <div className="bg-slate-50 rounded-2xl p-3.5 border border-slate-200 flex items-center justify-between">
+              <div>
+                <span className="text-xs text-slate-500 block">Cliente selecionado</span>
+                <span className="text-sm font-bold text-slate-900 block">{userToChangePlan.name || 'Sem nome'}</span>
+                <span className="text-xs font-mono text-slate-600">{userToChangePlan.email}</span>
+              </div>
+              <div className="text-right">
+                <span className="text-[11px] text-slate-400 block font-semibold">Plano Atual</span>
+                <span className="text-xs font-black uppercase px-2.5 py-0.5 rounded-full bg-slate-200 text-slate-800">
+                  {userToChangePlan.plan || 'pro'}
+                </span>
+              </div>
+            </div>
+
+            {/* Seleção de Novo Plano */}
+            <div className="space-y-2.5">
+              <span className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
+                Escolha o Novo Plano:
+              </span>
+
+              {/* Básico */}
+              <label
+                onClick={() => setSelectedPlanToSet('basic')}
+                className={`flex items-start gap-3 p-3.5 rounded-2xl border-2 cursor-pointer transition-all ${
+                  selectedPlanToSet === 'basic'
+                    ? 'border-blue-600 bg-blue-50/60 shadow-sm'
+                    : 'border-slate-200 hover:border-slate-300 bg-white'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="planChoice"
+                  checked={selectedPlanToSet === 'basic'}
+                  onChange={() => setSelectedPlanToSet('basic')}
+                  className="mt-1 text-blue-600"
+                />
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <Layers className="w-4 h-4 text-slate-600" />
+                      <span className="font-black text-slate-900 text-sm">Plano Básico</span>
+                    </div>
+                    <span className="text-xs font-black text-slate-700 bg-slate-100 px-2 py-0.5 rounded-lg">
+                      R$ 29,90 / mês
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600 mt-0.5">
+                    Até 15 orçamentos por mês. Ideal para iniciantes.
+                  </p>
+                  <div className="flex items-center gap-2 text-[11px] text-slate-500 mt-1 font-medium">
+                    <span>&bull; Limite de 15 orçamentos/mês</span>
+                    <span className="text-slate-400">&bull; Sem IA</span>
+                    <span className="text-slate-400">&bull; Sem Contratos</span>
+                  </div>
+                </div>
+              </label>
+
+              {/* Pro */}
+              <label
+                onClick={() => setSelectedPlanToSet('pro')}
+                className={`flex items-start gap-3 p-3.5 rounded-2xl border-2 cursor-pointer transition-all ${
+                  selectedPlanToSet === 'pro'
+                    ? 'border-blue-600 bg-blue-50/60 shadow-sm'
+                    : 'border-slate-200 hover:border-slate-300 bg-white'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="planChoice"
+                  checked={selectedPlanToSet === 'pro'}
+                  onChange={() => setSelectedPlanToSet('pro')}
+                  className="mt-1 text-blue-600"
+                />
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <Zap className="w-4 h-4 text-blue-600" />
+                      <span className="font-black text-slate-900 text-sm">Plano Pro</span>
+                      <span className="text-[10px] font-bold bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded-full">Mais Popular</span>
+                    </div>
+                    <span className="text-xs font-black text-blue-700 bg-blue-100/60 px-2 py-0.5 rounded-lg">
+                      R$ 59,90 / mês
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600 mt-0.5">
+                    Orçamentos ilimitados + Consultor de Preços Inteligente com IA.
+                  </p>
+                  <div className="flex items-center gap-2 text-[11px] text-slate-600 mt-1 font-medium">
+                    <span className="text-emerald-700 font-bold">&bull; Orçamentos Ilimitados</span>
+                    <span className="text-blue-700 font-bold">&bull; Consultor IA</span>
+                    <span className="text-slate-400">&bull; Sem Contratos</span>
+                  </div>
+                </div>
+              </label>
+
+              {/* Premium */}
+              <label
+                onClick={() => setSelectedPlanToSet('premium')}
+                className={`flex items-start gap-3 p-3.5 rounded-2xl border-2 cursor-pointer transition-all ${
+                  selectedPlanToSet === 'premium'
+                    ? 'border-amber-500 bg-amber-50/70 shadow-sm'
+                    : 'border-slate-200 hover:border-slate-300 bg-white'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="planChoice"
+                  checked={selectedPlanToSet === 'premium'}
+                  onChange={() => setSelectedPlanToSet('premium')}
+                  className="mt-1 text-amber-600"
+                />
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <Crown className="w-4 h-4 text-amber-600" />
+                      <span className="font-black text-slate-900 text-sm">Plano Premium</span>
+                      <span className="text-[10px] font-bold bg-amber-200 text-amber-900 px-1.5 py-0.5 rounded-full">Completo</span>
+                    </div>
+                    <span className="text-xs font-black text-amber-900 bg-amber-200/70 px-2 py-0.5 rounded-lg">
+                      R$ 199,90 / mês
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-700 mt-0.5">
+                    Tudo liberado: Orçamentos + Consultor IA + Gestor de Contratos Jurídicos e Assinatura Digital.
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2 text-[11px] mt-1 font-bold text-amber-900">
+                    <span className="text-emerald-700">&bull; Ilimitado</span>
+                    <span className="text-blue-700">&bull; Consultor IA</span>
+                    <span className="text-purple-700 bg-purple-100 px-1.5 py-0.5 rounded">&bull; Contratos & Assinatura Digital</span>
+                  </div>
+                </div>
+              </label>
+            </div>
+
+            {/* Opção adicional: Ativar período pago */}
+            <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
+              <label className="flex items-center gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={alsoActivateDays}
+                  onChange={e => setAlsoActivateDays(e.target.checked)}
+                  className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4"
+                />
+                <span className="text-xs font-bold text-slate-800">
+                  Renovar / adicionar dias de acesso para este plano agora
+                </span>
+              </label>
+
+              {alsoActivateDays && (
+                <div className="flex items-center gap-2 pl-6 pt-1">
+                  <span className="text-xs text-slate-600 font-semibold">Adicionar:</span>
+                  <select
+                    value={activateDaysCount}
+                    onChange={e => setActivateDaysCount(Number(e.target.value))}
+                    className="bg-white border border-slate-300 rounded-xl px-2.5 py-1 text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value={30}>+30 dias (1 mês)</option>
+                    <option value={60}>+60 dias (2 meses)</option>
+                    <option value={90}>+90 dias (3 meses)</option>
+                    <option value={180}>+180 dias (6 meses)</option>
+                    <option value={365}>+365 dias (1 ano)</option>
+                  </select>
+                </div>
+              )}
+            </div>
+
+            {/* Ações */}
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setUserToChangePlan(null)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={confirmChangePlan}
+                className="bg-emerald-600 hover:bg-emerald-700 font-bold"
+              >
+                Salvar Alteração de Plano
+              </Button>
+            </div>
           </div>
         </div>
       )}

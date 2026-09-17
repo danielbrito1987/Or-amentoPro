@@ -793,18 +793,19 @@ export const saasService = {
     }
   },
 
-  // Ativa assinatura (PIX pago) e sincroniza no Supabase (suporta plano basic ou pro)
-  activateSubscriptionForUser: async (email: string, daysToAdd: number = 30, plan: SubscriptionPlanId = 'pro', note?: string) => {
+  // Ativa assinatura (PIX pago) e sincroniza no Supabase (suporta plano basic, pro ou premium)
+  activateSubscriptionForUser: async (email: string, daysToAdd: number = 30, plan?: SubscriptionPlanId, note?: string) => {
     const users = saasService.getAllUsers();
     const record = users.find(u => u.email.toLowerCase() === email.toLowerCase());
     const now = new Date();
     const currentValid = (record && record.subscriptionValidUntil) ? new Date(record.subscriptionValidUntil) : now;
     const baseTime = currentValid > now ? currentValid.getTime() : now.getTime();
     const newExpiry = new Date(baseTime + daysToAdd * 24 * 60 * 60 * 1000).toISOString();
+    const resolvedPlan: SubscriptionPlanId = plan || (record && record.plan) || 'pro';
 
     if (record) {
       record.subscriptionStatus = 'active';
-      record.plan = plan;
+      record.plan = resolvedPlan;
       record.subscriptionValidUntil = newExpiry;
       if (note) record.lastPaymentNote = note;
       saasService.saveUserRecord(record);
@@ -816,7 +817,7 @@ export const saasService = {
           const u = JSON.parse(currentSaved);
           if (u.email?.toLowerCase() === email.toLowerCase()) {
             u.subscriptionStatus = 'active';
-            u.plan = plan;
+            u.plan = resolvedPlan;
             u.subscriptionValidUntil = newExpiry;
             localStorage.setItem('orcafacil_user', JSON.stringify(u));
           }
@@ -832,12 +833,47 @@ export const saasService = {
           .from('profiles')
           .update({
             subscription_status: 'active',
-            plan: plan,
+            plan: resolvedPlan,
             subscription_valid_until: newExpiry
           })
           .ilike('email', email.trim());
       } catch (e) {
         console.warn('Tentativa de atualizar assinatura no Supabase profiles:', e);
+      }
+    }
+  },
+
+  // Altera diretamente o plano de qualquer usuário (Básico, Pro ou Premium)
+  updateUserPlan: async (email: string, newPlan: SubscriptionPlanId) => {
+    const users = saasService.getAllUsers();
+    const record = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+    if (record) {
+      record.plan = newPlan;
+      saasService.saveUserRecord(record);
+
+      // Atualiza também na sessão local caso seja o usuário atual
+      try {
+        const currentSaved = localStorage.getItem('orcafacil_user');
+        if (currentSaved) {
+          const u = JSON.parse(currentSaved);
+          if (u.email?.toLowerCase() === email.toLowerCase()) {
+            u.plan = newPlan;
+            localStorage.setItem('orcafacil_user', JSON.stringify(u));
+          }
+        }
+      } catch {}
+    }
+
+    // Persiste no Supabase se conectado
+    const supabase = getSupabase();
+    if (supabase) {
+      try {
+        await supabase
+          .from('profiles')
+          .update({ plan: newPlan })
+          .ilike('email', email.trim());
+      } catch (e) {
+        console.warn('Tentativa de atualizar plano no Supabase profiles:', e);
       }
     }
   },
