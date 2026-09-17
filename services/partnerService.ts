@@ -1,16 +1,21 @@
-// Gerenciamento das Empresas Parceiras e Cupons de Acesso Liberado
+// Gerenciamento dos Profissionais/Empresas Parceiras e Indicações
+// Modelo de Negócio:
+// - O Parceiro (ex: Designer, Arquiteto, Loja) recebe acesso 100% gratuito (VIP) para utilizar o sistema.
+// - As empresas e prestadores indicados pelo parceiro se cadastram pelo código/link dele,
+//   recebem 7 dias grátis de teste e pagam a assinatura normalmente após o período de teste.
 
 export interface PartnerCompany {
   id: string;
-  code: string; // Código em maiúsculo (ex: ELETROMAT, TINTASMAX, CASADOPAULISTA)
-  name: string; // Nome fantasia da empresa parceira (ex: "EletroMateriais São Paulo")
-  contactPerson?: string; // Nome do contato (ex: "Roberto Gerente")
-  phone?: string; // Telefone/WhatsApp da empresa parceira
-  notes?: string; // Detalhes da parceria (ex: "Fornece 5% desc aos nossos usuários em troca do app liberado")
+  code: string; // Código de indicação em maiúsculo (ex: DESIGNER-VIP, ARQ-MARCOS)
+  name: string; // Nome fantasia ou profissional (ex: "Studio Designer Marcos Silva")
+  partnerEmail?: string; // E-mail da conta do parceiro (com acesso 100% gratuito liberado)
+  contactPerson?: string; // Nome do contato
+  phone?: string; // Telefone/WhatsApp do parceiro
+  notes?: string; // Detalhes da parceria (ex: "Acesso grátis concedido em troca de indicação para marcenarias e prestadores")
   active: boolean; // Se a parceria está ativa
   createdAt: string;
-  activatedUsersCount: number; // Quantos usuários já ativaram com este código
-  accessType: 'vitalicio' | 'dias'; // Tipo de acesso
+  activatedUsersCount: number; // Quantidade de empresas/clientes que se cadastraram por esta indicação
+  accessType: 'vitalicio' | 'dias'; // Tipo de acesso concedido AO PRÓPRIO PARCEIRO
   accessDays?: number; // Se for por dias (ex: 365 para 1 ano)
 }
 
@@ -21,15 +26,16 @@ export const partnerService = {
     try {
       const raw = localStorage.getItem(PARTNERS_STORAGE_KEY);
       if (!raw) {
-        // Inicializa com parceiros padrão de exemplo para já vir pré-configurado
+        // Inicializa com um parceiro padrão de exemplo para ilustrar o modelo com designers/arquitetos
         const defaultPartners: PartnerCompany[] = [
           {
-            id: 'partner_eletro',
-            code: 'PARCEIRO-VIP',
-            name: 'Parceiro Comercial Modelo',
-            contactPerson: 'Gerência Comercial',
-            phone: '(11) 99999-0000',
-            notes: 'Acesso VIP gratuito liberado para parceiros estratégicos',
+            id: 'partner_designer',
+            code: 'DESIGNER-VIP',
+            name: 'Studio Designer Parceiro',
+            partnerEmail: 'designer@parceiro.com.br',
+            contactPerson: 'Marcos Designer de Interiores',
+            phone: '(11) 98888-0000',
+            notes: 'Acesso VIP gratuito liberado para o designer utilizar no dia a dia. Prestadores e empresas indicados por ele pagam a assinatura normalmente.',
             active: true,
             createdAt: new Date().toISOString(),
             activatedUsersCount: 0,
@@ -53,23 +59,38 @@ export const partnerService = {
     }
   },
 
+  findPartnerByEmail: (email?: string): PartnerCompany | undefined => {
+    if (!email || !email.trim()) return undefined;
+    const cleanEmail = email.trim().toLowerCase();
+    const list = partnerService.getPartners();
+    return list.find(p => p.partnerEmail && p.partnerEmail.trim().toLowerCase() === cleanEmail);
+  },
+
+  findPartnerByCode: (code?: string): PartnerCompany | undefined => {
+    if (!code || !code.trim()) return undefined;
+    const cleanCode = code.trim().toUpperCase();
+    const list = partnerService.getPartners();
+    return list.find(p => p.code.toUpperCase() === cleanCode);
+  },
+
   addPartner: (partner: Omit<PartnerCompany, 'id' | 'createdAt' | 'activatedUsersCount'>): PartnerCompany => {
     const list = partnerService.getPartners();
     const cleanCode = partner.code.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '');
 
     if (!cleanCode) {
-      throw new Error('O código de parceiro é obrigatório.');
+      throw new Error('O código de indicação do parceiro é obrigatório.');
     }
 
     const exists = list.some(p => p.code.toUpperCase() === cleanCode);
     if (exists) {
-      throw new Error(`Já existe uma empresa parceira com o código "${cleanCode}".`);
+      throw new Error(`Já existe um parceiro com o código "${cleanCode}".`);
     }
 
     const newPartner: PartnerCompany = {
       ...partner,
       id: 'partner_' + Math.random().toString(36).substring(2, 9),
       code: cleanCode,
+      partnerEmail: partner.partnerEmail ? partner.partnerEmail.trim().toLowerCase() : undefined,
       createdAt: new Date().toISOString(),
       activatedUsersCount: 0
     };
@@ -87,6 +108,9 @@ export const partnerService = {
     if (updates.code) {
       updates.code = updates.code.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '');
     }
+    if (updates.partnerEmail !== undefined) {
+      updates.partnerEmail = updates.partnerEmail ? updates.partnerEmail.trim().toLowerCase() : undefined;
+    }
 
     list[index] = { ...list[index], ...updates };
     partnerService.savePartners(list);
@@ -100,9 +124,14 @@ export const partnerService = {
     return true;
   },
 
-  validateCode: (code: string): { valid: boolean; partner?: PartnerCompany; message: string } => {
+  validateCode: (code: string, userEmail?: string): { 
+    valid: boolean; 
+    partner?: PartnerCompany; 
+    isPartnerAccount?: boolean; 
+    message: string 
+  } => {
     if (!code || !code.trim()) {
-      return { valid: false, message: 'Digite o código de parceria.' };
+      return { valid: false, message: 'Digite o código de indicação do parceiro.' };
     }
 
     const clean = code.trim().toUpperCase();
@@ -110,17 +139,34 @@ export const partnerService = {
     const partner = list.find(p => p.code.toUpperCase() === clean);
 
     if (!partner) {
-      return { valid: false, message: 'Código de parceria não encontrado ou inválido.' };
+      return { valid: false, message: 'Código de indicação não encontrado ou inválido.' };
     }
 
     if (!partner.active) {
-      return { valid: false, message: 'Este convênio de parceria está temporariamente inativo.' };
+      return { valid: false, message: 'Este convênio de parceria está temporariamente pausado.' };
+    }
+
+    // Verifica se quem está usando é o próprio parceiro dono do e-mail cadastrado
+    const isSelfPartner = !!(
+      userEmail && 
+      partner.partnerEmail && 
+      userEmail.trim().toLowerCase() === partner.partnerEmail.trim().toLowerCase()
+    );
+
+    if (isSelfPartner) {
+      return { 
+        valid: true, 
+        partner, 
+        isPartnerAccount: true,
+        message: `Conta VIP de Parceiro (${partner.name}) reconhecida! Seu acesso gratuito será ativado.` 
+      };
     }
 
     return { 
       valid: true, 
       partner, 
-      message: `Código válido! Parceria com ${partner.name} reconhecida.` 
+      isPartnerAccount: false,
+      message: `Indicação do parceiro ${partner.name} reconhecida! Crie sua conta e aproveite 7 dias de teste grátis.` 
     };
   },
 
@@ -132,5 +178,17 @@ export const partnerService = {
       partner.activatedUsersCount = (partner.activatedUsersCount || 0) + 1;
       partnerService.savePartners(list);
     }
+  },
+
+  generateReferralLink: (code: string): string => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://orcafacil.com.br';
+    return `${origin}/?ref=${encodeURIComponent(code.trim().toUpperCase())}`;
+  },
+
+  generateWhatsAppMessage: (partner: PartnerCompany): string => {
+    const link = partnerService.generateReferralLink(partner.code);
+    return encodeURIComponent(
+      `Olá! Estou usando e recomendo o *OrçaFácil* para criação de orçamentos e contratos profissionais com envio rápido em PDF pelo WhatsApp.\n\nAcesse pelo meu link exclusivo de parceiro para começar com 7 dias de teste grátis:\n${link}\n\nCódigo de indicação: *${partner.code}*`
+    );
   }
 };

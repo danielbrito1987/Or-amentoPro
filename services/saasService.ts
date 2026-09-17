@@ -110,6 +110,8 @@ export interface SaaSUserRecord {
   quotesCount?: number;
   partnerCompany?: string; // Nome da empresa parceira associada
   partnerCode?: string; // Código utilizado
+  isPartnerAccount?: boolean; // Verdadeiro se for a conta DO PRÓPRIO parceiro (acesso VIP gratuito)
+  referredByPartner?: string; // Nome do parceiro que indicou este cliente pagante
 }
 
 export const saasService = {
@@ -378,7 +380,16 @@ export const saasService = {
     localStorage.setItem(USERS_REGISTRY_KEY, JSON.stringify(users));
   },
 
-  registerNewUser: (user: User, options?: { plan?: SubscriptionPlanId; billingCycle?: BillingCycle }): SaaSUserRecord => {
+  registerNewUser: (
+    user: User, 
+    options?: { 
+      plan?: SubscriptionPlanId; 
+      billingCycle?: BillingCycle;
+      partnerCompany?: string;
+      partnerCode?: string;
+      isPartnerSelf?: boolean;
+    }
+  ): SaaSUserRecord => {
     const users = saasService.getAllUsers();
     const existing = users.find(u => u.email.toLowerCase() === user.email.toLowerCase());
 
@@ -387,6 +398,9 @@ export const saasService = {
 
     const chosenPlan: SubscriptionPlanId = options?.plan || user.plan || 'pro';
     const chosenCycle: BillingCycle = options?.billingCycle || user.billingCycle || 'monthly';
+    const isPartnerSelf = options?.isPartnerSelf || user.subscriptionStatus === 'partner';
+    const partnerCompany = options?.partnerCompany || user.partnerCompany;
+    const partnerCode = options?.partnerCode || user.partnerCode;
 
     if (existing) {
       if (isSystemAdmin) {
@@ -396,9 +410,17 @@ export const saasService = {
         existing.role = 'user';
         existing.subscriptionStatus = 'active';
         existing.subscriptionValidUntil = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
+      } else if (isPartnerSelf) {
+        existing.subscriptionStatus = 'partner';
+        existing.isPartnerAccount = true;
+        if (partnerCompany) existing.partnerCompany = partnerCompany;
+        if (partnerCode) existing.partnerCode = partnerCode;
       }
       if (options?.plan) existing.plan = options.plan;
       if (options?.billingCycle) existing.billingCycle = options.billingCycle;
+      if (partnerCompany && !existing.partnerCompany) existing.partnerCompany = partnerCompany;
+      if (partnerCode && !existing.partnerCode) existing.partnerCode = partnerCode;
+      if (!isPartnerSelf && partnerCompany) existing.referredByPartner = partnerCompany;
       saasService.saveUserRecord(existing);
       return existing;
     }
@@ -413,12 +435,14 @@ export const saasService = {
     let initialStatus: 'trial' | 'active' | 'expired' | 'partner' = 'trial';
     if (isSystemAdmin || isTestDemo) {
       initialStatus = 'active';
-    } else if (user.subscriptionStatus === 'partner') {
+    } else if (isPartnerSelf) {
+      // Conta do PRÓPRIO parceiro (acesso VIP gratuito liberado)
       initialStatus = 'partner';
     } else if (isPremium) {
       // Plano Premium: sem período de teste grátis, requer pagamento para ativação
       initialStatus = 'expired';
     } else {
+      // Clientes indicados pelo parceiro entram em TRIAL normalmente para testar 7 dias grátis
       initialStatus = 'trial';
     }
 
@@ -431,12 +455,19 @@ export const saasService = {
       subscriptionStatus: initialStatus,
       subscriptionValidUntil: isSystemAdmin 
         ? new Date(2099, 11, 31).toISOString() 
-        : (isTestDemo ? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString() : undefined),
+        : (isTestDemo ? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString() 
+        : (isPartnerSelf ? new Date(2099, 11, 31).toISOString() : undefined)),
       plan: chosenPlan,
       billingCycle: chosenCycle,
-      lastPaymentNote: isPremium ? 'Plano Premium selecionado no cadastro - aguardando ativação via PIX' : undefined,
+      lastPaymentNote: isPartnerSelf 
+        ? `Acesso VIP concedido ao profissional parceiro (${partnerCompany || 'Parceria'})` 
+        : (isPremium ? 'Plano Premium selecionado no cadastro - aguardando ativação via PIX' : undefined),
       role: isSystemAdmin ? 'admin' : 'user', // O usuário de teste é estritamente 'user' (não-dono)
-      companyId: user.companyId || 'comp_' + Math.random().toString(36).substring(2, 9)
+      companyId: user.companyId || 'comp_' + Math.random().toString(36).substring(2, 9),
+      partnerCompany: partnerCompany,
+      partnerCode: partnerCode,
+      isPartnerAccount: isPartnerSelf,
+      referredByPartner: !isPartnerSelf && partnerCompany ? partnerCompany : undefined
     };
 
     users.push(record);
@@ -682,9 +713,10 @@ export const saasService = {
 
     if (record) {
       record.subscriptionStatus = 'partner';
+      record.isPartnerAccount = true;
       record.partnerCompany = partnerName;
       record.partnerCode = partnerCode.toUpperCase();
-      record.lastPaymentNote = `Acesso liberado via parceria: ${partnerName} (Cupom: ${partnerCode.toUpperCase()})`;
+      record.lastPaymentNote = `Acesso VIP liberado para o profissional parceiro: ${partnerName} (Código: ${partnerCode.toUpperCase()})`;
       record.subscriptionValidUntil = expiry;
 
       saasService.saveUserRecord(record);
@@ -708,7 +740,6 @@ export const saasService = {
     const supabase = getSupabase();
     if (supabase) {
       try {
-        // Tenta atualizar a linha do usuário na tabela profiles
         await supabase
           .from('profiles')
           .update({
@@ -720,6 +751,44 @@ export const saasService = {
           .ilike('email', email.trim());
       } catch (e) {
         console.warn('Tentativa de sincronizar parceiro no Supabase profiles:', e);
+      }
+    }
+  },
+
+  // Vincula um cliente pagante ou em teste a um parceiro que o indicou (sem dar gratuidade)
+  linkUserToReferralPartner: async (email: string, partnerName: string, partnerCode: string) => {
+    const users = saasService.getAllUsers();
+    const record = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+    if (record) {
+      record.partnerCompany = partnerName;
+      record.partnerCode = partnerCode.toUpperCase();
+      record.referredByPartner = partnerName;
+      record.isPartnerAccount = false;
+      saasService.saveUserRecord(record);
+
+      try {
+        const currentSaved = localStorage.getItem('orcafacil_user');
+        if (currentSaved) {
+          const u = JSON.parse(currentSaved);
+          if (u.email?.toLowerCase() === email.toLowerCase()) {
+            u.partnerCompany = partnerName;
+            u.partnerCode = partnerCode.toUpperCase();
+            localStorage.setItem('orcafacil_user', JSON.stringify(u));
+          }
+        }
+      } catch {}
+
+      const supabase = getSupabase();
+      if (supabase) {
+        try {
+          await supabase
+            .from('profiles')
+            .update({
+              partner_company: partnerName,
+              partner_code: partnerCode.toUpperCase()
+            })
+            .ilike('email', email.trim());
+        } catch {}
       }
     }
   },

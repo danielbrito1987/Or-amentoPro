@@ -49,6 +49,8 @@ export const AdminDashboardPage: React.FC = () => {
   // Modal para associar usuário a uma parceria
   const [userToPartner, setUserToPartner] = useState<SaaSUserRecord | null>(null);
   const [selectedPartnerId, setSelectedPartnerId] = useState<string>('');
+  const [assignMode, setAssignMode] = useState<'partner_vip' | 'referred_client'>('partner_vip');
+  const [selectedPartnerForReferrals, setSelectedPartnerForReferrals] = useState<PartnerCompany | null>(null);
 
   // Modal / formulário para adicionar/editar empresa parceira
   const [isPartnerModalOpen, setIsPartnerModalOpen] = useState(false);
@@ -56,6 +58,7 @@ export const AdminDashboardPage: React.FC = () => {
   const [partnerForm, setPartnerForm] = useState({
     code: '',
     name: '',
+    partnerEmail: '',
     contactPerson: '',
     phone: '',
     notes: '',
@@ -64,11 +67,19 @@ export const AdminDashboardPage: React.FC = () => {
   });
 
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [copiedLink, setCopiedLink] = useState<string | null>(null);
 
   const handleCopyCode = (code: string) => {
     navigator.clipboard.writeText(code);
     setCopiedCode(code);
     setTimeout(() => setCopiedCode(null), 3000);
+  };
+
+  const handleCopyLink = (code: string) => {
+    const link = partnerService.generateReferralLink(code);
+    navigator.clipboard.writeText(link);
+    setCopiedLink(code);
+    setTimeout(() => setCopiedLink(null), 3000);
   };
   
   const handleSyncSupabase = async () => {
@@ -128,8 +139,9 @@ export const AdminDashboardPage: React.FC = () => {
   };
 
   // Aplica liberação de parceiro para um usuário
-  const handleAssignPartner = (u: SaaSUserRecord) => {
+  const handleAssignPartner = (u: SaaSUserRecord, initialMode: 'partner_vip' | 'referred_client' = 'partner_vip') => {
     setUserToPartner(u);
+    setAssignMode(initialMode);
     if (partners.length > 0) {
       setSelectedPartnerId(partners[0].id);
     }
@@ -139,40 +151,55 @@ export const AdminDashboardPage: React.FC = () => {
     if (!userToPartner) return;
     const partner = partners.find(p => p.id === selectedPartnerId);
     if (!partner) {
-      setFeedback("Selecione uma empresa parceira válida.");
+      setFeedback("Selecione um parceiro válido.");
       return;
     }
 
-    const days = partner.accessType === 'dias' ? partner.accessDays : undefined;
-    await saasService.setPartnerAccessForUser(userToPartner.email, partner.name, partner.code, days);
-    partnerService.incrementUsage(partner.code);
+    if (assignMode === 'partner_vip') {
+      const days = partner.accessType === 'dias' ? partner.accessDays : undefined;
+      await saasService.setPartnerAccessForUser(userToPartner.email, partner.name, partner.code, days);
+      setFeedback(`Acesso VIP gratuito liberado para a conta do profissional parceiro "${partner.name}" (${userToPartner.email})!`);
+    } else {
+      await saasService.linkUserToReferralPartner(userToPartner.email, partner.name, partner.code);
+      setFeedback(`Usuário ${userToPartner.email} vinculado como empresa indicada por "${partner.name}". A assinatura segue o fluxo normal de pagamento.`);
+    }
 
     loadData();
     refreshUserStatus();
-    setFeedback(`Acesso liberado para ${userToPartner.email} como parceiro de "${partner.name}"!`);
     setUserToPartner(null);
     setTimeout(() => setFeedback(null), 4000);
   };
 
   // Salvar nova empresa parceira ou edição
-  const handleSavePartner = (e: React.FormEvent) => {
+  const handleSavePartner = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const email = partnerForm.partnerEmail ? partnerForm.partnerEmail.trim().toLowerCase() : undefined;
+
       if (editingPartner) {
         partnerService.updatePartner(editingPartner.id, {
           code: partnerForm.code,
           name: partnerForm.name,
+          partnerEmail: email,
           contactPerson: partnerForm.contactPerson,
           phone: partnerForm.phone,
           notes: partnerForm.notes,
           accessType: partnerForm.accessType,
           accessDays: Number(partnerForm.accessDays) || 365
         });
-        setFeedback(`Parceria "${partnerForm.name}" atualizada com sucesso!`);
+
+        // Se informou e-mail do parceiro, garante o acesso gratuito na conta dele
+        if (email) {
+          const days = partnerForm.accessType === 'dias' ? (Number(partnerForm.accessDays) || 365) : undefined;
+          await saasService.setPartnerAccessForUser(email, partnerForm.name, partnerForm.code, days);
+        }
+
+        setFeedback(`Parceria com "${partnerForm.name}" atualizada com sucesso!`);
       } else {
-        partnerService.addPartner({
+        const newP = partnerService.addPartner({
           code: partnerForm.code,
           name: partnerForm.name,
+          partnerEmail: email,
           contactPerson: partnerForm.contactPerson,
           phone: partnerForm.phone,
           notes: partnerForm.notes,
@@ -180,13 +207,21 @@ export const AdminDashboardPage: React.FC = () => {
           accessType: partnerForm.accessType,
           accessDays: Number(partnerForm.accessDays) || 365
         });
-        setFeedback(`Nova parceria "${partnerForm.name}" cadastrada! Código: ${partnerForm.code.toUpperCase()}`);
+
+        // Se informou e-mail do parceiro, já libera o acesso VIP para ele
+        if (email) {
+          const days = partnerForm.accessType === 'dias' ? (Number(partnerForm.accessDays) || 365) : undefined;
+          await saasService.setPartnerAccessForUser(email, newP.name, newP.code, days);
+        }
+
+        setFeedback(`Parceria com "${partnerForm.name}" cadastrada com sucesso! Código: ${partnerForm.code.toUpperCase()}`);
       }
       setIsPartnerModalOpen(false);
       setEditingPartner(null);
       setPartnerForm({
         code: '',
         name: '',
+        partnerEmail: '',
         contactPerson: '',
         phone: '',
         notes: '',
@@ -205,6 +240,7 @@ export const AdminDashboardPage: React.FC = () => {
     setPartnerForm({
       code: p.code,
       name: p.name,
+      partnerEmail: p.partnerEmail || '',
       contactPerson: p.contactPerson || '',
       phone: p.phone || '',
       notes: p.notes || '',
@@ -456,7 +492,7 @@ export const AdminDashboardPage: React.FC = () => {
                             <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
                               isMasterAdmin 
                                 ? 'bg-purple-100 text-purple-700 border border-purple-200' 
-                                : isPartner
+                                : isPartner || u.isPartnerAccount
                                 ? 'bg-indigo-100 text-indigo-700 border border-indigo-200'
                                 : 'bg-blue-100 text-blue-700 border border-blue-200'
                             }`}>
@@ -465,12 +501,17 @@ export const AdminDashboardPage: React.FC = () => {
                             <div className="min-w-0">
                               <span className="font-bold text-slate-900 block truncate">{u.name}</span>
                               <span className="text-slate-500 text-xs block font-mono truncate">{u.email}</span>
-                              {u.partnerCompany && (
-                                <span className="inline-flex items-center gap-1 text-[10px] text-indigo-700 font-semibold mt-0.5">
-                                  <Building2 className="w-3 h-3" />
-                                  <span>{u.partnerCompany}</span>
+                              {u.isPartnerAccount ? (
+                                <span className="inline-flex items-center gap-1 text-[10px] text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded-full font-bold mt-0.5">
+                                  <Sparkles className="w-2.5 h-2.5 text-amber-500" />
+                                  Conta VIP do Parceiro ({u.partnerCompany})
                                 </span>
-                              )}
+                              ) : u.partnerCompany ? (
+                                <span className="inline-flex items-center gap-1 text-[10px] text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded-full font-semibold mt-0.5">
+                                  <Building2 className="w-2.5 h-2.5 text-blue-500" />
+                                  Indicado por: {u.partnerCompany}
+                                </span>
+                              ) : null}
                             </div>
                           </div>
                         </td>
@@ -484,9 +525,9 @@ export const AdminDashboardPage: React.FC = () => {
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-100 text-purple-800 border border-purple-200">
                               <Shield className="w-3 h-3" /> Dono (Admin)
                             </span>
-                          ) : isPartner ? (
+                          ) : isPartner || u.isPartnerAccount ? (
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-100 text-indigo-800 border border-indigo-200">
-                              <Handshake className="w-3 h-3" /> Parceria Liberada
+                              <Sparkles className="w-3 h-3 text-amber-500" /> Parceiro VIP (Gratuito)
                             </span>
                           ) : isActive ? (
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
@@ -494,7 +535,7 @@ export const AdminDashboardPage: React.FC = () => {
                             </span>
                           ) : isTrial ? (
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
-                              <Clock className="w-3 h-3" /> Teste Grátis
+                              <Clock className="w-3 h-3" /> Teste Grátis (7d)
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-200">
@@ -506,10 +547,10 @@ export const AdminDashboardPage: React.FC = () => {
                         <td className="py-3.5 px-4 whitespace-nowrap">
                           {isMasterAdmin ? (
                             <span className="text-slate-500 font-semibold text-xs">Vitalício</span>
-                          ) : isPartner && (!u.subscriptionValidUntil || new Date(u.subscriptionValidUntil).getFullYear() > 2090) ? (
+                          ) : (isPartner || u.isPartnerAccount) && (!u.subscriptionValidUntil || new Date(u.subscriptionValidUntil).getFullYear() > 2090) ? (
                             <span className="text-indigo-600 font-bold text-xs flex items-center gap-1">
                               <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                              Vitalício (Parceiro)
+                              Vitalício (VIP Parceiro)
                             </span>
                           ) : (
                             <div>
@@ -528,14 +569,14 @@ export const AdminDashboardPage: React.FC = () => {
                             <span className="text-xs text-slate-400 italic">Conta Mestre</span>
                           ) : (
                             <div className="flex items-center justify-end gap-1.5">
-                              {/* Botão de Liberar Parceria */}
+                              {/* Botão de Vincular Parceiro */}
                               <button
                                 onClick={() => handleAssignPartner(u)}
                                 className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold text-xs rounded-xl shadow-sm transition-all flex items-center gap-1"
-                                title="Vincular a uma empresa parceira e liberar acesso sem cobrar comissão"
+                                title="Configurar vínculo com parceiro (VIP ou Indicação)"
                               >
                                 <Handshake className="w-3.5 h-3.5" />
-                                <span>{isPartner ? 'Alterar Parceria' : 'Vincular Parceria'}</span>
+                                <span>Parceria</span>
                               </button>
 
                               <button
@@ -575,22 +616,20 @@ export const AdminDashboardPage: React.FC = () => {
         </div>
       )}
 
-      {/* ABA 2: GESTÃO DE EMPRESAS PARCEIRAS */}
+      {/* ABA 2: GESTÃO DE PARCEIROS ESTRATÉGICOS */}
       {activeSubTab === 'partners' && (
         <div className="space-y-6">
           {/* Card explicativo do Modelo de Parceria */}
-          <div className="bg-gradient-to-r from-indigo-900 to-blue-900 rounded-3xl p-6 text-white border border-indigo-800 shadow-md">
+          <div className="bg-gradient-to-r from-indigo-900 via-slate-900 to-blue-950 rounded-3xl p-6 text-white border border-indigo-800 shadow-md">
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               <div className="space-y-2 max-w-2xl">
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/10 rounded-full text-indigo-200 text-xs font-semibold">
                   <Gift className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Substituição Estratégica de Comissões por Acesso Liberado</span>
+                  <span>Modelo de Parceria Estratégica</span>
                 </div>
                 <h3 className="text-xl md:text-2xl font-black">Como funciona sua estratégia de parcerias:</h3>
-                <p className="text-sm text-indigo-100">
-                  Em vez de pagar comissões financeiras para lojas de materiais, construtoras, marcenarias e prestadores parceiros, 
-                  você cria um código de acesso exclusivo para a empresa parceira. Os prestadores indicados pela empresa parceira ganham 
-                  acesso gratuito ao sistema, e em troca a empresa indica o seu aplicativo para todos os clientes e prestadores da região.
+                <p className="text-sm text-indigo-100 leading-relaxed">
+                  Você disponibiliza <strong>acesso 100% gratuito e vitalício</strong> para o designer ou arquiteto parceiro utilizar nos projetos dele. Em contrapartida, ele divulga o OrçaFácil para a rede dele de marcenarias, construtoras e clientes. <strong>As empresas indicadas pagam o sistema normalmente</strong> (após o teste de 7 dias grátis), gerando receita recorrente para você!
                 </p>
               </div>
 
@@ -600,6 +639,7 @@ export const AdminDashboardPage: React.FC = () => {
                   setPartnerForm({
                     code: '',
                     name: '',
+                    partnerEmail: '',
                     contactPerson: '',
                     phone: '',
                     notes: '',
@@ -611,105 +651,162 @@ export const AdminDashboardPage: React.FC = () => {
                 className="px-5 py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-2xl shadow-lg shadow-emerald-500/30 transition-all flex items-center gap-2 shrink-0 cursor-pointer active:scale-95"
               >
                 <PlusCircle className="w-5 h-5" />
-                <span>Cadastrar Nova Empresa Parceira</span>
+                <span>Cadastrar Novo Parceiro</span>
               </button>
             </div>
           </div>
 
-          {/* Grid de Empresas Parceiras */}
+          {/* Grid de Parceiros Estratégicos */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {partners.map((p) => {
-              const usersWithThisCode = users.filter(u => u.partnerCode === p.code || u.partnerCompany === p.name).length;
+              // Identifica o próprio parceiro e as empresas indicadas por ele
+              const partnerAccountUser = p.partnerEmail 
+                ? users.find(u => u.email.toLowerCase() === p.partnerEmail!.toLowerCase()) 
+                : users.find(u => u.partnerCode === p.code && u.isPartnerAccount);
+              
+              const isPartnerVipActive = partnerAccountUser && partnerAccountUser.subscriptionStatus === 'partner';
+
+              const referredUsers = users.filter(u => 
+                (u.partnerCode === p.code || u.partnerCompany === p.name) && 
+                (!u.isPartnerAccount && u.email.toLowerCase() !== (p.partnerEmail || '').toLowerCase())
+              );
+
+              const totalReferred = referredUsers.length;
+              const payingReferred = referredUsers.filter(u => u.subscriptionStatus === 'active').length;
+              const monthlyGenerated = payingReferred * saasService.getMonthlyPrice();
+              const referralUrl = partnerService.generateReferralLink(p.code);
 
               return (
                 <div 
                   key={p.id}
-                  className={`bg-white rounded-3xl border p-5 shadow-sm space-y-4 transition-all relative overflow-hidden ${
+                  className={`bg-white rounded-3xl border p-5 shadow-sm space-y-4 transition-all relative overflow-hidden flex flex-col justify-between ${
                     p.active ? 'border-slate-200/90' : 'border-slate-200 opacity-60 bg-slate-50'
                   }`}
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 font-bold">
-                        <Building2 className="w-5 h-5" />
+                  <div className="space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 font-bold">
+                          <Building2 className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-slate-900 text-base leading-tight">{p.name}</h4>
+                          {p.contactPerson && (
+                            <p className="text-xs text-slate-500 mt-0.5">Contato: {p.contactPerson}</p>
+                          )}
+                        </div>
                       </div>
-                      <div>
-                        <h4 className="font-bold text-slate-900 text-base leading-tight">{p.name}</h4>
-                        {p.contactPerson && (
-                          <p className="text-xs text-slate-500 mt-0.5">Contato: {p.contactPerson}</p>
-                        )}
-                      </div>
+
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        p.active 
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
+                          : 'bg-slate-200 text-slate-600'
+                      }`}>
+                        {p.active ? 'Ativo' : 'Pausado'}
+                      </span>
                     </div>
 
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                      p.active 
-                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
-                        : 'bg-slate-200 text-slate-600'
-                    }`}>
-                      {p.active ? 'Ativo' : 'Inativo'}
-                    </span>
-                  </div>
-
-                  {/* Cupom / Código de Ativação */}
-                  <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200/80 space-y-1.5">
-                    <div className="flex items-center justify-between text-xs text-slate-500 font-semibold">
-                      <span className="flex items-center gap-1">
-                        <Tag className="w-3.5 h-3.5 text-indigo-600" />
-                        Código do Convênio:
-                      </span>
-                      <button
-                        onClick={() => handleCopyCode(p.code)}
-                        className="text-indigo-600 hover:text-indigo-800 font-bold flex items-center gap-1 text-[11px] cursor-pointer"
-                        title="Copiar código para enviar no WhatsApp"
-                      >
-                        {copiedCode === p.code ? (
-                          <>
-                            <Check className="w-3 h-3 text-emerald-600" />
-                            <span className="text-emerald-600">Copiado!</span>
-                          </>
+                    {/* Status da Conta VIP do Parceiro */}
+                    <div className="bg-indigo-50/60 p-2.5 rounded-2xl border border-indigo-100 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500 font-medium flex items-center gap-1">
+                          <Sparkles className="w-3 h-3 text-amber-500" />
+                          Conta VIP do Parceiro:
+                        </span>
+                        {isPartnerVipActive ? (
+                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full">
+                            VIP Ativo Grátis
+                          </span>
+                        ) : p.partnerEmail ? (
+                          <span className="text-[10px] font-bold text-amber-700 bg-amber-100/80 px-2 py-0.5 rounded-full">
+                            Aguardando Cadastro
+                          </span>
                         ) : (
-                          <>
-                            <Copy className="w-3 h-3" />
-                            <span>Copiar</span>
-                          </>
+                          <span className="text-[10px] font-semibold text-slate-400">
+                            Sem e-mail vinculado
+                          </span>
                         )}
-                      </button>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <span className="font-mono text-base font-black text-slate-900 bg-white px-3 py-1 rounded-xl border border-slate-300 tracking-wider">
-                        {p.code}
-                      </span>
-
-                      <span className="text-xs font-semibold text-slate-600">
-                        {p.accessType === 'vitalicio' ? 'Acesso Vitalício' : `${p.accessDays || 365} dias`}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Detalhes de Contato e Estatística */}
-                  <div className="space-y-1.5 text-xs text-slate-600 pt-1">
-                    {p.phone && (
-                      <p className="flex items-center gap-1.5">
-                        <span className="text-slate-400 font-semibold">WhatsApp/Tel:</span>
-                        <strong className="text-slate-800">{p.phone}</strong>
+                      </div>
+                      <p className="font-mono text-slate-800 text-[11px] font-bold mt-1 truncate">
+                        {p.partnerEmail || 'Clique em editar para adicionar o e-mail'}
                       </p>
-                    )}
-                    {p.notes && (
-                      <p className="text-slate-500 italic bg-slate-50 p-2 rounded-xl text-[11px]">
-                        "{p.notes}"
-                      </p>
-                    )}
-                    <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
-                      <span className="text-slate-500">Usuários ativados:</span>
-                      <span className="font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100">
-                        {usersWithThisCode} usuários
-                      </span>
                     </div>
+
+                    {/* Código e Link de Divulgação */}
+                    <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200/80 space-y-2">
+                      <div className="flex items-center justify-between text-xs text-slate-500 font-semibold">
+                        <span className="flex items-center gap-1">
+                          <Tag className="w-3.5 h-3.5 text-indigo-600" />
+                          Código de Divulgação:
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleCopyCode(p.code)}
+                            className="text-indigo-600 hover:text-indigo-800 font-bold flex items-center gap-1 text-[11px] cursor-pointer"
+                            title="Copiar código"
+                          >
+                            {copiedCode === p.code ? (
+                              <>
+                                <Check className="w-3 h-3 text-emerald-600" />
+                                <span className="text-emerald-600">Copiado!</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="w-3 h-3" />
+                                <span>Copiar Código</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono text-sm font-black text-slate-900 bg-white px-3 py-1 rounded-xl border border-slate-300 tracking-wider">
+                          {p.code}
+                        </span>
+
+                        <button
+                          onClick={() => handleCopyLink(p.code)}
+                          className="px-2.5 py-1 bg-white hover:bg-slate-100 border border-slate-200 rounded-xl text-[11px] font-bold text-slate-700 flex items-center gap-1 transition-all"
+                          title="Copiar link direto de cadastro com o código do parceiro"
+                        >
+                          {copiedLink === p.code ? (
+                            <span className="text-emerald-600">Link Copiado!</span>
+                          ) : (
+                            <span>Copiar Link Divulgação</span>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Métricas de Indicações e Faturamento Gerado */}
+                    <div className="grid grid-cols-3 gap-2 text-center pt-1">
+                      <div className="bg-slate-50 border border-slate-100 p-2 rounded-xl">
+                        <span className="text-[10px] text-slate-400 block font-semibold">Indicados</span>
+                        <strong className="text-slate-900 text-sm font-black">{totalReferred}</strong>
+                      </div>
+                      <div className="bg-emerald-50 border border-emerald-100 p-2 rounded-xl">
+                        <span className="text-[10px] text-emerald-600 block font-semibold">Assinantes</span>
+                        <strong className="text-emerald-700 text-sm font-black">{payingReferred}</strong>
+                      </div>
+                      <div className="bg-indigo-50 border border-indigo-100 p-2 rounded-xl">
+                        <span className="text-[10px] text-indigo-600 block font-semibold">Receita/mês</span>
+                        <strong className="text-indigo-700 text-xs font-black">{formatCurrency(monthlyGenerated)}</strong>
+                      </div>
+                    </div>
+
+                    {/* Botão de Ver Lista de Empresas Indicadas */}
+                    <button
+                      onClick={() => setSelectedPartnerForReferrals(p)}
+                      className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1.5"
+                    >
+                      <Users className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Ver Empresas Indicadas ({totalReferred})</span>
+                    </button>
                   </div>
 
                   {/* Ações do Card */}
-                  <div className="pt-2 flex items-center justify-between gap-2">
+                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
                     <button
                       onClick={() => handleTogglePartnerActive(p.id, p.active)}
                       className={`text-xs font-semibold px-2.5 py-1.5 rounded-xl border transition-all ${
@@ -725,7 +822,7 @@ export const AdminDashboardPage: React.FC = () => {
                       <button
                         onClick={() => handleOpenEditPartner(p)}
                         className="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
-                        title="Editar parceria"
+                        title="Editar parceria e e-mail do parceiro"
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>
@@ -746,7 +843,7 @@ export const AdminDashboardPage: React.FC = () => {
         </div>
       )}
 
-      {/* Modal para Vincular Usuário Existente a uma Parceria */}
+      {/* Modal para Vincular Usuário a uma Parceria */}
       {userToPartner && (
         <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
           <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-slate-200">
@@ -755,20 +852,79 @@ export const AdminDashboardPage: React.FC = () => {
                 <Handshake className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="font-black text-slate-900 text-lg">Liberar Parceria para Cliente</h3>
-                <p className="text-xs text-slate-500">Concede acesso livre ao sistema para este cliente</p>
+                <h3 className="font-black text-slate-900 text-lg">Configurar Vínculo de Parceria</h3>
+                <p className="text-xs text-slate-500">Defina se o usuário é o próprio parceiro ou uma empresa indicada</p>
               </div>
             </div>
 
             <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 space-y-1">
-              <span className="text-xs text-slate-500 font-semibold block">Cliente Selecionado:</span>
+              <span className="text-xs text-slate-500 font-semibold block">Usuário Selecionado:</span>
               <strong className="text-sm text-slate-900 block">{userToPartner.name}</strong>
               <span className="text-xs text-slate-600 font-mono block">{userToPartner.email}</span>
             </div>
 
+            {/* Seleção do Tipo de Vínculo: Parceiro VIP vs Empresa Indicada */}
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-slate-700">
+                Como este usuário se relaciona com a parceria?
+              </label>
+
+              <div className="grid grid-cols-1 gap-2">
+                <label 
+                  onClick={() => setAssignMode('partner_vip')}
+                  className={`flex items-start gap-3 p-3 rounded-2xl border cursor-pointer transition-all ${
+                    assignMode === 'partner_vip'
+                      ? 'border-indigo-600 bg-indigo-50/70 ring-1 ring-indigo-600'
+                      : 'border-slate-200 bg-white hover:bg-slate-50'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="assignMode"
+                    checked={assignMode === 'partner_vip'}
+                    onChange={() => setAssignMode('partner_vip')}
+                    className="mt-1 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <div>
+                    <strong className="text-xs font-bold text-indigo-950 block">
+                      É o(a) Próprio(a) Parceiro(a) (Designer / Arquiteto)
+                    </strong>
+                    <span className="text-[11px] text-indigo-700 block mt-0.5">
+                      Libera <strong>acesso 100% gratuito e vitalício</strong> para ele utilizar o sistema livremente.
+                    </span>
+                  </div>
+                </label>
+
+                <label 
+                  onClick={() => setAssignMode('referred_client')}
+                  className={`flex items-start gap-3 p-3 rounded-2xl border cursor-pointer transition-all ${
+                    assignMode === 'referred_client'
+                      ? 'border-blue-600 bg-blue-50/70 ring-1 ring-blue-600'
+                      : 'border-slate-200 bg-white hover:bg-slate-50'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="assignMode"
+                    checked={assignMode === 'referred_client'}
+                    onChange={() => setAssignMode('referred_client')}
+                    className="mt-1 text-blue-600 focus:ring-blue-500"
+                  />
+                  <div>
+                    <strong className="text-xs font-bold text-slate-900 block">
+                      É uma Empresa ou Prestador Indicado(a)
+                    </strong>
+                    <span className="text-[11px] text-slate-600 block mt-0.5">
+                      Registra a indicação para relatórios. A empresa <strong>continua pagando a assinatura normalmente</strong> (com 7 dias grátis de teste).
+                    </span>
+                  </div>
+                </label>
+              </div>
+            </div>
+
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                Escolha a Empresa Parceira do Convênio:
+                Escolha o Parceiro Estratégico:
               </label>
               <select
                 value={selectedPartnerId}
@@ -777,20 +933,10 @@ export const AdminDashboardPage: React.FC = () => {
               >
                 {partners.map(p => (
                   <option key={p.id} value={p.id}>
-                    {p.name} (Código: {p.code}) - {p.accessType === 'vitalicio' ? 'Vitalício' : `${p.accessDays} dias`}
+                    {p.name} (Código: {p.code})
                   </option>
                 ))}
               </select>
-            </div>
-
-            <div className="p-3 bg-indigo-50/70 border border-indigo-100 rounded-2xl text-xs text-indigo-900 space-y-1">
-              <p className="font-semibold flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                <span>O que acontece ao confirmar:</span>
-              </p>
-              <p className="text-indigo-700">
-                O cliente terá acesso 100% liberado sem bloqueios no paywall e com o distintivo VIP de <strong>PARCEIRO</strong> em sua barra lateral.
-              </p>
             </div>
 
             <div className="flex items-center justify-end gap-2 pt-2">
@@ -806,7 +952,7 @@ export const AdminDashboardPage: React.FC = () => {
                 onClick={confirmAssignPartner}
                 className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md shadow-indigo-600/20 transition-all cursor-pointer"
               >
-                Confirmar Liberação
+                Confirmar Vínculo
               </button>
             </div>
           </div>
@@ -824,9 +970,9 @@ export const AdminDashboardPage: React.FC = () => {
                 </div>
                 <div>
                   <h3 className="font-black text-slate-900 text-lg">
-                    {editingPartner ? 'Editar Empresa Parceira' : 'Cadastrar Empresa Parceira'}
+                    {editingPartner ? 'Editar Parceiro Estratégico' : 'Cadastrar Novo Parceiro'}
                   </h3>
-                  <p className="text-xs text-slate-500">Crie o convênio e gere o código de acesso liberado</p>
+                  <p className="text-xs text-slate-500">Crie o convênio e libere o acesso VIP exclusivo para o profissional</p>
                 </div>
               </div>
               <button
@@ -841,44 +987,61 @@ export const AdminDashboardPage: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="sm:col-span-2">
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Nome da Empresa Parceira *
+                    Nome do Parceiro / Escritório *
                   </label>
                   <input
                     type="text"
                     required
-                    placeholder="Ex: Comercial Elétrica Silva & Santos"
+                    placeholder="Ex: Designer Lucas Mendes ou Estúdio Arquitetura & Decor"
                     value={partnerForm.name}
                     onChange={e => setPartnerForm({ ...partnerForm, name: e.target.value })}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Código de Ativação / Cupom *
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-bold text-indigo-900 mb-1 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                    <span>E-mail da Conta VIP do Parceiro (Acesso Grátis)</span>
                   </label>
                   <input
-                    type="text"
-                    required
-                    placeholder="Ex: SILVA-VIP"
-                    value={partnerForm.code}
-                    onChange={e => setPartnerForm({ ...partnerForm, code: e.target.value.toUpperCase() })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-sm font-mono uppercase font-bold outline-none focus:ring-2 focus:ring-indigo-500"
+                    type="email"
+                    placeholder="Ex: lucas@designermendes.com.br"
+                    value={partnerForm.partnerEmail}
+                    onChange={e => setPartnerForm({ ...partnerForm, partnerEmail: e.target.value })}
+                    className="w-full bg-indigo-50/50 border border-indigo-200 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
                   />
-                  <span className="text-[10px] text-slate-400 mt-0.5 block">Os clientes digitarão no cadastro</span>
+                  <span className="text-[11px] text-indigo-600 mt-1 block">
+                    O profissional que usar este e-mail terá acesso <strong>100% gratuito vitalício</strong>. As empresas indicadas por ele pagarão normalmente.
+                  </span>
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Tipo de Acesso Concedido
+                    Código de Indicação *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ex: DESIGNER-LUCAS"
+                    value={partnerForm.code}
+                    onChange={e => setPartnerForm({ ...partnerForm, code: e.target.value.toUpperCase() })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-sm font-mono uppercase font-bold outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <span className="text-[10px] text-slate-400 mt-0.5 block">O parceiro divulgará este código/link</span>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Acesso da Conta VIP do Parceiro
                   </label>
                   <select
                     value={partnerForm.accessType}
                     onChange={e => setPartnerForm({ ...partnerForm, accessType: e.target.value as any })}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-500"
                   >
-                    <option value="vitalicio">Vitalício (Sem Expiração)</option>
-                    <option value="dias">Por Prazo (dias)</option>
+                    <option value="vitalicio">Vitalício Gratuito</option>
+                    <option value="dias">Por Prazo Determinado</option>
                   </select>
                 </div>
 
@@ -899,11 +1062,11 @@ export const AdminDashboardPage: React.FC = () => {
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Nome do Contato / Gerente
+                    Nome do Responsável / Contato
                   </label>
                   <input
                     type="text"
-                    placeholder="Ex: Carlos Roberto"
+                    placeholder="Ex: Lucas Mendes"
                     value={partnerForm.contactPerson}
                     onChange={e => setPartnerForm({ ...partnerForm, contactPerson: e.target.value })}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
@@ -912,7 +1075,7 @@ export const AdminDashboardPage: React.FC = () => {
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    WhatsApp da Empresa Parceira
+                    WhatsApp do Parceiro
                   </label>
                   <input
                     type="text"
@@ -929,7 +1092,7 @@ export const AdminDashboardPage: React.FC = () => {
                   </label>
                   <textarea
                     rows={2}
-                    placeholder="Ex: Em troca do acesso livre, o parceiro divulga o OrçaFácil Pro em seu balcão e no grupo de clientes do WhatsApp."
+                    placeholder="Ex: O designer ganha acesso gratuito vitalício para orçar seus projetos e indica o sistema para as marcenarias e clientes dele."
                     value={partnerForm.notes}
                     onChange={e => setPartnerForm({ ...partnerForm, notes: e.target.value })}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs outline-none focus:ring-2 focus:ring-indigo-500"
@@ -953,6 +1116,134 @@ export const AdminDashboardPage: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para Visualizar Empresas Indicadas pelo Parceiro */}
+      {selectedPartnerForReferrals && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 my-auto space-y-4 shadow-2xl border border-slate-200">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl">
+                  <Building2 className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-black text-slate-900 text-lg">
+                    Empresas Indicadas por {selectedPartnerForReferrals.name}
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Código de Indicação: <span className="font-mono font-bold text-indigo-600">{selectedPartnerForReferrals.code}</span>
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setSelectedPartnerForReferrals(null)}
+                className="text-slate-400 hover:text-slate-600 text-sm font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Resumo de Conversão do Parceiro */}
+            {(() => {
+              const referredList = users.filter(u => 
+                (u.partnerCode === selectedPartnerForReferrals.code || u.partnerCompany === selectedPartnerForReferrals.name) && 
+                (!u.isPartnerAccount && u.email.toLowerCase() !== (selectedPartnerForReferrals.partnerEmail || '').toLowerCase())
+              );
+              const payingCount = referredList.filter(u => u.subscriptionStatus === 'active').length;
+              const revenue = payingCount * saasService.getMonthlyPrice();
+
+              return (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 text-center">
+                      <span className="text-[11px] text-slate-500 block font-semibold">Total de Cadastros</span>
+                      <strong className="text-xl font-black text-slate-900">{referredList.length}</strong>
+                    </div>
+                    <div className="bg-emerald-50 p-3 rounded-2xl border border-emerald-200 text-center">
+                      <span className="text-[11px] text-emerald-700 block font-semibold">Assinantes Pagantes</span>
+                      <strong className="text-xl font-black text-emerald-700">{payingCount}</strong>
+                    </div>
+                    <div className="bg-indigo-50 p-3 rounded-2xl border border-indigo-200 text-center">
+                      <span className="text-[11px] text-indigo-700 block font-semibold">Receita Gerada/mês</span>
+                      <strong className="text-lg font-black text-indigo-700">{formatCurrency(revenue)}</strong>
+                    </div>
+                  </div>
+
+                  {referredList.length === 0 ? (
+                    <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                      <Users className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                      <p className="text-sm font-bold text-slate-600">Nenhuma empresa cadastrada com este código ainda.</p>
+                      <p className="text-xs text-slate-400 mt-1">
+                        Envie o link de indicação para o parceiro divulgar para a rede dele!
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="overflow-hidden border border-slate-200 rounded-2xl max-h-72 overflow-y-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase font-bold text-[10px]">
+                          <tr>
+                            <th className="p-3">Empresa / Usuário</th>
+                            <th className="p-3">Cadastro</th>
+                            <th className="p-3">Status de Pagamento</th>
+                            <th className="p-3 text-right">Ação</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {referredList.map((refUser) => (
+                            <tr key={refUser.email} className="hover:bg-slate-50/80">
+                              <td className="p-3">
+                                <strong className="text-slate-900 block">{refUser.name}</strong>
+                                <span className="text-slate-500 font-mono text-[11px]">{refUser.email}</span>
+                              </td>
+                              <td className="p-3 text-slate-600">
+                                {new Date(refUser.createdAt).toLocaleDateString('pt-BR')}
+                              </td>
+                              <td className="p-3">
+                                {refUser.subscriptionStatus === 'active' ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                                    <CheckCircle2 className="w-3 h-3" /> Assinante Ativo (R$ 59,90/mês)
+                                  </span>
+                                ) : refUser.subscriptionStatus === 'trial' ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
+                                    <Clock className="w-3 h-3" /> Teste Grátis (7d)
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800">
+                                    <AlertCircle className="w-3 h-3" /> Vencido / Aguarda PIX
+                                  </span>
+                                )}
+                              </td>
+                              <td className="p-3 text-right">
+                                <button
+                                  onClick={() => handleActivate(refUser.email, 30)}
+                                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] rounded-lg transition-all"
+                                  title="Aprovar pagamento PIX"
+                                >
+                                  +30d PIX
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  <div className="flex justify-end pt-2 border-t border-slate-100">
+                    <button
+                      onClick={() => setSelectedPartnerForReferrals(null)}
+                      className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition-all"
+                    >
+                      Fechar
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}

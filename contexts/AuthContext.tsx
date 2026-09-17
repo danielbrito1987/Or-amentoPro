@@ -150,7 +150,26 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const login = async (email: string, password: string) => {
     const result = await authService.login(email, password);
-    saasService.registerNewUser(result.user);
+    
+    // Se este e-mail for a conta do próprio parceiro credenciado pelo admin, garante o acesso VIP gratuito
+    const matchingPartner = partnerService.findPartnerByEmail(email);
+    if (matchingPartner && matchingPartner.active) {
+      result.user.subscriptionStatus = 'partner';
+      result.user.partnerCompany = matchingPartner.name;
+      result.user.partnerCode = matchingPartner.code;
+      await saasService.setPartnerAccessForUser(
+        email, 
+        matchingPartner.name, 
+        matchingPartner.code, 
+        matchingPartner.accessType === 'dias' ? matchingPartner.accessDays : undefined
+      );
+    }
+
+    saasService.registerNewUser(result.user, {
+      isPartnerSelf: !!(matchingPartner && matchingPartner.active),
+      partnerCompany: matchingPartner?.name,
+      partnerCode: matchingPartner?.code
+    });
     setUser(result.user);
     setToken(result.token);
   };
@@ -163,18 +182,30 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     plan: SubscriptionPlanId = 'pro',
     billingCycle: BillingCycle = 'monthly'
   ) => {
-    let partnerInfo: { name: string; code: string; days?: number } | null = null;
+    let partnerInfo: { name: string; code: string; isPartnerSelf: boolean; days?: number } | null = null;
 
     if (partnerCode && partnerCode.trim()) {
-      const validation = partnerService.validateCode(partnerCode);
+      const validation = partnerService.validateCode(partnerCode, email);
       if (!validation.valid || !validation.partner) {
-        throw new Error(validation.message || 'Código de parceria inválido.');
+        throw new Error(validation.message || 'Código de indicação de parceiro inválido.');
       }
       partnerInfo = {
         name: validation.partner.name,
         code: validation.partner.code,
+        isPartnerSelf: validation.isPartnerAccount === true,
         days: validation.partner.accessType === 'dias' ? validation.partner.accessDays : undefined
       };
+    } else {
+      // Se não digitou código, verifica se o próprio e-mail já foi pré-cadastrado como parceiro no painel admin
+      const matchingPartner = partnerService.findPartnerByEmail(email);
+      if (matchingPartner && matchingPartner.active) {
+        partnerInfo = {
+          name: matchingPartner.name,
+          code: matchingPartner.code,
+          isPartnerSelf: true,
+          days: matchingPartner.accessType === 'dias' ? matchingPartner.accessDays : undefined
+        };
+      }
     }
 
     const result = await authService.register(email, password, name, plan, billingCycle);
@@ -186,15 +217,27 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       };
 
       if (partnerInfo) {
-        userToRegister.subscriptionStatus = 'partner';
         userToRegister.partnerCompany = partnerInfo.name;
         userToRegister.partnerCode = partnerInfo.code;
-        partnerService.incrementUsage(partnerInfo.code);
+
+        if (partnerInfo.isPartnerSelf) {
+          // É a conta do PRÓPRIO profissional parceiro: acesso VIP 100% gratuito liberado!
+          userToRegister.subscriptionStatus = 'partner';
+        } else {
+          // É empresa/cliente indicada pelo parceiro: paga normalmente, começa em trial de 7 dias
+          partnerService.incrementUsage(partnerInfo.code);
+        }
       }
 
-      saasService.registerNewUser(userToRegister, { plan, billingCycle });
+      saasService.registerNewUser(userToRegister, { 
+        plan, 
+        billingCycle,
+        partnerCompany: partnerInfo?.name,
+        partnerCode: partnerInfo?.code,
+        isPartnerSelf: partnerInfo?.isPartnerSelf
+      });
 
-      if (partnerInfo) {
+      if (partnerInfo && partnerInfo.isPartnerSelf) {
         saasService.setPartnerAccessForUser(
           userToRegister.email,
           partnerInfo.name,

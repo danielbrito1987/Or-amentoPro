@@ -93,34 +93,45 @@ export const SubscriptionPaywallModal: React.FC<SubscriptionPaywallModalProps> =
     setPartnerFeedback(null);
 
     try {
-      const validation = partnerService.validateCode(partnerCodeInput.trim());
+      const validation = partnerService.validateCode(partnerCodeInput.trim(), userEmail);
       if (!validation.valid || !validation.partner) {
         setPartnerFeedback({
           type: 'error',
-          message: validation.message || 'Código de parceria inválido ou não encontrado.'
+          message: validation.message || 'Código de indicação inválido ou não encontrado.'
         });
         setIsApplyingPartner(false);
         return;
       }
 
       const partner = validation.partner;
-      const days = partner.accessType === 'dias' ? partner.accessDays : undefined;
 
-      await saasService.setPartnerAccessForUser(userEmail, partner.name, partner.code, days);
-      partnerService.incrementUsage(partner.code);
+      // Se for o próprio parceiro credenciado (e-mail coincide com a conta do parceiro cadastrado)
+      if (validation.isPartnerAccount) {
+        const days = partner.accessType === 'dias' ? partner.accessDays : undefined;
 
-      setPartnerFeedback({
-        type: 'success',
-        message: `Parceria com "${partner.name}" ativada com sucesso! Seu acesso total está liberado.`
-      });
+        await saasService.setPartnerAccessForUser(userEmail, partner.name, partner.code, days);
 
-      setTimeout(() => {
-        if (onCheckStatus) onCheckStatus();
-      }, 1500);
+        setPartnerFeedback({
+          type: 'success',
+          message: `Conta VIP do Parceiro "${partner.name}" confirmada! Seu acesso gratuito ilimitado foi ativado.`
+        });
+
+        setTimeout(() => {
+          if (onCheckStatus) onCheckStatus();
+        }, 1500);
+      } else {
+        // É uma empresa ou prestador indicado pelo parceiro:
+        // As empresas indicadas pagam o sistema normalmente após os 7 dias de teste grátis
+        await saasService.linkUserToReferralPartner(userEmail, partner.name, partner.code);
+        setPartnerFeedback({
+          type: 'error',
+          message: `Indicação do parceiro ${partner.name} vinculada! O acesso gratuito VIP é exclusivo para o próprio profissional parceiro. As empresas indicadas contam com 7 dias de teste grátis e assinam normalmente via PIX acima para continuar utilizando.`
+        });
+      }
     } catch (err: any) {
       setPartnerFeedback({
         type: 'error',
-        message: err.message || 'Erro ao aplicar código de parceria.'
+        message: err.message || 'Erro ao processar código de parceria.'
       });
     } finally {
       setIsApplyingPartner(false);
@@ -418,7 +429,7 @@ export const SubscriptionPaywallModal: React.FC<SubscriptionPaywallModalProps> =
             </p>
           </div>
 
-          {/* Opção para Resgatar Código de Parceria / Cupom VIP */}
+          {/* Opção para Resgatar Código de Parceria / Cupom VIP do Profissional Parceiro */}
           <div className="mb-6 border border-indigo-200 bg-indigo-50/50 rounded-2xl p-4 text-left transition-all">
             {!showPartnerField ? (
               <button
@@ -428,16 +439,16 @@ export const SubscriptionPaywallModal: React.FC<SubscriptionPaywallModalProps> =
               >
                 <span className="flex items-center gap-1.5">
                   <Handshake className="w-4 h-4 text-indigo-600" />
-                  <span>É indicado de alguma loja ou empresa parceira?</span>
+                  <span>É você o(a) profissional parceiro(a) credenciado(a) (Designer / Arquiteto)?</span>
                 </span>
-                <span className="text-[11px] underline">Inserir Código VIP</span>
+                <span className="text-[11px] underline font-bold">Ativar Acesso VIP</span>
               </button>
             ) : (
               <form onSubmit={handleApplyPartnerCode} className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-indigo-900 flex items-center gap-1.5">
                     <Tag className="w-3.5 h-3.5 text-indigo-600" />
-                    Ativar Código de Parceria
+                    Ativar Acesso VIP do Profissional Parceiro
                   </span>
                   <button
                     type="button"
@@ -448,12 +459,16 @@ export const SubscriptionPaywallModal: React.FC<SubscriptionPaywallModalProps> =
                   </button>
                 </div>
 
+                <p className="text-[11px] text-slate-600">
+                  O acesso gratuito VIP é liberado exclusivamente para a conta do profissional parceiro. Empresas e prestadores indicados contam com 7 dias de teste grátis e assinam via PIX acima.
+                </p>
+
                 <div className="flex items-center gap-2">
                   <input
                     type="text"
                     value={partnerCodeInput}
                     onChange={(e) => setPartnerCodeInput(e.target.value)}
-                    placeholder="Ex: PARCEIRO-VIP"
+                    placeholder="Ex: DESIGNER-VIP"
                     className="flex-1 bg-white border border-indigo-200 uppercase font-mono tracking-wider rounded-xl px-3 py-2 text-xs sm:text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                   <Button
@@ -462,7 +477,7 @@ export const SubscriptionPaywallModal: React.FC<SubscriptionPaywallModalProps> =
                     disabled={isApplyingPartner || !partnerCodeInput.trim()}
                     className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shrink-0"
                   >
-                    {isApplyingPartner ? 'Validando...' : 'Liberar Acesso'}
+                    {isApplyingPartner ? 'Validando...' : 'Ativar VIP'}
                   </Button>
                 </div>
 
