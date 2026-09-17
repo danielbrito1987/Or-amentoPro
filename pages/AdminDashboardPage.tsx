@@ -48,6 +48,7 @@ export const AdminDashboardPage: React.FC = () => {
   const [feedback, setFeedback] = useState<string | null>(null);
   const [userToBlock, setUserToBlock] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'partner' | 'trial' | 'expired'>('all');
 
   // Modal para alterar o plano do cliente (Básico, Pro ou Premium)
   const [userToChangePlan, setUserToChangePlan] = useState<SaaSUserRecord | null>(null);
@@ -304,24 +305,40 @@ export const AdminDashboardPage: React.FC = () => {
     }
   };
 
-  // Métricas do SaaS
+  // Métricas do SaaS calculadas dinamicamente com base na validade e datas reais
   const totalUsers = users.length;
-  const activePaidUsers = users.filter(u => u.subscriptionStatus === 'active' && u.role !== 'admin').length;
-  const partnerUsers = users.filter(u => u.subscriptionStatus === 'partner').length;
-  const trialUsers = users.filter(u => u.subscriptionStatus === 'trial').length;
-  const expiredUsers = users.filter(u => u.subscriptionStatus === 'expired').length;
+  const activePaidUsers = users.filter(u => saasService.getEffectiveUserStatus(u) === 'active' && u.role !== 'admin').length;
+  const partnerUsers = users.filter(u => saasService.getEffectiveUserStatus(u) === 'partner').length;
+  const trialUsers = users.filter(u => saasService.getEffectiveUserStatus(u) === 'trial').length;
+  const expiredUsers = users.filter(u => saasService.getEffectiveUserStatus(u) === 'expired').length;
   const monthlyRevenue = users
-    .filter(u => u.subscriptionStatus === 'active' && u.role !== 'admin')
+    .filter(u => saasService.getEffectiveUserStatus(u) === 'active' && u.role !== 'admin')
     .reduce((acc, u) => {
       const plan = u.plan || 'pro';
       return acc + (plan === 'premium' ? 199.90 : plan === 'basic' ? 29.90 : 59.90);
     }, 0);
 
-  const filteredUsers = users.filter(u => 
-    u.email.toLowerCase().includes(search.toLowerCase()) ||
-    u.name.toLowerCase().includes(search.toLowerCase()) ||
-    (u.partnerCompany && u.partnerCompany.toLowerCase().includes(search.toLowerCase()))
-  );
+  const filteredUsers = users.filter(u => {
+    const effectiveStatus = saasService.getEffectiveUserStatus(u);
+    if (statusFilter !== 'all') {
+      if (statusFilter === 'active') {
+        if (effectiveStatus !== 'active' || u.role === 'admin') return false;
+      } else if (statusFilter === 'partner') {
+        if (effectiveStatus !== 'partner') return false;
+      } else if (statusFilter === 'trial') {
+        if (effectiveStatus !== 'trial') return false;
+      } else if (statusFilter === 'expired') {
+        if (effectiveStatus !== 'expired') return false;
+      }
+    }
+
+    const matchesSearch = 
+      u.email.toLowerCase().includes(search.toLowerCase()) ||
+      u.name.toLowerCase().includes(search.toLowerCase()) ||
+      (u.partnerCompany && u.partnerCompany.toLowerCase().includes(search.toLowerCase()));
+
+    return matchesSearch;
+  });
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -376,52 +393,92 @@ export const AdminDashboardPage: React.FC = () => {
         </div>
       )}
 
-      {/* Cards de Métricas */}
+      {/* Cards de Métricas com filtro interativo por clique */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-sm">
+        <button
+          type="button"
+          onClick={() => setStatusFilter('all')}
+          className={`p-4 sm:p-5 rounded-2xl border text-left transition-all ${
+            statusFilter === 'all'
+              ? 'bg-blue-50/70 border-blue-500 ring-2 ring-blue-500/30 shadow-md'
+              : 'bg-white border-slate-200/90 hover:border-slate-300 shadow-sm'
+          }`}
+        >
           <div className="flex items-center justify-between text-slate-500 text-xs font-bold uppercase mb-2">
             <span>Total Cadastros</span>
             <Users className="w-4 h-4 text-blue-600" />
           </div>
           <span className="text-2xl sm:text-3xl font-black text-slate-900">{totalUsers}</span>
           <p className="text-[11px] text-slate-400 mt-1">Clientes na base</p>
-        </div>
+        </button>
 
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-sm">
+        <button
+          type="button"
+          onClick={() => setStatusFilter(statusFilter === 'active' ? 'all' : 'active')}
+          className={`p-4 sm:p-5 rounded-2xl border text-left transition-all ${
+            statusFilter === 'active'
+              ? 'bg-emerald-50/80 border-emerald-500 ring-2 ring-emerald-500/30 shadow-md'
+              : 'bg-white border-slate-200/90 hover:border-slate-300 shadow-sm'
+          }`}
+        >
           <div className="flex items-center justify-between text-emerald-600 text-xs font-bold uppercase mb-2">
             <span>Assinantes Pagantes</span>
             <CheckCircle2 className="w-4 h-4 text-emerald-600" />
           </div>
           <span className="text-2xl sm:text-3xl font-black text-emerald-600">{activePaidUsers}</span>
           <p className="text-[11px] text-slate-400 mt-1">Básico, Pro e Premium</p>
-        </div>
+        </button>
 
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-indigo-200/90 shadow-sm bg-gradient-to-br from-indigo-50/50 to-white">
+        <button
+          type="button"
+          onClick={() => setStatusFilter(statusFilter === 'partner' ? 'all' : 'partner')}
+          className={`p-4 sm:p-5 rounded-2xl border text-left transition-all ${
+            statusFilter === 'partner'
+              ? 'bg-indigo-50 border-indigo-500 ring-2 ring-indigo-500/30 shadow-md'
+              : 'bg-white border-indigo-200/90 hover:border-indigo-300 shadow-sm bg-gradient-to-br from-indigo-50/50 to-white'
+          }`}
+        >
           <div className="flex items-center justify-between text-indigo-700 text-xs font-bold uppercase mb-2">
             <span>Empresas Parceiras</span>
             <Handshake className="w-4 h-4 text-indigo-600" />
           </div>
           <span className="text-2xl sm:text-3xl font-black text-indigo-700">{partnerUsers}</span>
           <p className="text-[11px] text-indigo-500 mt-1">{partners.length} convênio(s) cadastrado(s)</p>
-        </div>
+        </button>
 
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-sm">
+        <button
+          type="button"
+          onClick={() => setStatusFilter(statusFilter === 'trial' ? 'all' : 'trial')}
+          className={`p-4 sm:p-5 rounded-2xl border text-left transition-all ${
+            statusFilter === 'trial'
+              ? 'bg-amber-50/80 border-amber-500 ring-2 ring-amber-500/30 shadow-md'
+              : 'bg-white border-slate-200/90 hover:border-slate-300 shadow-sm'
+          }`}
+        >
           <div className="flex items-center justify-between text-amber-600 text-xs font-bold uppercase mb-2">
             <span>Em Teste (Trial)</span>
             <Clock className="w-4 h-4 text-amber-600" />
           </div>
           <span className="text-2xl sm:text-3xl font-black text-amber-600">{trialUsers}</span>
           <p className="text-[11px] text-slate-400 mt-1">Dentro dos 7 dias</p>
-        </div>
+        </button>
 
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-sm">
+        <button
+          type="button"
+          onClick={() => setStatusFilter(statusFilter === 'expired' ? 'all' : 'expired')}
+          className={`p-4 sm:p-5 rounded-2xl border text-left transition-all ${
+            statusFilter === 'expired'
+              ? 'bg-rose-50/80 border-rose-500 ring-2 ring-rose-500/30 shadow-md'
+              : 'bg-white border-slate-200/90 hover:border-slate-300 shadow-sm'
+          }`}
+        >
           <div className="flex items-center justify-between text-rose-600 text-xs font-bold uppercase mb-2">
             <span>Vencidos / Expirados</span>
             <AlertCircle className="w-4 h-4 text-rose-600" />
           </div>
           <span className="text-2xl sm:text-3xl font-black text-rose-600">{expiredUsers}</span>
           <p className="text-[11px] text-slate-400 mt-1">Bloqueados no paywall</p>
-        </div>
+        </button>
       </div>
 
       {/* Tabs Principais do Admin: Lista de Clientes vs Empresas Parceiras */}
@@ -490,7 +547,26 @@ export const AdminDashboardPage: React.FC = () => {
                     <span>{isSyncing ? "Sincronizando..." : "Sincronizar"}</span>
                   </button>
                 </div>
-                <p className="text-xs text-slate-500">Total de {filteredUsers.length} usuários encontrados</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <p className="text-xs text-slate-500">Total de {filteredUsers.length} usuário(s) exibido(s)</p>
+                  {statusFilter !== 'all' && (
+                    <span className="inline-flex items-center gap-1.5 text-xs bg-slate-100 text-slate-700 px-2.5 py-0.5 rounded-full font-medium">
+                      <span>Filtrando por: <strong>
+                        {statusFilter === 'expired' ? 'Vencidos / Expirados' :
+                         statusFilter === 'trial' ? 'Em Teste (Trial)' :
+                         statusFilter === 'active' ? 'Assinantes Pagantes' :
+                         'Empresas Parceiras'}
+                      </strong></span>
+                      <button
+                        onClick={() => setStatusFilter('all')}
+                        className="text-slate-400 hover:text-slate-700 font-bold ml-1 text-sm leading-none"
+                        title="Limpar filtro"
+                      >
+                        &times;
+                      </button>
+                    </span>
+                  )}
+                </div>
               </div>
 
               <div className="relative w-full sm:w-80">
@@ -520,10 +596,11 @@ export const AdminDashboardPage: React.FC = () => {
                 <tbody className="divide-y divide-slate-100">
                   {filteredUsers.map((u) => {
                     const isMasterAdmin = u.email.toLowerCase() === saasService.getAdminEmail().toLowerCase();
-                    const isPartner = u.subscriptionStatus === 'partner';
-                    const isTrial = u.subscriptionStatus === 'trial';
-                    const isActive = u.subscriptionStatus === 'active';
-                    const isExpired = u.subscriptionStatus === 'expired';
+                    const effectiveStatus = saasService.getEffectiveUserStatus(u);
+                    const isPartner = effectiveStatus === 'partner' || u.isPartnerAccount;
+                    const isTrial = effectiveStatus === 'trial';
+                    const isActive = effectiveStatus === 'active';
+                    const isExpired = effectiveStatus === 'expired';
                     const userPlan: SubscriptionPlanId = (isMasterAdmin ? 'premium' : (u.plan || 'pro'));
 
                     // Cálculo de dias restantes
@@ -583,11 +660,11 @@ export const AdminDashboardPage: React.FC = () => {
                             </span>
                           ) : isTrial ? (
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
-                              <Clock className="w-3 h-3" /> Teste Grátis (7d)
+                              <Clock className="w-3 h-3" /> Teste ({diffDays > 0 ? `${diffDays}d rest.` : '7d'})
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-200">
-                              <AlertCircle className="w-3 h-3" /> Vencido / Bloqueado
+                              <AlertCircle className="w-3 h-3" /> Vencido / Expirado
                             </span>
                           )}
                         </td>

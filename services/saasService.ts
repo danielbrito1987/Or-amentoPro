@@ -340,6 +340,53 @@ export const saasService = {
     return cleanEmail === ADMIN_EMAIL.toLowerCase() || user.role === 'admin';
   },
 
+  // Determina dinamicamente o status real e atualizado de qualquer registro de usuário (inclusive se expirou o trial ou validade)
+  getEffectiveUserStatus: (u: SaaSUserRecord): 'active' | 'trial' | 'expired' | 'partner' => {
+    const cleanEmail = u.email ? u.email.trim().toLowerCase() : '';
+    const isMasterAdmin = cleanEmail === ADMIN_EMAIL.toLowerCase() || u.role === 'admin';
+    if (isMasterAdmin) return 'active';
+
+    if (cleanEmail === 'teste@orcafacil.com.br' || cleanEmail === 'demo@orcafacil.com.br') {
+      return 'active';
+    }
+
+    const now = Date.now();
+
+    // 1. Se for parceiro (conta VIP ou convênio liberado)
+    if (u.subscriptionStatus === 'partner' || u.isPartnerAccount) {
+      if (u.subscriptionValidUntil) {
+        const validUntil = new Date(u.subscriptionValidUntil).getTime();
+        if (now > validUntil) return 'expired';
+      }
+      return 'partner';
+    }
+
+    // 2. Se for assinante ativo com data de validade paga
+    if (u.subscriptionStatus === 'active') {
+      if (u.subscriptionValidUntil) {
+        const validUntil = new Date(u.subscriptionValidUntil).getTime();
+        if (now > validUntil) return 'expired';
+      }
+      return 'active';
+    }
+
+    // 3. Se for plano Premium sem data de validade ativa
+    if (u.plan === 'premium' && !u.subscriptionValidUntil) {
+      return 'expired';
+    }
+
+    // 4. Período de teste (trial de 7 dias)
+    if (u.trialEndsAt) {
+      const trialEndTime = new Date(u.trialEndsAt).getTime();
+      if (now > trialEndTime) {
+        return 'expired';
+      }
+      return 'trial';
+    }
+
+    return u.subscriptionStatus === 'expired' ? 'expired' : 'trial';
+  },
+
   getAllUsers: (): SaaSUserRecord[] => {
     try {
       const raw = localStorage.getItem(USERS_REGISTRY_KEY);
@@ -360,6 +407,19 @@ export const saasService = {
           companyId: 'comp_admin_master'
         };
         list.unshift(adminRecord);
+      }
+
+      // Atualiza o status de cada usuário dinamicamente com base nas datas de expiração
+      let hasChanges = false;
+      list.forEach(u => {
+        const currentEffective = saasService.getEffectiveUserStatus(u);
+        if (u.subscriptionStatus !== currentEffective) {
+          u.subscriptionStatus = currentEffective;
+          hasChanges = true;
+        }
+      });
+
+      if (hasChanges || !adminExists) {
         localStorage.setItem(USERS_REGISTRY_KEY, JSON.stringify(list));
       }
 
@@ -969,6 +1029,9 @@ export const saasService = {
         const defaultTrialEnd = new Date(new Date(createdAt).getTime() + trialDays * 24 * 60 * 60 * 1000).toISOString();
 
         const isOwner = emailLower === saasService.getAdminEmail().toLowerCase();
+        const rawStatus = isOwner
+          ? 'active'
+          : (p.status === 'blocked' ? 'expired' : (p.subscription_status || 'trial'));
 
         const record: SaaSUserRecord = {
           id: p.id || `user_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
@@ -976,7 +1039,7 @@ export const saasService = {
           name: p.name || (p.email.split('@')[0]),
           createdAt: createdAt,
           trialEndsAt: p.trial_ends_at || defaultTrialEnd,
-          subscriptionStatus: isOwner ? 'active' : (p.status === 'blocked' ? 'expired' : (p.plan === 'premium' || p.plan === 'pro' || p.plan === 'enterprise' || p.plan === 'basic' ? 'active' : 'trial')),
+          subscriptionStatus: rawStatus,
           subscriptionValidUntil: isOwner ? new Date(2099, 11, 31).toISOString() : (p.subscription_valid_until || undefined),
           plan: isOwner ? 'premium' : (p.plan === 'basic' ? 'basic' : p.plan === 'premium' ? 'premium' : 'pro'),
           role: isOwner ? 'admin' : (p.role === 'admin' ? 'admin' : 'user'),
@@ -985,16 +1048,14 @@ export const saasService = {
           partnerCode: p.partner_code || undefined
         };
 
-        // Respeita o status do banco: 'partner', 'active', 'expired', 'trial'
-        if (p.subscription_status) {
-          record.subscriptionStatus = p.subscription_status;
-        }
+        // Calcula o status real e efetivo considerando as datas de validade/trial
+        record.subscriptionStatus = saasService.getEffectiveUserStatus(record);
 
         if (existingIndex >= 0) {
           users[existingIndex] = {
             ...users[existingIndex],
             ...record,
-            subscriptionStatus: record.subscriptionStatus || users[existingIndex].subscriptionStatus
+            subscriptionStatus: record.subscriptionStatus
           };
         } else {
           users.push(record);
