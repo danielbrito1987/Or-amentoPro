@@ -59,16 +59,62 @@ export const generateQuotePdfBlob = async (elementId: string): Promise<Blob> => 
   return pdf.output('blob');
 };
 
-export const shareOrDownloadPdf = async (
+export const isMobileDevice = (): boolean => {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+  const isTouchTablet = (navigator.maxTouchPoints || 0) > 1 && (window.innerWidth <= 1024 || /Macintosh/i.test(ua));
+  return isMobileUA || isTouchTablet;
+};
+
+export interface ShareOrDownloadOptions {
+  forceDownload?: boolean;
+  forceShare?: boolean;
+}
+
+export const downloadBlob = (blob: Blob, fileName: string) => {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  // Mantém a URL ativa tempo suficiente para o navegador concluir o download no disco
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+};
+
+export const downloadQuotePdf = async (
   elementId: string, 
   quote: Quote
-): Promise<{ method: 'share' | 'download' | 'canceled' }> => {
+): Promise<{ method: 'download'; fileName: string }> => {
+  const blob = await generateQuotePdfBlob(elementId);
+  const cleanNumber = (quote.number || 'proposta').replace(/[^a-zA-Z0-9_-]/g, '_');
+  const fileName = `orcamento_${cleanNumber}.pdf`;
+  downloadBlob(blob, fileName);
+  return { method: 'download', fileName };
+};
+
+export const shareOrDownloadPdf = async (
+  elementId: string, 
+  quote: Quote,
+  options?: ShareOrDownloadOptions
+): Promise<{ method: 'share' | 'download' | 'canceled'; fileName?: string }> => {
   const blob = await generateQuotePdfBlob(elementId);
   const cleanNumber = (quote.number || 'proposta').replace(/[^a-zA-Z0-9_-]/g, '_');
   const fileName = `orcamento_${cleanNumber}.pdf`;
   const file = new File([blob], fileName, { type: 'application/pdf' });
 
-  // Verifica suporte a compartilhamento nativo com arquivo (Smartphones Android, iOS, tablets e navegadores compatíveis)
+  const isMobile = isMobileDevice();
+
+  // No computador (desktop/laptop) ou quando forçado download, baixa o arquivo diretamente sem abrir a janela de compartilhamento do Windows/Mac
+  if (options?.forceDownload || (!isMobile && !options?.forceShare)) {
+    downloadBlob(blob, fileName);
+    return { method: 'download', fileName };
+  }
+
+  // Em smartphones/tablets móveis (ou quando forçado compartilhamento), utiliza o seletor nativo (WhatsApp, Telegram, etc.)
   if (typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: [file] })) {
     try {
       await navigator.share({
@@ -76,9 +122,9 @@ export const shareOrDownloadPdf = async (
         title: `Orçamento ${quote.number}`,
         text: `Olá, segue o orçamento ${quote.number} em formato PDF.`
       });
-      return { method: 'share' };
+      return { method: 'share', fileName };
     } catch (err: any) {
-      // Se o usuário cancelou o seletor nativo, encerra graciosamente
+      // Se o usuário cancelou o compartilhamento nativo no celular, encerra graciosamente
       if (err?.name === 'AbortError') {
         return { method: 'canceled' };
       }
@@ -86,18 +132,7 @@ export const shareOrDownloadPdf = async (
     }
   }
 
-  // Fallback automático para navegadores desktop que não suportam navigator.share com arquivos
+  // Fallback automático para download caso não compartilhe
   downloadBlob(blob, fileName);
-  return { method: 'download' };
-};
-
-export const downloadBlob = (blob: Blob, fileName: string) => {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = fileName;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  return { method: 'download', fileName };
 };

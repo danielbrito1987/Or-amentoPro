@@ -5,6 +5,9 @@ import {
   ChevronLeft, 
   MessageCircle, 
   FileDown, 
+  Download,
+  Share2,
+  Printer,
   Loader2, 
   Check, 
   Trash2, 
@@ -17,7 +20,7 @@ import {
 } from 'lucide-react';
 import { formatCurrency } from '../utils/formatters';
 import { normalizeUnit } from '../services/marketEstimator';
-import { shareOrDownloadPdf } from '../utils/pdfGenerator';
+import { shareOrDownloadPdf, isMobileDevice } from '../utils/pdfGenerator';
 import { useAuth } from '../contexts/AuthContext';
 import { saasService } from '../services/saasService';
 
@@ -49,21 +52,31 @@ export const QuoteViewPage: React.FC<QuoteViewPageProps> = ({
 
   const isApproved = quote.status === 'approved' || !!quote.contractId;
   const hasContract = !!quote.contractId;
+  const isMobile = isMobileDevice();
 
-  const handleSharePdf = async () => {
+  const handlePdfAction = async (forceDownload?: boolean) => {
     setIsGeneratingPdf(true);
     setFeedback(null);
     try {
-      const result = await shareOrDownloadPdf('printable-quote', quote);
+      // No computador (desktop), sempre realiza o download direto para a pasta Downloads
+      const shouldDownload = forceDownload !== undefined ? forceDownload : !isMobile;
+      const result = await shareOrDownloadPdf('printable-quote', quote, {
+        forceDownload: shouldDownload
+      });
+
       if (result.method === 'download') {
-        setFeedback('PDF gerado e baixado no seu dispositivo!');
+        setFeedback(
+          isMobile 
+            ? 'PDF gerado e baixado no seu dispositivo!' 
+            : 'PDF baixado com sucesso! Arquivo salvo em seus Downloads.'
+        );
         setTimeout(() => setFeedback(null), 4500);
       } else if (result.method === 'share') {
         setFeedback('Orçamento compartilhado com sucesso!');
         setTimeout(() => setFeedback(null), 3500);
       }
     } catch (err: any) {
-      console.error('Erro ao gerar/compartilhar PDF:', err);
+      console.error('Erro ao gerar/baixar PDF:', err);
       setFeedback('Não foi possível gerar o PDF. Tente novamente.');
       setTimeout(() => setFeedback(null), 4000);
     } finally {
@@ -107,6 +120,20 @@ export const QuoteViewPage: React.FC<QuoteViewPageProps> = ({
             </Button>
           )}
 
+          {/* Botão de Impressão Direta (disponível no Computador) */}
+          {!isMobile && (
+            <Button
+              variant="secondary"
+              size="md"
+              onClick={() => window.print()}
+              icon={<Printer size={17} />}
+              className="w-full sm:w-auto text-slate-700 hover:bg-slate-100"
+              title="Imprimir orçamento diretamente na impressora"
+            >
+              Imprimir
+            </Button>
+          )}
+
           <Button 
             variant="primary" 
             size="md"
@@ -117,16 +144,29 @@ export const QuoteViewPage: React.FC<QuoteViewPageProps> = ({
             WhatsApp
           </Button>
 
+          {/* No computador: "Baixar PDF" (faz download direto no disco). No celular: "Compartilhar PDF" (abre seletor do sistema) */}
           <Button 
             id="btn-share-pdf"
-            variant="primary"
+            variant="primary" 
             size="md"
-            onClick={handleSharePdf} 
+            onClick={() => handlePdfAction(!isMobile)} 
             disabled={isGeneratingPdf}
-            icon={isGeneratingPdf ? <Loader2 size={18} className="animate-spin" /> : <FileDown size={18} />}
-            className="col-span-2 sm:col-auto w-full sm:w-auto bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-500/25"
+            icon={
+              isGeneratingPdf ? (
+                <Loader2 size={18} className="animate-spin" />
+              ) : !isMobile ? (
+                <Download size={18} />
+              ) : (
+                <Share2 size={18} />
+              )
+            }
+            className="col-span-2 sm:col-auto w-full sm:w-auto bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-500/25 font-semibold"
+            title={!isMobile ? "Baixar orçamento em formato PDF para o seu computador" : "Compartilhar orçamento em PDF"}
           >
-            {isGeneratingPdf ? 'Gerando PDF...' : 'Compartilhar PDF'}
+            {isGeneratingPdf 
+              ? (!isMobile ? 'Baixando PDF...' : 'Gerando PDF...') 
+              : (!isMobile ? 'Baixar PDF' : 'Compartilhar PDF')
+            }
           </Button>
         </div>
       </div>
