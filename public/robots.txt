@@ -10,4 +10,4 @@ Allow: /manifest.json
 Allow: /sitemap.xml
 
 # Sitemap oficial
-Sitemap: https://www.orcafacilpro.app.br/sitemap.xml
+Sitemap: https://orcafacil.app.br/sitemap.xml
