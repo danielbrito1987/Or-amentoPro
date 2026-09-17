@@ -17,6 +17,7 @@ import {
   PLAN_PREMIUM_ANNUAL_PRICE 
 } from '../services/saasService';
 import { formatCurrency } from '../utils/formatters';
+import { analyticsService } from '../services/analyticsService';
 import orcaLogo from '../src/assets/images/orcafacil_quote_logo_1788895951950.jpg';
 
 interface LoginPageProps {
@@ -97,6 +98,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     setIsDemoLoading(true);
     try {
       await loginAsDemo();
+      analyticsService.trackLogin('demo');
     } catch (err: any) {
       setError(err?.message || 'Erro ao entrar como usuário de demonstração.');
     } finally {
@@ -134,11 +136,18 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           selectedPlan,
           billingCycle
         );
+        analyticsService.trackSignUp({
+          method: 'email',
+          plan: selectedPlan,
+          billingCycle,
+          hasPartnerCode: Boolean(partnerCode)
+        });
         if (res.message) {
           setSuccessMessage(res.message);
         }
       } else {
         await login(email, password);
+        analyticsService.trackLogin('email');
       }
     } catch (err: any) {
       setError(err?.message || 'Ocorreu um erro. Verifique suas credenciais e tente novamente.');

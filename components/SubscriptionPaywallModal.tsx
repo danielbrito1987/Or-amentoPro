@@ -30,6 +30,7 @@ import {
 } from '../services/saasService';
 import { partnerService } from '../services/partnerService';
 import { formatCurrency } from '../utils/formatters';
+import { analyticsService } from '../services/analyticsService';
 
 interface SubscriptionPaywallModalProps {
   userEmail?: string;
@@ -72,10 +73,12 @@ export const SubscriptionPaywallModal: React.FC<SubscriptionPaywallModalProps> =
   const handleCopyPix = () => {
     navigator.clipboard.writeText(pixKey);
     setCopied(true);
+    analyticsService.trackPixCopy(selectedPlan, billingCycle, price);
     setTimeout(() => setCopied(false), 3000);
   };
 
   const handleNotifyWhatsApp = () => {
+    analyticsService.trackNotifyPaymentWhatsApp(selectedPlan, billingCycle, price);
     const cycleText = billingCycle === 'annual' ? 'anual' : 'mensal';
     const planLabel = `${currentPlanConfig.name} (${formatCurrency(price)}/${billingCycle === 'annual' ? 'ano' : 'mês'})`;
 

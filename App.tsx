@@ -26,6 +26,7 @@ import { ConfirmModal } from './components/ConfirmModal';
 import { saasService, BASIC_MONTHLY_QUOTES_LIMIT, SUBSCRIPTION_PLANS } from './services/saasService';
 import { LegalModal, LegalTab } from './components/LegalModal';
 import { CookieConsentBanner } from './components/CookieConsentBanner';
+import { analyticsService } from './services/analyticsService';
 
 const AppContent: React.FC = () => {
   const { user, isAuthenticated, isSuspended, subscriptionInfo, isLoading, logout, refreshUserStatus, loginAsDemo } = useAuth();
@@ -393,6 +394,13 @@ const AppContent: React.FC = () => {
       setIsEditingQuote(false);
       setDeleteToast(`Orçamento ${savedQuote.number} salvo com sucesso!`);
       setTimeout(() => setDeleteToast(null), 3500);
+
+      // Dispara evento para o Google Analytics 4
+      analyticsService.trackCreateQuote({
+        total: savedQuote.total,
+        number: savedQuote.number,
+        itemsLength: savedQuote.items?.length
+      });
     } catch (error) {
       alert("Erro ao salvar orçamento.");
     } finally {

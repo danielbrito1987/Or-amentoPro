@@ -23,6 +23,7 @@ import { normalizeUnit } from '../services/marketEstimator';
 import { shareOrDownloadPdf, isMobileDevice } from '../utils/pdfGenerator';
 import { useAuth } from '../contexts/AuthContext';
 import { saasService } from '../services/saasService';
+import { analyticsService } from '../services/analyticsService';
 
 interface QuoteViewPageProps {
   quote: Quote;
@@ -65,6 +66,10 @@ export const QuoteViewPage: React.FC<QuoteViewPageProps> = ({
       });
 
       if (result.method === 'download') {
+        analyticsService.trackPdfDownload({
+          total: quote.total,
+          number: quote.number
+        });
         setFeedback(
           isMobile 
             ? 'PDF gerado e baixado no seu dispositivo!' 
@@ -72,6 +77,10 @@ export const QuoteViewPage: React.FC<QuoteViewPageProps> = ({
         );
         setTimeout(() => setFeedback(null), 4500);
       } else if (result.method === 'share') {
+        analyticsService.trackPdfDownload({
+          total: quote.total,
+          number: quote.number
+        });
         setFeedback('Orçamento compartilhado com sucesso!');
         setTimeout(() => setFeedback(null), 3500);
       }
@@ -90,6 +99,10 @@ export const QuoteViewPage: React.FC<QuoteViewPageProps> = ({
   };
 
   const handleWhatsAppShare = () => {
+    analyticsService.trackWhatsAppShare({
+      total: quote.total,
+      number: quote.number
+    });
     const text = encodeURIComponent(generateShareText());
     const phone = quote.customerPhone.replace(/\D/g, '');
     window.open(`https://wa.me/${phone.startsWith('55') ? phone : '55' + phone}?text=${text}`, '_blank');

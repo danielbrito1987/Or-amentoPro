@@ -38,6 +38,7 @@ import {
   TRIAL_DAYS
 } from '../services/saasService';
 import orcaLogo from '../src/assets/images/orcafacil_quote_logo_1788895951950.jpg';
+import { analyticsService } from '../services/analyticsService';
 
 interface LandingPageProps {
   onGoToLogin: () => void;
@@ -184,7 +185,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
             <button
               id="btn-nav-register"
-              onClick={onGoToRegister}
+              onClick={() => {
+                analyticsService.trackEvent('click_cta_register', { location: 'navbar' });
+                onGoToRegister();
+              }}
               className="px-4 py-2 text-sm font-bold rounded-xl bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/25 transition-all active:scale-[0.98]"
             >
               Testar 7 Dias Grátis
@@ -214,7 +218,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
               <button
                 id="btn-hero-register"
-                onClick={onGoToRegister}
+                onClick={() => {
+                  analyticsService.trackEvent('click_cta_register', { location: 'hero' });
+                  onGoToRegister();
+                }}
                 className="w-full sm:w-auto px-8 py-4 text-base font-extrabold rounded-2xl bg-blue-600 hover:bg-blue-500 text-white shadow-xl shadow-blue-600/30 transition-all active:scale-[0.98] flex items-center justify-center gap-2.5"
               >
                 <span>Começar Teste Grátis de {TRIAL_DAYS} Dias</span>
@@ -716,7 +723,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <div>
                 <button
                   id="btn-pricing-basic-register"
-                  onClick={onGoToRegister}
+                  onClick={() => {
+                    analyticsService.trackEvent('click_cta_plan', { plan: 'basic', billing_cycle: billingCycle });
+                    onGoToRegister();
+                  }}
                   className="w-full py-3.5 text-sm sm:text-base font-bold rounded-2xl bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 transition-all active:scale-[0.98] cursor-pointer"
                 >
                   Criar Conta e Testar 7 Dias Grátis
@@ -804,7 +814,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <div>
                 <button
                   id="btn-pricing-pro-register"
-                  onClick={onGoToRegister}
+                  onClick={() => {
+                    analyticsService.trackEvent('click_cta_plan', { plan: 'pro', billing_cycle: billingCycle });
+                    onGoToRegister();
+                  }}
                   className="w-full py-4 text-base font-extrabold rounded-2xl bg-blue-600 hover:bg-blue-500 text-white shadow-xl shadow-blue-600/30 transition-all active:scale-[0.98] cursor-pointer"
                 >
                   Criar Conta e Testar Plano Pro (7 Dias)
@@ -889,7 +902,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               </div>
 
               <button
-                onClick={onGoToRegister}
+                onClick={() => {
+                  analyticsService.trackEvent('click_cta_plan', { plan: 'premium', billing_cycle: billingCycle });
+                  onGoToRegister();
+                }}
                 className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 hover:from-yellow-400 hover:to-amber-500 text-slate-950 font-black text-sm shadow-xl shadow-amber-500/25 transition-all transform hover:scale-[1.02] flex items-center justify-center gap-2"
               >
                 <span>Cadastrar no Plano Premium</span>
