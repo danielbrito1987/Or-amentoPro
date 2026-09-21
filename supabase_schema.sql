@@ -100,13 +100,17 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 );
 
 -- Se a tabela profiles já existir no seu Supabase, adicione apenas as novas colunas se necessário:
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS name TEXT DEFAULT '';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS company_id TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'user';
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS plan TEXT DEFAULT 'pro';
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS billing_cycle TEXT DEFAULT 'monthly';
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS subscription_status TEXT DEFAULT 'trial';
-ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMPTZ;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMPTZ DEFAULT (timezone('utc'::text, now()) + interval '7 days');
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS subscription_valid_until TIMESTAMPTZ;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS partner_company TEXT;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS partner_code TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'active';
 
 -- Se as tabelas quotes ou contracts já existirem, garanta as novas colunas:
 ALTER TABLE public.quotes ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'pending';
@@ -150,7 +154,8 @@ CREATE POLICY "Permitir leitura e escrita em profiles"
   USING (true) 
   WITH CHECK (true);
 
--- Gatilho Automático opcional: quando um usuário se cadastra no auth.users, cria o perfil automaticamente
+-- Gatilho Automático seguro: quando um usuário se cadastra no auth.users, cria o perfil automaticamente
+-- Inclui proteção contra e-mails órfãos e bloco EXCEPTION para NUNCA bloquear o cadastro no Supabase Auth
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$
 DECLARE
@@ -160,6 +165,10 @@ BEGIN
   chosen_plan := COALESCE(new.raw_user_meta_data->>'plan', 'pro');
   chosen_cycle := COALESCE(new.raw_user_meta_data->>'billing_cycle', 'monthly');
 
+  -- 1. Remove qualquer perfil órfão antigo com o mesmo e-mail (evita erro de chave duplicada profiles_email_key)
+  DELETE FROM public.profiles WHERE email = new.email OR id = new.id;
+
+  -- 2. Insere o perfil com segurança
   INSERT INTO public.profiles (
     id, 
     email, 
@@ -179,13 +188,17 @@ BEGIN
     chosen_cycle,
     CASE WHEN chosen_plan = 'premium' THEN 'expired' ELSE 'trial' END,
     CASE WHEN chosen_plan = 'premium' THEN now() ELSE now() + interval '7 days' END
-  )
-  ON CONFLICT (id) DO UPDATE SET
-    plan = EXCLUDED.plan,
-    billing_cycle = EXCLUDED.billing_cycle;
+  );
+
   RETURN new;
+EXCEPTION
+  WHEN OTHERS THEN
+    -- REGRA DE OURO DO SUPABASE: Se houver qualquer falha ou coluna ausente na tabela profiles,
+    -- apenas emite um aviso e NUNCA aborta a criação do usuário no auth.users!
+    RAISE WARNING 'Aviso em handle_new_user: %', SQLERRM;
+    RETURN new;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, auth;
 
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created

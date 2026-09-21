@@ -204,8 +204,28 @@ export const authService = {
           throw new Error('Este e-mail já está cadastrado. Faça login ou recupere sua senha.');
         } else if (error.message.includes('Password should be at least')) {
           throw new Error('A senha deve ter pelo menos 6 caracteres.');
+        } else if (error.message.includes('Database error saving new user')) {
+          throw new Error('Erro no banco de dados do Supabase ao salvar novo usuário (conflito no gatilho de criação ou tabela profiles). Execute o script de correção do gatilho no SQL Editor do Supabase.');
         }
         throw new Error(error.message);
+      }
+
+      // Garante a inserção/atualização direta do perfil na tabela profiles (caso o gatilho esteja desativado)
+      if (data.user) {
+        try {
+          await supabase.from('profiles').upsert({
+            id: data.user.id,
+            email: cleanEmail,
+            name: name || cleanEmail.split('@')[0],
+            company_id: safeCompanyId,
+            plan,
+            billing_cycle: billingCycle,
+            subscription_status: plan === 'premium' ? 'expired' : 'trial',
+            trial_ends_at: plan === 'premium' ? new Date().toISOString() : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+          }, { onConflict: 'id' });
+        } catch (profileSyncErr) {
+          console.warn('Tentativa de upsert direto em profiles:', profileSyncErr);
+        }
       }
 
       // Se a confirmação de e-mail estiver desabilitada no Supabase, a sessão já vem pronta
