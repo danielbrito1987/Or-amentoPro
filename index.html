@@ -148,26 +148,54 @@
     <style>
       body { font-family: 'Inter', sans-serif; }
       
+      @page {
+        size: A4 portrait;
+        margin: 10mm;
+      }
+      
       @media print {
-        .no-print { display: none !important; }
-        html, body, #root, main {
+        .no-print, nav, aside, [role="alert"] { display: none !important; }
+        html, body, #root, #root > div, main, .max-w-6xl {
           height: auto !important;
+          min-height: 0 !important;
+          max-height: none !important;
           overflow: visible !important;
           background: white !important;
           margin: 0 !important;
           padding: 0 !important;
           width: 100% !important;
-        }
-        .max-w-6xl {
           max-width: 100% !important;
-          padding: 0 !important;
-          margin: 0 !important;
+          box-shadow: none !important;
+          border: none !important;
         }
-        tr, .bg-gray-50, .border-t {
-          page-break-inside: avoid;
+        #printable-quote {
+          margin: 0 auto !important;
+          padding: 0 !important;
+          border: none !important;
+          box-shadow: none !important;
+          border-radius: 0 !important;
+          min-height: 0 !important;
+          height: auto !important;
+          max-width: 100% !important;
+          width: 100% !important;
+          overflow: visible !important;
+          page-break-after: avoid !important;
+          break-after: avoid !important;
+        }
+        /* Elimina espaçamentos indesejados entre filhos no container pai ao imprimir */
+        .space-y-6 > :not([hidden]) ~ :not([hidden]) {
+          margin-top: 0 !important;
+        }
+        tr, .bg-gray-50, .border-t, tfoot, .break-inside-avoid {
+          page-break-inside: avoid !important;
+          break-inside: avoid !important;
         }
         .text-blue-600 { color: #2563eb !important; }
-        .bg-gray-50 { background-color: #f9fafb !important; -webkit-print-color-adjust: exact; }
+        .bg-gray-50 { 
+          background-color: #f9fafb !important; 
+          -webkit-print-color-adjust: exact !important; 
+          print-color-adjust: exact !important; 
+        }
       }
 
       .custom-scrollbar::-webkit-scrollbar {

@@ -20,9 +20,13 @@ export const generateQuotePdfBlob = async (elementId: string): Promise<Blob> => 
       if (clonedEl) {
         clonedEl.style.width = '794px';
         clonedEl.style.maxWidth = '794px';
+        clonedEl.style.minHeight = 'auto'; // Remove altura mínima forçada que gerava página 2 em branco
+        clonedEl.style.height = 'auto';
         clonedEl.style.overflow = 'visible';
         clonedEl.style.boxShadow = 'none';
         clonedEl.style.border = 'none';
+        clonedEl.style.borderRadius = '0';
+        clonedEl.style.margin = '0';
       }
     }
   });
@@ -39,16 +43,21 @@ export const generateQuotePdfBlob = async (elementId: string): Promise<Blob> => 
   const pdfWidth = 210;
   const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
-  if (pdfHeight <= 297) {
-    pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+  // Se a altura calculada couber na folha A4 (com tolerância de até 15mm para pequenas sobras de padding),
+  // ajusta para caber perfeitamente em 1 página e elimina página em branco
+  if (pdfHeight <= 312) {
+    const renderHeight = Math.min(pdfHeight, 297);
+    pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, renderHeight);
   } else {
+    // Orçamentos extensos com muitos itens
     let heightLeft = pdfHeight;
     let position = 0;
 
     pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight);
     heightLeft -= 297;
 
-    while (heightLeft > 0) {
+    // Só adiciona nova página se o conteúdo restante for superior a 12mm (evita página em branco com resíduo)
+    while (heightLeft > 12) {
       position -= 297;
       pdf.addPage();
       pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight);

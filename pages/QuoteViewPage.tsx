@@ -109,7 +109,7 @@ export const QuoteViewPage: React.FC<QuoteViewPageProps> = ({
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
+    <div className="space-y-6 print:space-y-0 print:m-0 print:p-0 animate-in fade-in zoom-in-95 duration-300">
       {/* Barra de Ações Superior */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 no-print">
         <Button variant="secondary" onClick={onBack} size="md" className="w-full sm:w-auto">
@@ -276,9 +276,9 @@ export const QuoteViewPage: React.FC<QuoteViewPageProps> = ({
       </div>
 
       {/* Modelo Imprimível / Visualização do Orçamento */}
-      <div id="printable-quote" className="bg-white p-6 md:p-12 rounded-2xl shadow-sm max-w-[210mm] mx-auto min-h-[297mm] border border-gray-100 overflow-x-auto overflow-y-hidden">
-        <div className="min-w-[600px] md:min-w-0">
-          <div className="flex justify-between items-start border-b-2 border-slate-100 pb-8 mb-8">
+      <div id="printable-quote" className="bg-white p-6 md:p-10 rounded-2xl shadow-sm max-w-[210mm] mx-auto min-h-0 print:min-h-0 print:h-auto print:p-0 print:m-0 print:border-none print:shadow-none print:rounded-none border border-gray-100 overflow-x-auto overflow-y-hidden print:overflow-visible">
+        <div className="min-w-[600px] md:min-w-0 print:min-w-0 print:w-full">
+          <div className="flex justify-between items-start border-b-2 border-slate-100 pb-6 mb-6 print:pb-4 print:mb-4">
             <div className="flex gap-6">
               {providerInfo.logo && (
                 <div className="flex-shrink-0">
@@ -307,14 +307,14 @@ export const QuoteViewPage: React.FC<QuoteViewPageProps> = ({
             </div>
           </div>
 
-          <div className="bg-gray-50 rounded-xl p-4 md:p-6 mb-8">
+          <div className="bg-gray-50 rounded-xl p-4 md:p-6 mb-6 print:mb-4 print:p-4">
             <p className="text-[10px] md:text-xs font-bold text-gray-400 uppercase mb-2">Para o Cliente</p>
             <h3 className="text-lg md:text-xl font-bold text-slate-800 mb-1">{quote.customerName || '(Não informado)'}</h3>
             <p className="text-xs md:text-sm text-slate-600">{quote.customerPhone} • {quote.customerEmail}</p>
             <p className="text-xs md:text-slate-500 mt-2 leading-tight">{quote.customerAddress} • {quote.customerCity}/{quote.customerState}</p>
           </div>
 
-          <table className="w-full text-left mb-12">
+          <table className="w-full text-left mb-8 print:mb-4">
             <thead>
               <tr className="border-b border-slate-200">
                 <th className="py-4 font-bold text-slate-800 text-sm">Item</th>
@@ -345,13 +345,13 @@ export const QuoteViewPage: React.FC<QuoteViewPageProps> = ({
           </table>
 
           {quote.notes && (
-            <div className="border-t border-slate-100 pt-8">
+            <div className="border-t border-slate-100 pt-6 print:pt-4 break-inside-avoid print:break-inside-avoid">
               <p className="text-[10px] md:text-xs font-bold text-gray-400 uppercase mb-3 tracking-widest">Observações & Condições</p>
               <div className="text-xs md:text-sm text-slate-600 whitespace-pre-wrap">{quote.notes}</div>
             </div>
           )}
 
-          <div className="mt-20 flex justify-center gap-12 md:gap-24 text-center">
+          <div className="mt-12 print:mt-8 flex justify-center gap-12 md:gap-24 text-center break-inside-avoid print:break-inside-avoid">
             <div className="w-40 md:w-48 border-t border-slate-300 pt-2 text-[10px] text-gray-400 font-medium uppercase">Assinatura do Prestador</div>
             <div className="w-40 md:w-48 border-t border-slate-300 pt-2 text-[10px] text-gray-400 font-medium uppercase">Aceite do Cliente</div>
           </div>
