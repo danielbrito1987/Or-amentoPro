@@ -23,10 +23,12 @@ import {
   Share2,
   Lock,
   X,
-Crown
+  Crown,
+  BookOpen
 } from 'lucide-react';
 import { formatCurrency } from '../utils/formatters';
 import { LegalModal, LegalTab } from '../components/LegalModal';
+import { SeoContentHub } from '../components/SeoContentHub';
 import { 
   PLAN_BASIC_PRICE, 
   PLAN_PRO_PRICE, 
@@ -163,9 +165,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </div>
           </div>
 
-          <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-300">
+          <nav className="hidden md:flex items-center gap-7 text-sm font-medium text-slate-300">
             <a href="#recursos" className="hover:text-white transition-colors">Recursos</a>
-            <a href="#ia" className="hover:text-white transition-colors flex items-center gap-1.5 text-blue-400">
+            <a href="#guias-modelos" className="hover:text-white transition-colors flex items-center gap-1.5 text-blue-400">
+              <BookOpen className="w-3.5 h-3.5" />
+              <span>Modelos & Guias</span>
+            </a>
+            <a href="#ia" className="hover:text-white transition-colors flex items-center gap-1.5 text-purple-400">
               <Sparkles className="w-3.5 h-3.5" />
               <span>Consultor IA</span>
             </a>
@@ -611,6 +617,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </div>
         </div>
       </section>
+
+      {/* CENTRAL DE CONHECIMENTO & MODELOS PRONTOS (SEO & CONVERSÃO) */}
+      <SeoContentHub onGoToRegister={onGoToRegister} />
 
       {/* PLANOS & PREÇOS */}
       <section id="planos" className="py-20 bg-slate-900/60 border-t border-slate-800">
