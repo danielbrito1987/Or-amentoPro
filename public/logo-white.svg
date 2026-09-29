@@ -1,116 +1,92 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 780 180" width="780" height="180">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 460 110" width="460" height="110">
   <defs>
-    <!-- Background Gradient for Icon -->
-    <linearGradient id="iconGradHW" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#0077FF" />
-      <stop offset="50%" stop-color="#0062FF" />
-      <stop offset="100%" stop-color="#0047E6" />
+    <!-- Background Gradient for Squircle -->
+    <linearGradient id="sqGradHW" x1="15%" y1="10%" x2="85%" y2="90%">
+      <stop offset="0%" stop-color="#0072FF" />
+      <stop offset="45%" stop-color="#0055F6" />
+      <stop offset="100%" stop-color="#0038B8" />
     </linearGradient>
 
-    <!-- Folded Corner Gradient -->
-    <linearGradient id="foldGradHW" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#70C8FF" />
-      <stop offset="40%" stop-color="#3FA6FF" />
-      <stop offset="100%" stop-color="#1478FF" />
+    <!-- Top-Right Fold Flap Gradient -->
+    <linearGradient id="foldGradHW" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0284C7" />
+      <stop offset="50%" stop-color="#0EA5E9" />
+      <stop offset="100%" stop-color="#38BDF8" />
+    </linearGradient>
+
+    <!-- Under-Fold Shadow Gradient -->
+    <linearGradient id="foldShadowGradHW" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#001a4d" stop-opacity="0.65" />
+      <stop offset="100%" stop-color="#001a4d" stop-opacity="0" />
     </linearGradient>
 
     <!-- PRO Badge Gradient -->
-    <linearGradient id="proBadgeGradW" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#005BFF" />
-      <stop offset="100%" stop-color="#0075FF" />
+    <linearGradient id="proBadgeGradHW" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0066FF" />
+      <stop offset="100%" stop-color="#0047E0" />
     </linearGradient>
 
-    <filter id="shadowHW" x="-10%" y="-10%" width="130%" height="130%">
-      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#003db3" flood-opacity="0.3" />
+    <!-- 3D Shadow for Dollar Sign -->
+    <filter id="dollarShadowHW" x="-30%" y="-30%" width="170%" height="170%">
+      <feDropShadow dx="2" dy="3.5" stdDeviation="2" flood-color="#001438" flood-opacity="0.5" />
     </filter>
 
-    <filter id="foldShadowHW" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="-2" dy="3" stdDeviation="3" flood-color="#002b80" flood-opacity="0.35" />
-    </filter>
-
-    <filter id="dShadowHW" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="2" dy="3" stdDeviation="3" flood-color="#00247d" flood-opacity="0.4" />
+    <!-- Outer Squircle Shadow -->
+    <filter id="sqShadowHW" x="-15%" y="-15%" width="135%" height="135%">
+      <feDropShadow dx="0" dy="5" stdDeviation="6" flood-color="#0055F6" flood-opacity="0.35" />
     </filter>
   </defs>
 
-  <!-- Group: Icon (160x160 located at x=10, y=10) -->
-  <g transform="translate(10, 10)">
-    <!-- Main Body with Fold Cutout -->
-    <path d="M 42 8 
-             L 108 8 
-             L 152 52 
-             L 152 118 
-             A 34 34 0 0 1 118 152 
-             L 42 152 
-             A 34 34 0 0 1 8 118 
-             L 8 42 
-             A 34 34 0 0 1 42 8 Z" 
-          fill="url(#iconGradHW)" 
-          filter="url(#shadowHW)" />
-
-    <!-- Diagonal Long Shadow for Dollar Sign -->
-    <path d="M 80 54 L 114 88 L 122 132 L 88 144 L 66 112 Z" 
-          fill="#0035a8" 
-          opacity="0.4" />
-
-    <!-- Folded Corner Flap -->
-    <path d="M 108 8 
-             L 152 52 
-             L 122 52 
-             A 14 14 0 0 1 108 38 Z" 
-          fill="url(#foldGradHW)" 
-          filter="url(#foldShadowHW)" />
-
-    <!-- Vertical Bar for $ -->
-    <rect x="74" y="32" width="12" height="96" rx="6" fill="#FFFFFF" filter="url(#dShadowHW)" />
+  <!-- Group for Icon (100x100 space, positioned at x=6, y=6) -->
+  <g transform="translate(4, 5)">
+    <!-- Squircle Base with Shadow -->
+    <rect x="6" y="6" width="88" height="88" rx="22" ry="22" fill="url(#sqGradHW)" filter="url(#sqShadowHW)" />
     
-    <!-- Dollar Body S -->
-    <path d="M 104 60
-             C 104 48, 93 41, 80 41
-             C 67 41, 58 48, 58 59
-             C 58 71, 68 76, 80 79
-             L 84 80
-             C 95 83, 102 88, 102 97
-             C 102 108, 92 115, 79 115
-             C 65 115, 55 107, 54 95
-             L 66 94
-             C 67 101, 71 104, 79 104
-             C 87 104, 91 100, 91 95
-             C 91 87, 83 83, 72 80
-             C 60 77, 49 71, 49 59
-             C 49 48, 59 36, 79 36
-             C 94 36, 104 44, 106 57
-             Z"
-          fill="#FFFFFF"
-          filter="url(#dShadowHW)" />
+    <!-- Subtle Inner Border Highlight -->
+    <rect x="7" y="7" width="86" height="86" rx="21" ry="21" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="1.5" />
+
+    <!-- Top-Right Page Fold Shadow -->
+    <path d="M 68 7 L 68 34 Q 68 36 71 36 L 93 36 Z" fill="url(#foldShadowGradHW)" />
+
+    <!-- Top-Right Page Fold Flap -->
+    <path d="M 68 7 L 68 33 Q 68 36 72 36 L 93 36 Q 87 19 68 7 Z" fill="url(#foldGradHW)" />
+    <path d="M 68 7 L 68 33 Q 68 36 72 36 L 93 36" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="1.2" />
+
+    <!-- 3D Dollar Sign Symbol ($) -->
+    <g filter="url(#dollarShadowHW)">
+      <!-- Central Vertical Bar -->
+      <rect x="47" y="22" width="6" height="56" rx="3" fill="#FFFFFF" />
+
+      <!-- Dollar S Path -->
+      <path d="M 63 36 
+               C 63 30, 58 27, 50 27 
+               C 42 27, 37 31, 37 36 
+               C 37 41, 41 44, 48 46 
+               L 53 47 
+               C 59 49, 63 51, 63 57 
+               C 63 64, 57 68, 49 68 
+               C 41 68, 36 63, 35 56 
+               L 42 56 
+               C 42 60, 45 63, 49 63 
+               C 53 63, 57 61, 57 57 
+               C 57 53, 53 51, 47 49 
+               L 42 48 
+               C 36 46, 31 43, 31 36 
+               C 31 29, 37 23, 49 23 
+               C 57 23, 62 27, 63 36 
+               Z" fill="#FFFFFF" />
+    </g>
   </g>
 
-  <!-- Typography Text Group -->
-  <!-- "Orça" in pure white for dark backgrounds -->
-  <text x="195" y="118" 
-        font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" 
-        font-size="94" 
-        font-weight="900" 
-        letter-spacing="-1.5" 
-        fill="#FFFFFF">Orça</text>
+  <!-- Typography: OrçaFácil PRO (White Orça for Dark Themes) -->
+  <g transform="translate(112, 68)">
+    <text font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-weight="900" font-size="44" letter-spacing="-0.03em">
+      <tspan fill="#FFFFFF">Orça</tspan><tspan fill="#38BDF8">Fácil</tspan>
+    </text>
 
-  <!-- "Fácil" in electric royal blue -->
-  <text x="430" y="118" 
-        font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" 
-        font-size="94" 
-        font-weight="900" 
-        letter-spacing="-1.5" 
-        fill="#0062FF">Fácil</text>
-
-  <!-- "PRO" Badge -->
-  <g transform="translate(660, 48)">
-    <rect x="0" y="0" width="112" height="66" rx="20" fill="url(#proBadgeGradW)" />
-    <text x="56" y="47" 
-          font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" 
-          font-size="34" 
-          font-weight="900" 
-          letter-spacing="1.5" 
-          text-anchor="middle" 
-          fill="#FFFFFF">PRO</text>
+    <!-- PRO Pill Badge -->
+    <rect x="238" y="-32" width="60" height="26" rx="13" fill="url(#proBadgeGradHW)" />
+    <rect x="238" y="-32" width="60" height="26" rx="13" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1" />
+    <text x="268" y="-15" text-anchor="middle" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-weight="800" font-size="13" fill="#FFFFFF" letter-spacing="0.1em">PRO</text>
   </g>
 </svg>

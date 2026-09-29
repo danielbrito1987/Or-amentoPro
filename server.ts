@@ -1,5 +1,6 @@
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 
@@ -77,11 +78,53 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  app.use(express.json());
+  app.use(express.json({ limit: '25mb' }));
 
   // Health check
   app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok', time: new Date().toISOString() });
+  });
+
+  // Rota para salvar a logomarca exata enviada pelo usuário
+  app.post('/api/system-logo', (req, res) => {
+    try {
+      const { base64Data } = req.body || {};
+      if (!base64Data || typeof base64Data !== 'string') {
+        res.status(400).json({ error: 'Nenhum dado de imagem fornecido.' });
+        return;
+      }
+
+      // Remover prefixo data:image/...;base64,
+      const matches = base64Data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+      const buffer = matches ? Buffer.from(matches[2], 'base64') : Buffer.from(base64Data, 'base64');
+
+      const publicDir = path.join(process.cwd(), 'public');
+      const assetsDir = path.join(process.cwd(), 'src', 'assets', 'images');
+      const distDir = path.join(process.cwd(), 'dist');
+
+      if (!fs.existsSync(publicDir)) fs.mkdirSync(publicDir, { recursive: true });
+      if (!fs.existsSync(assetsDir)) fs.mkdirSync(assetsDir, { recursive: true });
+
+      // Salva no public
+      fs.writeFileSync(path.join(publicDir, 'logo_orca_facil.png'), buffer);
+      fs.writeFileSync(path.join(publicDir, 'favicon.png'), buffer);
+      fs.writeFileSync(path.join(publicDir, 'favicon.jpg'), buffer);
+
+      // Salva nos assets
+      fs.writeFileSync(path.join(assetsDir, 'orcafacil_logo_official.jpg'), buffer);
+
+      // Se dist existir, atualiza também
+      if (fs.existsSync(distDir)) {
+        fs.writeFileSync(path.join(distDir, 'logo_orca_facil.png'), buffer);
+        fs.writeFileSync(path.join(distDir, 'favicon.png'), buffer);
+      }
+
+      console.log('[System Logo] Logomarca oficial atualizada com sucesso pelo arquivo exato.');
+      res.json({ success: true, url: `/logo_orca_facil.png?v=${Date.now()}` });
+    } catch (err: any) {
+      console.error('[System Logo] Erro ao salvar logo:', err);
+      res.status(500).json({ error: 'Erro ao gravar logomarca no servidor.' });
+    }
   });
 
   // Rota de Estimativa de Preço com IA
