@@ -1,73 +1,48 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" fill="none">
   <defs>
-    <!-- Background Gradient for Squircle -->
-    <linearGradient id="sqGrad" x1="15%" y1="10%" x2="85%" y2="90%">
-      <stop offset="0%" stop-color="#0072FF" />
-      <stop offset="45%" stop-color="#0055F6" />
-      <stop offset="100%" stop-color="#0038B8" />
+    <!-- Royal Blue Gradient identical to the site (#2563EB / #3B82F6 / #1D4ED8) -->
+    <linearGradient id="favSqGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3B82F6" />
+      <stop offset="50%" stop-color="#2563EB" />
+      <stop offset="100%" stop-color="#1D4ED8" />
     </linearGradient>
 
-    <!-- Top-Right Fold Flap Gradient -->
-    <linearGradient id="foldGrad" x1="0%" y1="100%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#0284C7" />
-      <stop offset="50%" stop-color="#0EA5E9" />
-      <stop offset="100%" stop-color="#38BDF8" />
+    <!-- Folded Corner Flap Gradient -->
+    <linearGradient id="favFoldGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#60A5FA" />
+      <stop offset="100%" stop-color="#BFDBFE" />
     </linearGradient>
 
-    <!-- Under-Fold Shadow Gradient -->
-    <linearGradient id="foldShadowGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#001a4d" stop-opacity="0.65" />
-      <stop offset="100%" stop-color="#001a4d" stop-opacity="0" />
-    </linearGradient>
-
-    <!-- 3D Shadow for Dollar Sign -->
-    <filter id="dollarShadow" x="-30%" y="-30%" width="170%" height="170%">
-      <feDropShadow dx="3" dy="5" stdDeviation="3.5" flood-color="#001438" flood-opacity="0.6" />
-      <feDropShadow dx="1" dy="1.5" stdDeviation="1" flood-color="#001438" flood-opacity="0.3" />
-    </filter>
-
-    <!-- Outer Squircle Shadow -->
-    <filter id="sqShadow" x="-15%" y="-15%" width="135%" height="135%">
-      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#0055F6" flood-opacity="0.28" />
+    <!-- Glow for Browser Tabs -->
+    <filter id="favGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#2563EB" flood-opacity="0.6" />
     </filter>
   </defs>
 
-  <!-- Squircle Base with Shadow -->
-  <rect x="14" y="14" width="172" height="172" rx="42" ry="42" fill="url(#sqGrad)" filter="url(#sqShadow)" />
-  
-  <!-- Subtle Inner Border Highlight -->
-  <rect x="15" y="15" width="170" height="170" rx="41" ry="41" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="2" />
+  <!-- Base Squircle (Tile) -->
+  <rect x="2" y="2" width="60" height="60" rx="16" fill="url(#favSqGrad)" />
+  <rect x="3" y="3" width="58" height="58" rx="15" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="1.8" />
 
-  <!-- Top-Right Page Fold Shadow -->
-  <path d="M 136 15 L 136 68 Q 136 72 140 72 L 185 72 Z" fill="url(#foldShadowGrad)" />
+  <!-- Proposal Document Sheet -->
+  <path d="M 14 13 L 36 13 L 46 23 L 46 49 C 46 51 44.5 52 42 52 L 14 52 C 11.5 52 10 51 10 49 L 10 16 C 10 14 11.5 13 14 13 Z" 
+        fill="rgba(255,255,255,0.2)" 
+        stroke="rgba(255,255,255,0.75)" 
+        stroke-width="1.8" 
+        stroke-linejoin="round" />
 
-  <!-- Top-Right Page Fold Flap -->
-  <path d="M 136 15 L 136 65 Q 136 72 143 72 L 185 72 Q 174 38 136 15 Z" fill="url(#foldGrad)" />
-  <!-- Fold Flap Edge Highlight -->
-  <path d="M 136 15 L 136 65 Q 136 72 143 72 L 185 72" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="1.5" />
+  <!-- Document Folded Flap -->
+  <path d="M 36 13 L 36 23 L 46 23 Z" fill="url(#favFoldGrad)" stroke="rgba(255,255,255,0.85)" stroke-width="1.2" />
 
-  <!-- 3D Dollar Sign Symbol ($) -->
-  <g filter="url(#dollarShadow)">
-    <!-- Central Vertical Bar -->
-    <rect x="94" y="46" width="12" height="108" rx="6" fill="#FFFFFF" />
+  <!-- Document Budget Value Lines (Bold for 16x16 / 32x32 Favicon Visibility) -->
+  <line x1="16" y1="22" x2="31" y2="22" stroke="rgba(255,255,255,0.95)" stroke-width="2.6" stroke-linecap="round" />
+  <line x1="16" y1="28" x2="27" y2="28" stroke="rgba(255,255,255,0.75)" stroke-width="2.6" stroke-linecap="round" />
+  <line x1="16" y1="34" x2="23" y2="34" stroke="rgba(255,255,255,0.6)" stroke-width="2.6" stroke-linecap="round" />
 
-    <!-- Dollar S Path -->
-    <path d="M 126 73 
-             C 126 62, 115 56, 100 56 
-             C 85 56, 74 63, 74 74 
-             C 74 84, 82 90, 95 93 
-             L 106 96 
-             C 118 99, 126 104, 126 115 
-             C 126 128, 114 136, 99 136 
-             C 82 136, 72 127, 71 113 
-             L 84 113 
-             C 85 121, 91 126, 99 126 
-             C 107 126, 114 122, 114 115 
-             C 114 107, 107 103, 94 99 
-             L 84 96 
-             C 73 93, 63 86, 63 74 
-             C 63 60, 75 48, 99 48 
-             C 115 48, 125 56, 126 73 
-             Z" fill="#FFFFFF" />
+  <!-- Dynamic Approved Checkmark Badge in Deep Royal Blue & Pure White -->
+  <g transform="translate(28, 26)">
+    <circle cx="14" cy="14" r="13" fill="#1D4ED8" />
+    <circle cx="14" cy="14" r="11.5" fill="#2563EB" stroke="#FFFFFF" stroke-width="1.8" />
+    <!-- Ultra-Bold Crisp Checkmark -->
+    <path d="M 8.5 14 L 12 17.5 L 19.5 9.5" fill="none" stroke="#FFFFFF" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" />
   </g>
 </svg>
