@@ -39,7 +39,7 @@ import {
   BASIC_MONTHLY_QUOTES_LIMIT, 
   TRIAL_DAYS
 } from '../services/saasService';
-import orcaLogo from '../src/assets/images/orcafacil_quote_logo_1788895951950.jpg';
+import { AppLogo } from '../components/AppLogo';
 import { analyticsService } from '../services/analyticsService';
 
 interface LandingPageProps {
@@ -143,27 +143,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       {/* HEADER NAVBAR */}
       <header className="sticky top-0 z-50 backdrop-blur-xl bg-slate-950/80 border-b border-slate-800/80">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-xl overflow-hidden shadow-lg shadow-blue-500/20 border border-white/10 ring-1 ring-blue-500/30">
-              <img
-                src={orcaLogo}
-                alt="Logo OrçaFácil Pro"
-                referrerPolicy="no-referrer"
-                className="w-full h-full object-cover"
-              />
-            </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-xl font-black tracking-tight text-white">
-                  Orça<span className="text-blue-500">Fácil</span>
-                </span>
-                <span className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded shadow-sm">
-                  PRO
-                </span>
-              </div>
-              <p className="text-[10px] text-slate-400 font-medium hidden sm:block">Orçamentos Rápidos & Inteligentes</p>
-            </div>
-          </div>
+          <AppLogo size="md" theme="dark" />
 
           <nav className="hidden md:flex items-center gap-7 text-sm font-medium text-slate-300">
             <a href="#recursos" className="hover:text-white transition-colors">Recursos</a>
