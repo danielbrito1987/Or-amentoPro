@@ -176,18 +176,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       <div className={`w-full ${mode === 'register' ? 'max-w-2xl' : 'max-w-md'} animate-in fade-in zoom-in duration-300 relative z-10 transition-all`}>
         <div className="text-center mb-6">
           <div className="flex justify-center mb-3">
-            <AppLogo size="xl" theme="dark" showText={false} />
+            <AppLogo size="xl" theme="dark" showText={true} />
           </div>
-
-          <div className="flex items-center justify-center gap-2">
-            <h1 className="text-3xl font-black text-white tracking-tight">
-              Orça<span className="text-[#005BFF]">Fácil</span>
-            </h1>
-            <span className="bg-gradient-to-r from-[#0052FF] to-[#0070F3] text-white text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md shadow-md shadow-blue-500/20">
-              PRO
-            </span>
-          </div>
-          <p className="text-slate-400 mt-1.5 text-sm">Sistema de orçamentos rápidos para prestadores de serviços</p>
+          <p className="text-slate-400 mt-1 text-sm">Sistema de orçamentos rápidos para prestadores de serviços</p>
 
           {isSupabaseConfigured() && (
             <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-950/60 border border-emerald-500/40 rounded-full text-emerald-400 text-xs font-semibold">

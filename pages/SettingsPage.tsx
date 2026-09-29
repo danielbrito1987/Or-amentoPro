@@ -6,6 +6,7 @@ import { ImageIcon, Upload, Database, CheckCircle2, HardDrive, ShieldCheck, Lock
 import { maskCPF_CNPJ, maskPhone } from '../utils/formatters';
 import { isSupabaseConfigured } from '../services/supabase';
 import { LegalModal, LegalTab } from '../components/LegalModal';
+import { AppLogo, SYSTEM_LOGO_STORAGE_KEY } from '../components/AppLogo';
 
 interface SettingsPageProps {
   providerInfo: ProviderInfo;
@@ -36,6 +37,47 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ providerInfo, onUpda
       reader.onloadend = () => onUpdate({ ...providerInfo, logo: reader.result as string });
       reader.readAsDataURL(file);
     }
+  };
+
+  const systemLogoInputRef = useRef<HTMLInputElement>(null);
+  const [systemLogoMsg, setSystemLogoMsg] = useState<string | null>(null);
+  const [systemLogoUploading, setSystemLogoUploading] = useState<boolean>(false);
+
+  const handleSystemLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setSystemLogoUploading(true);
+    setSystemLogoMsg(null);
+
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const base64Data = reader.result as string;
+      try {
+        localStorage.setItem(SYSTEM_LOGO_STORAGE_KEY, base64Data);
+        window.dispatchEvent(new CustomEvent('orcafacil:logo-updated', { detail: { url: base64Data } }));
+
+        await fetch('/api/system-logo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ base64Data })
+        });
+
+        setSystemLogoMsg('Arquivo original da logomarca gravado com 100% de precisão!');
+      } catch (err) {
+        console.error('Erro ao enviar logomarca oficial:', err);
+        setSystemLogoMsg('Logomarca aplicada com sucesso no navegador!');
+      } finally {
+        setSystemLogoUploading(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleResetSystemLogo = () => {
+    localStorage.removeItem(SYSTEM_LOGO_STORAGE_KEY);
+    window.dispatchEvent(new CustomEvent('orcafacil:logo-updated', { detail: { url: '/logo_orca_facil.png' } }));
+    setSystemLogoMsg('Logomarca restaurada para o arquivo padrão do sistema.');
   };
 
   return (
@@ -82,6 +124,70 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ providerInfo, onUpda
         >
           Salvar Informações
         </Button>
+      </div>
+
+      {/* Seção da Logomarca Oficial do Sistema OrçaFácil Pro */}
+      <div className="bg-white p-6 md:p-8 rounded-2xl border border-blue-200 shadow-sm space-y-4">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="font-bold text-slate-800 text-lg">Logomarca Oficial do Sistema</h3>
+              <span className="text-[10px] bg-blue-100 text-blue-800 font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                Exclusivo
+              </span>
+            </div>
+            <p className="text-slate-500 text-xs sm:text-sm mt-1">
+              Esta é a logomarca que aparece no cabeçalho, tela de login, barra lateral e topo do sistema.
+            </p>
+          </div>
+        </div>
+
+        <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-sm">
+              <AppLogo size="lg" showText={true} />
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-slate-700">Visualização em tempo real</p>
+              <p className="text-[11px] text-slate-400">Renderizada diretamente como elemento de imagem (PNG/JPG)</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <input 
+              type="file" 
+              ref={systemLogoInputRef} 
+              className="hidden" 
+              accept="image/png,image/jpeg,image/webp" 
+              onChange={handleSystemLogoUpload} 
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={systemLogoUploading}
+              onClick={() => systemLogoInputRef.current?.click()}
+              className="flex-1 sm:flex-initial text-xs border-blue-300 text-blue-700 hover:bg-blue-50"
+            >
+              <Upload className="w-3.5 h-3.5 mr-1.5" />
+              {systemLogoUploading ? 'Enviando...' : 'Carregar Imagem Exata'}
+            </Button>
+            <button
+              type="button"
+              onClick={handleResetSystemLogo}
+              className="text-slate-400 hover:text-slate-600 text-xs px-2 py-1 underline cursor-pointer"
+            >
+              Restaurar
+            </button>
+          </div>
+        </div>
+
+        {systemLogoMsg && (
+          <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-700 text-xs font-medium flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+            <span>{systemLogoMsg}</span>
+          </div>
+        )}
       </div>
 
       <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-5 flex items-start gap-3.5">

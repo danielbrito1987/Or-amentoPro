@@ -124,7 +124,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Header do Sidebar */}
         <div className={`p-4 border-b border-slate-800/80 flex items-center overflow-hidden ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
           {/* Logo e Nome */}
-          <AppLogo size="md" showText={!isCollapsed} />
+          <AppLogo size="md" theme="dark" showText={!isCollapsed} />
 
           {/* Botão de fechar em telas pequenas */}
           <button 

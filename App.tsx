@@ -526,7 +526,7 @@ const AppContent: React.FC = () => {
       )}
 
       <div className="md:hidden flex items-center justify-between p-3.5 bg-slate-900 text-white no-print border-b border-slate-800">
-        <AppLogo size="sm" />
+        <AppLogo size="sm" theme="dark" />
         <div className="flex items-center space-x-2">
           <SyncIndicator isCollapsed={true} />
           <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors">
