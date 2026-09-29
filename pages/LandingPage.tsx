@@ -143,7 +143,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       {/* HEADER NAVBAR */}
       <header className="sticky top-0 z-50 backdrop-blur-xl bg-slate-950/80 border-b border-slate-800/80">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-          <AppLogo size="md" theme="dark" />
+          {/* <AppLogo size="md" theme="dark" /> */}
+          <img src='./public/logo.svg'></img>
 
           <nav className="hidden md:flex items-center gap-7 text-sm font-medium text-slate-300">
             <a href="#recursos" className="hover:text-white transition-colors">Recursos</a>
