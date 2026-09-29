@@ -143,8 +143,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       {/* HEADER NAVBAR */}
       <header className="sticky top-0 z-50 backdrop-blur-xl bg-slate-950/80 border-b border-slate-800/80">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-          {/* <AppLogo size="md" theme="dark" /> */}
-          <img src='./public/logo.svg'></img>
+          <a href="#" className="flex items-center group">
+            <img 
+              src="/logo.svg" 
+              alt="OrçaFácil Pro" 
+              className="h-10 sm:h-12 md:h-14 w-auto object-contain group-hover:scale-[1.02] transition-transform duration-200" 
+            />
+          </a>
 
           <nav className="hidden md:flex items-center gap-7 text-sm font-medium text-slate-300">
             <a href="#recursos" className="hover:text-white transition-colors">Recursos</a>
@@ -161,24 +166,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <a href="#faq" className="hover:text-white transition-colors">Dúvidas</a>
           </nav>
 
-          <div className="flex items-center gap-2.5 sm:gap-3">
+          <div className="flex items-center gap-3">
             <button
               id="btn-nav-login"
               onClick={onGoToLogin}
-              className="px-3.5 py-2 text-sm font-semibold rounded-xl text-slate-300 hover:text-white hover:bg-slate-900 transition-colors"
+              className="px-5 py-2.5 text-sm font-bold rounded-xl text-white bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 hover:border-slate-600 transition-all shadow-sm active:scale-[0.98]"
             >
               Entrar
-            </button>
-
-            <button
-              id="btn-nav-register"
-              onClick={() => {
-                analyticsService.trackEvent('click_cta_register', { location: 'navbar' });
-                onGoToRegister();
-              }}
-              className="px-4 py-2 text-sm font-bold rounded-xl bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/25 transition-all active:scale-[0.98]"
-            >
-              Testar 7 Dias Grátis
             </button>
           </div>
         </div>
@@ -997,11 +991,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       {/* FOOTER */}
       <footer className="bg-slate-950 border-t border-slate-900 py-10 text-xs text-slate-500">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="flex flex-col sm:flex-row items-center gap-2 text-center sm:text-left">
-            <span className="font-black text-white text-sm">
-              Orça<span className="text-blue-500">Fácil</span> PRO
-            </span>
-            <span className="hidden sm:inline">&bull;</span>
+          <div className="flex flex-col sm:flex-row items-center gap-3 text-center sm:text-left">
+            <img src="/logo.svg" alt="OrçaFácil Pro" className="h-8 sm:h-9 w-auto object-contain opacity-95" />
+            <span className="hidden sm:inline text-slate-700">&bull;</span>
             <span>&copy; {new Date().getFullYear()} Todos os direitos reservados.</span>
             <span className="hidden sm:inline">&bull;</span>
             <span className="text-slate-400">Ambiente Seguro & Conforme à LGPD</span>
@@ -1037,6 +1029,36 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </div>
         </div>
       </footer>
+
+      {/* BOTÃO FLUTUANTE (FLOATBUTTON) - TESTE 7 DIAS GRÁTIS */}
+      <div className="fixed bottom-5 right-4 sm:bottom-6 sm:right-6 z-50">
+        <button
+          id="btn-floating-trial"
+          type="button"
+          onClick={() => {
+            analyticsService.trackEvent('click_cta_register', { location: 'floating_button' });
+            onGoToRegister();
+          }}
+          className="group relative flex items-center gap-3 px-4 py-3 sm:px-5 sm:py-3.5 rounded-full bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-600 text-white font-extrabold shadow-xl shadow-blue-600/40 hover:shadow-2xl hover:shadow-blue-500/60 border border-blue-400/40 hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer"
+          aria-label="Testar 7 Dias Grátis"
+        >
+          {/* Indicador pulsante em tempo real */}
+          <span className="relative flex h-3 w-3 shrink-0">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-300 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-3 w-3 bg-white shadow-sm"></span>
+          </span>
+
+          <div className="flex flex-col text-left">
+            <span className="text-xs sm:text-sm font-black tracking-tight leading-tight flex items-center gap-1.5">
+              Testar 7 Dias Grátis
+              <ArrowRight className="w-3.5 h-3.5 text-blue-100 group-hover:translate-x-1 transition-transform" />
+            </span>
+            <span className="hidden sm:inline text-[10px] text-blue-100/90 font-medium leading-none mt-0.5">
+              Sem cartão • Acesso imediato
+            </span>
+          </div>
+        </button>
+      </div>
 
       {/* Modal de Privacidade e Termos de Uso */}
       <LegalModal

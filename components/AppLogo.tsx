@@ -26,83 +26,54 @@ export const AppLogoIcon: React.FC<{
 
   return (
     <svg 
-      viewBox="0 0 100 100" 
+      viewBox="0 0 54 54" 
       className={`shrink-0 select-none ${className}`}
       style={style}
       fill="none" 
       xmlns="http://www.w3.org/2000/svg"
     >
       <defs>
-        {/* Background Gradient for Squircle */}
-        <linearGradient id="sqGradIconComp" x1="15%" y1="10%" x2="85%" y2="90%">
-          <stop offset="0%" stopColor="#0072FF" />
-          <stop offset="45%" stopColor="#0055F6" />
-          <stop offset="100%" stopColor="#0038B8" />
+        <linearGradient id="appLogoSqGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#3B82F6" />
+          <stop offset="50%" stopColor="#2563EB" />
+          <stop offset="100%" stopColor="#1D4ED8" />
         </linearGradient>
 
-        {/* Top-Right Fold Flap Gradient */}
-        <linearGradient id="foldGradIconComp" x1="0%" y1="100%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#0284C7" />
-          <stop offset="50%" stopColor="#0EA5E9" />
-          <stop offset="100%" stopColor="#38BDF8" />
+        <linearGradient id="appLogoFoldGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#60A5FA" />
+          <stop offset="100%" stopColor="#BFDBFE" />
         </linearGradient>
 
-        {/* Under-Fold Shadow Gradient */}
-        <linearGradient id="foldShadowGradIconComp" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#001a4d" stopOpacity="0.65" />
-          <stop offset="100%" stopColor="#001a4d" stopOpacity="0" />
-        </linearGradient>
-
-        {/* 3D Shadow for Dollar Sign */}
-        <filter id="dollarShadowIconComp" x="-30%" y="-30%" width="170%" height="170%">
-          <feDropShadow dx="2" dy="3.5" stdDeviation="2" floodColor="#001438" floodOpacity="0.55" />
-        </filter>
-
-        {/* Outer Squircle Shadow */}
-        <filter id="sqShadowIconComp" x="-15%" y="-15%" width="135%" height="135%">
-          <feDropShadow dx="0" dy="5" stdDeviation="6" floodColor="#0055F6" floodOpacity="0.28" />
+        <filter id="appLogoIconGlow" x="-25%" y="-25%" width="150%" height="150%">
+          <feDropShadow dx="0" dy="4" stdDeviation="5" floodColor="#2563EB" floodOpacity="0.55" />
         </filter>
       </defs>
 
-      {/* Squircle Base with Shadow */}
-      <rect x="6" y="6" width="88" height="88" rx="22" ry="22" fill="url(#sqGradIconComp)" filter="url(#sqShadowIconComp)" />
-      
-      {/* Subtle Inner Border Highlight */}
-      <rect x="7" y="7" width="86" height="86" rx="21" ry="21" fill="none" stroke="rgba(255,255,255,0.22)" strokeWidth="1.5" />
+      <g transform="translate(2, 2)" filter="url(#appLogoIconGlow)">
+        <rect x="0" y="0" width="50" height="50" rx="14" fill="url(#appLogoSqGrad)" />
+        <rect x="0.75" y="0.75" width="48.5" height="48.5" rx="13.25" fill="none" stroke="rgba(255,255,255,0.38)" strokeWidth="1.3" />
 
-      {/* Top-Right Page Fold Shadow */}
-      <path d="M 68 7 L 68 34 Q 68 36 71 36 L 93 36 Z" fill="url(#foldShadowGradIconComp)" />
-
-      {/* Top-Right Page Fold Flap */}
-      <path d="M 68 7 L 68 33 Q 68 36 72 36 L 93 36 Q 87 19 68 7 Z" fill="url(#foldGradIconComp)" />
-      <path d="M 68 7 L 68 33 Q 68 36 72 36 L 93 36" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1.2" />
-
-      {/* 3D Dollar Sign Symbol ($) */}
-      <g filter="url(#dollarShadowIconComp)">
-        {/* Central Vertical Bar */}
-        <rect x="47" y="22" width="6" height="56" rx="3" fill="#FFFFFF" />
-
-        {/* Dollar S Path */}
+        {/* Proposal Document Sheet */}
         <path 
-          d="M 63 36 
-             C 63 30, 58 27, 50 27 
-             C 42 27, 37 31, 37 36 
-             C 37 41, 41 44, 48 46 
-             L 53 47 
-             C 59 49, 63 51, 63 57 
-             C 63 64, 57 68, 49 68 
-             C 41 68, 36 63, 35 56 
-             L 42 56 
-             C 42 60, 45 63, 49 63 
-             C 53 63, 57 61, 57 57 
-             C 57 53, 53 51, 47 49 
-             L 42 48 
-             C 36 46, 31 43, 31 36 
-             C 31 29, 37 23, 49 23 
-             C 57 23, 62 27, 63 36 
-             Z" 
-          fill="#FFFFFF" 
+          d="M 12 10 L 31 10 L 38 17 L 38 39.5 C 38 41 36.8 42 35 42 L 12 42 C 10.5 42 9.5 41 9.5 39.5 L 9.5 12.5 C 9.5 11 10.5 10 12 10 Z" 
+          fill="rgba(255,255,255,0.18)" 
+          stroke="rgba(255,255,255,0.6)" 
+          strokeWidth="1.3" 
+          strokeLinejoin="round" 
         />
+        <path d="M 31 10 L 31 17 L 38 17 Z" fill="url(#appLogoFoldGrad)" stroke="rgba(255,255,255,0.7)" strokeWidth="0.8" />
+
+        {/* Document Budget Value Lines */}
+        <line x1="14" y1="17" x2="26" y2="17" stroke="rgba(255,255,255,0.85)" strokeWidth="2" strokeLinecap="round" />
+        <line x1="14" y1="22" x2="22" y2="22" stroke="rgba(255,255,255,0.6)" strokeWidth="2" strokeLinecap="round" />
+        <line x1="14" y1="27" x2="19" y2="27" stroke="rgba(255,255,255,0.5)" strokeWidth="2" strokeLinecap="round" />
+
+        {/* Dynamic Proposal Approval Checkmark Badge */}
+        <g transform="translate(23, 21)">
+          <circle cx="12" cy="12" r="10.5" fill="#1D4ED8" />
+          <circle cx="12" cy="12" r="9.5" fill="#2563EB" stroke="rgba(255,255,255,0.85)" strokeWidth="1.2" />
+          <path d="M 7.5 12 L 10.5 15 L 16.5 8.5" fill="none" stroke="#FFFFFF" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+        </g>
       </g>
     </svg>
   );
