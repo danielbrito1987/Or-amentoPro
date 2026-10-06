@@ -16,7 +16,8 @@ import {
   Sparkles, 
   ArrowRight,
   ShieldCheck,
-  Clock
+  Clock,
+  Lock
 } from 'lucide-react';
 import { formatCurrency } from '../utils/formatters';
 import { normalizeUnit } from '../services/marketEstimator';
@@ -24,6 +25,7 @@ import { shareOrDownloadPdf, isMobileDevice } from '../utils/pdfGenerator';
 import { useAuth } from '../contexts/AuthContext';
 import { saasService } from '../services/saasService';
 import { analyticsService } from '../services/analyticsService';
+import { DemoRestrictedModal } from '../components/DemoRestrictedModal';
 
 interface QuoteViewPageProps {
   quote: Quote;
@@ -34,6 +36,8 @@ interface QuoteViewPageProps {
   onApproveQuote?: (quote: Quote) => void;
   onGenerateContract?: (quote: Quote) => void;
   onViewContract?: (contractId: string) => void;
+  isDemo?: boolean;
+  onRequireRegister?: () => void;
 }
 
 export const QuoteViewPage: React.FC<QuoteViewPageProps> = ({ 
@@ -44,11 +48,16 @@ export const QuoteViewPage: React.FC<QuoteViewPageProps> = ({
   onDelete,
   onApproveQuote,
   onGenerateContract,
-  onViewContract
+  onViewContract,
+  isDemo = false,
+  onRequireRegister
 }) => {
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [showDemoModal, setShowDemoModal] = useState(false);
+  const [demoFeature, setDemoFeature] = useState('');
   const { user } = useAuth();
+  const effectiveIsDemo = Boolean(isDemo || user?.isDemo || user?.companyId === 'comp_demo_eletro');
   const canUseContracts = saasService.canUseContracts(user).allowed;
 
   const isApproved = quote.status === 'approved' || !!quote.contractId;
@@ -138,23 +147,42 @@ export const QuoteViewPage: React.FC<QuoteViewPageProps> = ({
             <Button
               variant="secondary"
               size="md"
-              onClick={() => window.print()}
-              icon={<Printer size={17} />}
-              className="w-full sm:w-auto text-slate-700 hover:bg-slate-100"
-              title="Imprimir orçamento diretamente na impressora"
+              onClick={() => {
+                if (effectiveIsDemo) {
+                  setDemoFeature('a Impressão Direta');
+                  setShowDemoModal(true);
+                  return;
+                }
+                window.print();
+              }}
+              icon={effectiveIsDemo ? <Lock size={15} className="text-amber-500" /> : <Printer size={17} />}
+              className={`w-full sm:w-auto text-slate-700 hover:bg-slate-100 ${effectiveIsDemo ? 'opacity-80 border-amber-300 bg-amber-50/60' : ''}`}
+              title={effectiveIsDemo ? "Disponível após cadastro gratuito" : "Imprimir orçamento diretamente na impressora"}
             >
-              Imprimir
+              Imprimir {effectiveIsDemo && <span className="text-[10px] bg-amber-200/80 text-amber-900 px-1.5 py-0.2 rounded font-bold ml-1">Bloqueado</span>}
             </Button>
           )}
 
           <Button 
             variant="primary" 
             size="md"
-            className="w-full sm:w-auto bg-green-600 hover:bg-green-700 active:bg-green-800 border-none shadow-md shadow-green-600/20" 
-            icon={<MessageCircle size={18} />} 
-            onClick={handleWhatsAppShare}
+            className={`w-full sm:w-auto ${
+              effectiveIsDemo 
+                ? 'bg-slate-500 hover:bg-slate-600 border-none shadow-none text-white' 
+                : 'bg-green-600 hover:bg-green-700 active:bg-green-800 border-none shadow-md shadow-green-600/20'
+            }`} 
+            icon={effectiveIsDemo ? <Lock size={16} className="text-amber-300" /> : <MessageCircle size={18} />} 
+            onClick={() => {
+              if (effectiveIsDemo) {
+                setDemoFeature('o Envio pelo WhatsApp');
+                setShowDemoModal(true);
+                return;
+              }
+              handleWhatsAppShare();
+            }}
+            title={effectiveIsDemo ? "Disponível após cadastro gratuito" : "Enviar orçamento para o WhatsApp do cliente"}
           >
-            WhatsApp
+            WhatsApp {effectiveIsDemo && <span className="text-[10px] bg-white/20 text-white px-1.5 py-0.2 rounded font-bold ml-1">Bloqueado</span>}
           </Button>
 
           {/* No computador: "Baixar PDF" (faz download direto no disco). No celular: "Compartilhar PDF" (abre seletor do sistema) */}
@@ -162,10 +190,19 @@ export const QuoteViewPage: React.FC<QuoteViewPageProps> = ({
             id="btn-share-pdf"
             variant="primary" 
             size="md"
-            onClick={() => handlePdfAction(!isMobile)} 
+            onClick={() => {
+              if (effectiveIsDemo) {
+                setDemoFeature('o Download de PDF');
+                setShowDemoModal(true);
+                return;
+              }
+              handlePdfAction(!isMobile);
+            }} 
             disabled={isGeneratingPdf}
             icon={
-              isGeneratingPdf ? (
+              effectiveIsDemo ? (
+                <Lock size={16} className="text-amber-300" />
+              ) : isGeneratingPdf ? (
                 <Loader2 size={18} className="animate-spin" />
               ) : !isMobile ? (
                 <Download size={18} />
@@ -173,16 +210,58 @@ export const QuoteViewPage: React.FC<QuoteViewPageProps> = ({
                 <Share2 size={18} />
               )
             }
-            className="col-span-2 sm:col-auto w-full sm:w-auto bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-500/25 font-semibold"
-            title={!isMobile ? "Baixar orçamento em formato PDF para o seu computador" : "Compartilhar orçamento em PDF"}
+            className={`col-span-2 sm:col-auto w-full sm:w-auto font-semibold ${
+              effectiveIsDemo 
+                ? 'bg-slate-700 hover:bg-slate-800 shadow-none' 
+                : 'bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-500/25'
+            }`}
+            title={effectiveIsDemo ? "Disponível após cadastro gratuito" : (!isMobile ? "Baixar orçamento em formato PDF para o seu computador" : "Compartilhar orçamento em PDF")}
           >
-            {isGeneratingPdf 
+            {effectiveIsDemo 
+              ? 'PDF (Bloqueado)' 
+              : isGeneratingPdf 
               ? (!isMobile ? 'Baixando PDF...' : 'Gerando PDF...') 
               : (!isMobile ? 'Baixar PDF' : 'Compartilhar PDF')
             }
           </Button>
         </div>
       </div>
+
+      {/* Banner de Demonstração (Notificação de Recursos Bloqueados) */}
+      {effectiveIsDemo && (
+        <div className="no-print max-w-[210mm] mx-auto bg-amber-50 border-2 border-amber-300 text-amber-950 p-4 sm:p-5 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm animate-in fade-in">
+          <div className="flex items-start gap-3">
+            <div className="p-2.5 bg-amber-200 text-amber-900 rounded-xl shrink-0 mt-0.5">
+              <Lock className="w-5 h-5 text-amber-800" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h4 className="font-bold text-sm sm:text-base text-amber-950">
+                  Modo Demonstração (Somente Visualização)
+                </h4>
+                <span className="text-[10px] font-black uppercase tracking-wider bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full border border-amber-300">
+                  Envio Bloqueado
+                </span>
+              </div>
+              <p className="text-xs text-amber-900/90 mt-1 leading-relaxed max-w-xl">
+                Os botões de <strong>Imprimir</strong>, <strong>Enviar por WhatsApp</strong> e <strong>Download de PDF</strong> estão desabilitados na demonstração. Cadastre-se gratuitamente em 1 minuto para liberar todas as funções com seus dados reais por 7 dias grátis.
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => {
+              setDemoFeature('o Acesso Completo');
+              setShowDemoModal(true);
+            }}
+            className="w-full sm:w-auto shrink-0 bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-md shadow-blue-500/20 py-2.5"
+            icon={<Sparkles className="w-4 h-4 text-amber-300" />}
+          >
+            Cadastrar para Usar (Grátis)
+          </Button>
+        </div>
+      )}
 
       {feedback && (
         <div className="no-print max-w-[210mm] mx-auto bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-xl text-sm flex items-center gap-2 shadow-sm animate-in fade-in slide-in-from-top-2">
@@ -357,6 +436,16 @@ export const QuoteViewPage: React.FC<QuoteViewPageProps> = ({
           </div>
         </div>
       </div>
+
+      <DemoRestrictedModal
+        isOpen={showDemoModal}
+        onClose={() => setShowDemoModal(false)}
+        onRegister={() => {
+          setShowDemoModal(false);
+          onRequireRegister?.();
+        }}
+        featureName={demoFeature}
+      />
     </div>
   );
 };

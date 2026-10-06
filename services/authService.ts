@@ -265,7 +265,8 @@ export const authService = {
       name: 'Carlos Silva (Demonstração / Teste)',
       companyId: 'comp_demo_eletro',
       role: 'user', // Explicitamente 'user' (NÃO é dono/admin)
-      status: 'active'
+      status: 'active',
+      isDemo: true
     };
 
     const token = 'demo_jwt_token_active_presentation';

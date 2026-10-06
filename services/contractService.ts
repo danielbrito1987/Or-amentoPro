@@ -332,11 +332,13 @@ export const contractService = {
     };
 
     // Salva localmente
-    contractService.cacheContractLocally(newContract);
+    if (newContract.companyId !== 'comp_demo_eletro') {
+      contractService.cacheContractLocally(newContract);
+    }
 
     // Salva no Supabase
     const supabase = getSupabase();
-    if (supabase && typeof navigator !== 'undefined' && navigator.onLine) {
+    if (supabase && typeof navigator !== 'undefined' && navigator.onLine && newContract.companyId !== 'comp_demo_eletro') {
       try {
         await supabase.from('contracts').upsert(mapContractToDb(newContract));
       } catch (err) {

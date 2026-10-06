@@ -7,15 +7,29 @@ import { maskCPF_CNPJ, maskPhone } from '../utils/formatters';
 import { isSupabaseConfigured } from '../services/supabase';
 import { LegalModal, LegalTab } from '../components/LegalModal';
 import { AppLogo, SYSTEM_LOGO_STORAGE_KEY } from '../components/AppLogo';
+import { useAuth } from '../contexts/AuthContext';
+import { DemoRestrictedModal } from '../components/DemoRestrictedModal';
 
 interface SettingsPageProps {
   providerInfo: ProviderInfo;
   onUpdate: (info: ProviderInfo) => void;
   onSave: () => void;
   onOpenLegal?: (tab: LegalTab) => void;
+  isDemo?: boolean;
+  onRequireRegister?: () => void;
 }
 
-export const SettingsPage: React.FC<SettingsPageProps> = ({ providerInfo, onUpdate, onSave, onOpenLegal }) => {
+export const SettingsPage: React.FC<SettingsPageProps> = ({ 
+  providerInfo, 
+  onUpdate, 
+  onSave, 
+  onOpenLegal,
+  isDemo = false,
+  onRequireRegister
+}) => {
+  const { user } = useAuth();
+  const effectiveIsDemo = Boolean(isDemo || user?.isDemo || user?.companyId === 'comp_demo_eletro');
+  const [showDemoModal, setShowDemoModal] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const [localLegalModal, setLocalLegalModal] = useState<{ isOpen: boolean; tab: LegalTab }>({
     isOpen: false,
@@ -87,6 +101,29 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ providerInfo, onUpda
         <p className="text-slate-500">Estas informações aparecerão no cabeçalho dos seus orçamentos</p>
       </div>
 
+      {effectiveIsDemo && (
+        <div className="bg-amber-50 border-2 border-amber-300 text-amber-950 p-4 sm:p-5 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-amber-200 text-amber-900 rounded-xl shrink-0 mt-0.5">
+              <Lock className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="font-bold text-sm text-amber-950">Modo Demonstração (Somente Pré-visualização)</h4>
+              <p className="text-xs text-amber-900/90 mt-0.5">
+                Os dados desta tela não serão gravados na nuvem. Crie sua conta gratuita para salvar as informações e a logomarca da sua empresa de forma definitiva.
+              </p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            onClick={() => setShowDemoModal(true)}
+            className="w-full sm:w-auto shrink-0 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-2"
+          >
+            Cadastre-se Grátis
+          </Button>
+        </div>
+      )}
+
       <div className="bg-white p-6 md:p-8 rounded-2xl border border-gray-200 shadow-sm space-y-8">
         <div className="flex flex-col items-center sm:flex-row sm:items-start gap-6 pb-6 border-b border-gray-100">
           <div className="relative group">
@@ -119,10 +156,20 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ providerInfo, onUpda
         </div>
         <Button 
           size="lg" 
-          className="w-full shadow-lg shadow-blue-500/20" 
-          onClick={onSave}
+          className={`w-full shadow-lg ${
+            effectiveIsDemo
+              ? 'bg-amber-600 hover:bg-amber-500 shadow-amber-600/20 text-white'
+              : 'shadow-blue-500/20'
+          }`} 
+          onClick={() => {
+            if (effectiveIsDemo) {
+              setShowDemoModal(true);
+              return;
+            }
+            onSave();
+          }}
         >
-          Salvar Informações
+          {effectiveIsDemo ? 'Salvar Informações (Requer Cadastro)' : 'Salvar Informações'}
         </Button>
       </div>
 
@@ -266,6 +313,16 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ providerInfo, onUpda
         isOpen={localLegalModal.isOpen}
         onClose={() => setLocalLegalModal(prev => ({ ...prev, isOpen: false }))}
         initialTab={localLegalModal.tab}
+      />
+
+      <DemoRestrictedModal
+        isOpen={showDemoModal}
+        onClose={() => setShowDemoModal(false)}
+        onRegister={() => {
+          setShowDemoModal(false);
+          onRequireRegister?.();
+        }}
+        featureName="o Salvamento de Dados da Empresa"
       />
     </div>
   );

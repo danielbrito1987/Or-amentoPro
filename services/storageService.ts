@@ -251,6 +251,11 @@ const getInitialQuotes = (companyId: string, provider: ProviderInfo): Quote[] =>
 export const storageService = {
   // Catalog (Produtos e Serviços)
   getCatalog: async (companyId: string): Promise<CatalogItem[]> => {
+    // 0. Modo de demonstração: somente em memória, nunca busca nem salva no Supabase ou localStorage
+    if (companyId === 'comp_demo_eletro') {
+      return getInitialCatalog(companyId);
+    }
+
     const localKey = `orcafacil_catalog_${companyId}`;
     
     // 1. Tenta carregar do Supabase se estiver configurado
@@ -340,6 +345,9 @@ export const storageService = {
   
   saveCatalogItem: async (item: CatalogItem): Promise<CatalogItem> => {
     const companyId = item.companyId || 'default';
+    if (companyId === 'comp_demo_eletro') {
+      return item;
+    }
     const localKey = `orcafacil_catalog_${companyId}`;
     const safeItem = { ...item, id: item.id || 'item_' + Date.now(), companyId };
 
@@ -383,6 +391,9 @@ export const storageService = {
   
   updateCatalogItem: async (item: CatalogItem): Promise<CatalogItem> => {
     const companyId = item.companyId || 'default';
+    if (companyId === 'comp_demo_eletro') {
+      return item;
+    }
     const localKey = `orcafacil_catalog_${companyId}`;
 
     try {
@@ -427,6 +438,9 @@ export const storageService = {
   },
 
   deleteCatalogItem: async (id: string, companyId?: string): Promise<void> => {
+    if (companyId === 'comp_demo_eletro') {
+      return;
+    }
     try {
       // Coleta chaves primeiro para evitar pulo de índice durante a iteração
       const keysToClean: string[] = [];
@@ -469,6 +483,12 @@ export const storageService = {
 
   // Quotes (Orçamentos)
   getQuotes: async (companyId: string): Promise<Quote[]> => {
+    // 0. Modo de demonstração: retorna orçamentos modelos em memória, nunca busca nem grava no Supabase ou localStorage
+    if (companyId === 'comp_demo_eletro') {
+      const provider = getInitialProviderInfo(companyId);
+      return getInitialQuotes(companyId, provider);
+    }
+
     const localKey = `orcafacil_quotes_${companyId}`;
 
     // 1. Tenta buscar do Supabase
@@ -567,6 +587,9 @@ export const storageService = {
   
   saveQuote: async (quote: Quote): Promise<Quote> => {
     const companyId = quote.companyId || 'default';
+    if (companyId === 'comp_demo_eletro') {
+      return quote;
+    }
     const localKey = `orcafacil_quotes_${companyId}`;
     const safeQuote = { ...quote, id: quote.id || 'quote_' + Date.now(), companyId };
 
@@ -626,7 +649,10 @@ export const storageService = {
     return safeQuote;
   },
   
-  deleteQuote: async (id: string): Promise<void> => {
+  deleteQuote: async (id: string, companyId?: string): Promise<void> => {
+    if (companyId === 'comp_demo_eletro') {
+      return;
+    }
     try {
       const keysToClean: string[] = [];
       for (let i = 0; i < localStorage.length; i++) {
@@ -668,6 +694,11 @@ export const storageService = {
 
   // Provider Info (Dados do Profissional)
   getProviderInfo: async (companyId: string): Promise<ProviderInfo> => {
+    // 0. Modo de demonstração: retorna dados modelo em memória, nunca consulta nem grava no Supabase ou localStorage
+    if (companyId === 'comp_demo_eletro') {
+      return getInitialProviderInfo(companyId);
+    }
+
     const localKey = `orcafacil_provider_${companyId}`;
 
     // 1. Tenta buscar do Supabase
@@ -782,6 +813,9 @@ export const storageService = {
   
   saveProviderInfo: async (info: ProviderInfo): Promise<ProviderInfo> => {
     const companyId = info.companyId || 'default';
+    if (companyId === 'comp_demo_eletro') {
+      return info;
+    }
     const localKey = `orcafacil_provider_${companyId}`;
 
     try {

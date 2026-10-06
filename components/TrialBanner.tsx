@@ -30,8 +30,8 @@ export const TrialBanner: React.FC = () => {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
   const [copied, setCopied] = useState(false);
 
-  // Não exibe nada se for Admin ou se o plano já estiver ativo (pago)
-  if (isAdmin || subscriptionInfo.status === 'active' || !user) {
+  // Não exibe nada se for Admin, se o plano já estiver ativo (pago) ou se estiver no modo de demonstração
+  if (isAdmin || subscriptionInfo.status === 'active' || !user || user.isDemo || user.companyId === 'comp_demo_eletro') {
     return null;
   }
 

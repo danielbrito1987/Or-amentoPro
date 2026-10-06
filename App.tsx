@@ -450,6 +450,11 @@ const AppContent: React.FC = () => {
     setPublicView('landing');
   };
 
+  const handleDemoToRegister = () => {
+    handleLogout();
+    setPublicView('register');
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -547,6 +552,36 @@ const AppContent: React.FC = () => {
       />
 
       <main className="flex-1 overflow-y-auto bg-gray-50 pb-20 md:pb-0 flex flex-col">
+        {/* Banner do Modo Demonstração */}
+        {user?.isDemo && (
+          <div className="bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 text-white px-4 py-3 shadow-md flex flex-col sm:flex-row items-center justify-between gap-3 text-xs sm:text-sm font-medium z-30 no-print border-b border-amber-500/40">
+            <div className="flex items-center gap-2.5 text-center sm:text-left">
+              <span className="bg-white/20 text-white px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border border-white/30 shrink-0">
+                Modo Demonstração
+              </span>
+              <span>
+                Você está conhecendo o sistema (somente visualização). <strong>Cadastre-se grátis</strong> para desbloquear impressão, download de PDF e envio pelo WhatsApp!
+              </span>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={handleDemoToRegister}
+                className="bg-white text-slate-950 font-bold px-3.5 py-1.5 rounded-xl text-xs hover:bg-slate-100 shadow transition-all cursor-pointer"
+              >
+                Criar Conta Gratuita (7 Dias)
+              </button>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="text-white/80 hover:text-white text-xs underline cursor-pointer ml-1"
+              >
+                Sair
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Barra superior de aviso de dias restantes de teste grátis */}
         <TrialBanner />
 
@@ -586,6 +621,8 @@ const AppContent: React.FC = () => {
               onUpdate={setProviderInfo} 
               onSave={handleSaveSettings} 
               onOpenLegal={handleOpenLegal}
+              isDemo={Boolean(user?.isDemo)}
+              onRequireRegister={handleDemoToRegister}
             />
           )}
 
@@ -601,6 +638,8 @@ const AppContent: React.FC = () => {
               onUpdateQuote={setSelectedQuote}
               onSave={handleSaveQuote} 
               onSaveCatalogItem={saveCatalogItem}
+              isDemo={Boolean(user?.isDemo)}
+              onRequireRegister={handleDemoToRegister}
             />
           )}
 
@@ -611,7 +650,13 @@ const AppContent: React.FC = () => {
               onBack={() => setSelectedQuote(null)} 
               onEdit={() => setIsEditingQuote(true)} 
               onDelete={() => handleRequestDeleteQuote(selectedQuote.id)}
+              isDemo={Boolean(user?.isDemo)}
+              onRequireRegister={handleDemoToRegister}
               onApproveQuote={async (q) => {
+                if (user?.isDemo) {
+                  handleDemoToRegister();
+                  return;
+                }
                 const updated = { ...q, status: 'approved' as const };
                 await storageService.saveQuote(updated);
                 setSelectedQuote(updated);
@@ -620,6 +665,10 @@ const AppContent: React.FC = () => {
                 setTimeout(() => setDeleteToast(null), 3000);
               }}
               onGenerateContract={async (quoteToContract) => {
+                if (user?.isDemo) {
+                  handleDemoToRegister();
+                  return;
+                }
                 // Checa se usuário possui plano Premium
                 if (!saasService.canUseContracts(user).allowed) {
                   setIsPaywallOpen(true);

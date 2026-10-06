@@ -396,6 +396,15 @@ export const saasService = {
       const raw = localStorage.getItem(USERS_REGISTRY_KEY);
       let list: SaaSUserRecord[] = raw ? JSON.parse(raw) : [];
 
+      // Remove contas de demonstração do registro de usuários
+      const initialLength = list.length;
+      list = list.filter(u => 
+        u.email.toLowerCase() !== 'teste@orcafacil.com.br' &&
+        u.email.toLowerCase() !== 'demo@orcafacil.com.br' &&
+        u.companyId !== 'comp_demo_eletro' &&
+        !u.id?.includes('comp_demo_eletro')
+      );
+
       // Garante que o ADMIN sempre existe na lista com acesso vitalício
       const adminExists = list.some(u => u.email.toLowerCase() === ADMIN_EMAIL.toLowerCase());
       if (!adminExists) {
@@ -459,6 +468,21 @@ export const saasService = {
 
     const isSystemAdmin = user.email.trim().toLowerCase() === ADMIN_EMAIL.toLowerCase();
     const isTestDemo = user.email.trim().toLowerCase() === 'teste@orcafacil.com.br' || user.email.trim().toLowerCase() === 'demo@orcafacil.com.br';
+
+    // Usuário de demonstração nunca é gravado no registro SaaS e não tem contador de trial
+    if (user.isDemo || user.companyId === 'comp_demo_eletro' || isTestDemo) {
+      return {
+        id: user.id || 'demo_user',
+        email: user.email || 'teste@orcafacil.com.br',
+        name: user.name || 'Demonstração',
+        createdAt: new Date().toISOString(),
+        trialEndsAt: new Date(2099, 11, 31).toISOString(),
+        subscriptionStatus: 'active',
+        plan: 'pro',
+        role: 'user',
+        companyId: user.companyId || 'comp_demo_eletro'
+      };
+    }
 
     const chosenPlan: SubscriptionPlanId = options?.plan || user.plan || 'pro';
     const chosenCycle: BillingCycle = options?.billingCycle || user.billingCycle || 'monthly';
@@ -1050,6 +1074,9 @@ export const saasService = {
         profiles.forEach((p: any) => {
           if (!p.email) return;
           const emailLower = p.email.trim().toLowerCase();
+          if (emailLower === 'teste@orcafacil.com.br' || emailLower === 'demo@orcafacil.com.br' || p.company_id === 'comp_demo_eletro') {
+            return;
+          }
           const existingIndex = users.findIndex(u => u.email.toLowerCase() === emailLower);
 
           const createdAt = p.created_at || new Date().toISOString();
@@ -1098,6 +1125,16 @@ export const saasService = {
         providers.forEach((prov: any) => {
           const provEmail = (prov.email || '').trim().toLowerCase();
           const provCompanyId = prov.company_id || '';
+
+          // Ignora dados gerados em modo de demonstração
+          if (
+            provCompanyId === 'comp_demo_eletro' || 
+            prov.id?.includes('comp_demo_eletro') ||
+            provEmail === 'teste@orcafacil.com.br' ||
+            provEmail === 'demo@orcafacil.com.br'
+          ) {
+            return;
+          }
 
           // Tenta localizar por e-mail ou por companyId
           let userIndex = -1;

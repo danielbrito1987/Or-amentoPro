@@ -95,6 +95,11 @@ export const syncService = {
   }),
 
   enqueue: (type: SyncActionType, payload: any) => {
+    // Não sincroniza nada do modo de demonstração
+    if (payload?.companyId === 'comp_demo_eletro' || payload?.id?.includes('comp_demo_eletro')) {
+      return;
+    }
+
     const queue = getQueue();
     const targetId = payload?.id || payload?.companyId;
 

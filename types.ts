@@ -78,6 +78,7 @@ export interface User {
   billingCycle?: 'monthly' | 'annual';
   partnerCompany?: string;
   partnerCode?: string;
+  isDemo?: boolean;
 }
 
 export interface AuthState {

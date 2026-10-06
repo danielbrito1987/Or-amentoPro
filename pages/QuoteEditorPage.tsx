@@ -27,6 +27,7 @@ import { AiPriceConsultantModal } from '../components/AiPriceConsultantModal';
 import { CONTRACT_CLAUSE_PRESETS, generateDefaultItemClause } from '../services/contractClausesTemplates';
 import { useAuth } from '../contexts/AuthContext';
 import { saasService } from '../services/saasService';
+import { DemoRestrictedModal } from '../components/DemoRestrictedModal';
 
 interface QuoteEditorPageProps {
   quote: Quote;
@@ -35,6 +36,8 @@ interface QuoteEditorPageProps {
   onSave: (quote: Quote) => void;
   onUpdateQuote: (quote: Quote) => void;
   onSaveCatalogItem?: (item: Partial<CatalogItem>, isEditing: boolean) => void;
+  isDemo?: boolean;
+  onRequireRegister?: () => void;
 }
 
 export const QuoteEditorPage: React.FC<QuoteEditorPageProps> = ({ 
@@ -43,9 +46,13 @@ export const QuoteEditorPage: React.FC<QuoteEditorPageProps> = ({
   onBack, 
   onSave, 
   onUpdateQuote,
-  onSaveCatalogItem 
+  onSaveCatalogItem,
+  isDemo = false,
+  onRequireRegister
 }) => {
   const { user } = useAuth();
+  const effectiveIsDemo = Boolean(isDemo || user?.isDemo || user?.companyId === 'comp_demo_eletro');
+  const [showDemoModal, setShowDemoModal] = useState(false);
   const isPremium = saasService.isPremiumUser(user);
   const hasAiConsultant = saasService.canUseAiConsultant(user).allowed;
 
@@ -1073,10 +1080,20 @@ export const QuoteEditorPage: React.FC<QuoteEditorPageProps> = ({
             </div>
 
             <Button 
-              className="w-full py-4 rounded-2xl bg-blue-600 hover:bg-blue-500 border-none text-base font-bold shadow-lg shadow-blue-600/30 transition-all active:scale-[0.98]" 
-              onClick={() => onSave(quote)}
+              className={`w-full py-4 rounded-2xl border-none text-base font-bold shadow-lg transition-all active:scale-[0.98] ${
+                effectiveIsDemo
+                  ? 'bg-amber-600 hover:bg-amber-500 shadow-amber-600/30 text-white'
+                  : 'bg-blue-600 hover:bg-blue-500 shadow-blue-600/30'
+              }`}
+              onClick={() => {
+                if (effectiveIsDemo) {
+                  setShowDemoModal(true);
+                  return;
+                }
+                onSave(quote);
+              }}
             >
-              Salvar Orçamento
+              {effectiveIsDemo ? 'Salvar Orçamento (Requer Cadastro)' : 'Salvar Orçamento'}
             </Button>
           </div>
 
@@ -1133,6 +1150,16 @@ export const QuoteEditorPage: React.FC<QuoteEditorPageProps> = ({
 
         </div>
       </div>
+
+      <DemoRestrictedModal
+        isOpen={showDemoModal}
+        onClose={() => setShowDemoModal(false)}
+        onRegister={() => {
+          setShowDemoModal(false);
+          onRequireRegister?.();
+        }}
+        featureName="o Salvamento de Orçamentos"
+      />
     </div>
   );
 };
