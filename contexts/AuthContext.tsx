@@ -41,110 +41,98 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    let isMounted = true;
+    const supabase = getSupabase();
+
+    // Trava de segurança máxima: garante que isLoading nunca fique travado em true
+    const safetyTimer = setTimeout(() => {
+      if (isMounted) {
+        setIsLoading(false);
+      }
+    }, 1200);
+
     const initAuth = async () => {
       try {
-        // Verifica se a função existe antes de chamar
-        if (typeof authService?.getCurrentUserAsync === 'function') {
-          const currentUser = await authService.getCurrentUserAsync();
-          if (currentUser) {
-            setUser(currentUser);
+        // 1. Carrega dados do localStorage apenas como CACHE inicial para evitar telas em branco
+        const cachedUser = authService.getCurrentUser();
+        const cachedToken = authService.getToken();
+
+        if (cachedUser && cachedToken && cachedToken !== 'undefined' && cachedToken !== 'pending_confirmation') {
+          if (isMounted) {
+            setUser(cachedUser);
+            setToken(cachedToken);
           }
-        } else if (typeof authService?.getCurrentUser === 'function') {
-          const local = authService.getCurrentUser();
-          if (local) {
-            setUser(local);
+        }
+
+        // 2. Consulta a AUTORIDADE REAL (Supabase Auth + tabela profiles)
+        const authoritativeUser = await authService.getCurrentUserAsync();
+        if (authoritativeUser && isMounted) {
+          saasService.registerNewUser(authoritativeUser);
+          setUser(authoritativeUser);
+          setToken(authService.getToken());
+        } else if (!authoritativeUser && isMounted) {
+          // Se o Supabase responder que não há sessão ativa, o cache local é invalidado imediatamente!
+          // Preserva apenas se for sessão de demonstração local explícita
+          if (!cachedUser?.isDemo && cachedUser?.companyId !== 'comp_demo_eletro') {
+            setUser(null);
+            setToken(null);
+            localStorage.removeItem('orcafacil_jwt_token');
+            localStorage.removeItem('orcafacil_user');
           }
         }
       } catch (error) {
-        console.error('Erro ao verificar sessão:', error);
+        console.error('Erro ao verificar sessão autoritativa:', error);
       } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
 
     initAuth();
-  }, []);
 
-  // Carrega estado inicial de forma síncrona do localStorage para evitar telas de login piscando
-  useEffect(() => {
-    const savedUser = authService.getCurrentUser();
-    const savedToken = authService.getToken();
-
-    if (savedUser && savedToken && savedToken !== 'undefined' && savedToken !== 'pending_confirmation') {
-      // Registra/sincroniza no SaaS
-      saasService.registerNewUser(savedUser);
-      setUser(savedUser);
-      setToken(savedToken);
-    } else {
-      authService.logout();
-    }
-    setIsLoading(false);
-
-    // Ouve alterações de autenticação no Supabase se configurado
-    const supabase = getSupabase();
+    // 3. Ouve alterações de autenticação no Supabase (login, logout, renovação de token)
     if (supabase) {
-      // Faz verificação do usuário atual na inicialização
-      authService.checkFreshUserStatus().then(async (freshUser) => {
-        if (freshUser) {
-          // Consulta se houve atualização de assinatura ou parceria remota no Supabase profiles
-          await saasService.fetchRemoteSubscriptionStatus(freshUser.email);
-          saasService.registerNewUser(freshUser);
-          setUser(freshUser);
-        }
-      });
-
       const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
         if (session && session.user) {
-          const meta = session.user.user_metadata || {};
-          const appMeta = session.user.app_metadata || {};
-          const isSuspended = 
-            meta.status === 'suspended' || 
-            meta.is_active === false || 
-            meta.disabled === true ||
-            appMeta.status === 'suspended' ||
-            appMeta.is_active === false ||
-            appMeta.disabled === true;
-
-          const usr: User = {
-            id: session.user.id,
-            email: session.user.email || '',
-            name: meta.name || (session.user.email ? session.user.email.split('@')[0] : 'Prestador'),
-            companyId: meta.company_id || session.user.id,
-            status: isSuspended ? 'suspended' : 'active',
-            statusReason: meta.status_reason || meta.statusReason || appMeta.status_reason || 'Sua assinatura ou período de acesso expirou. Entre em contato com o administrador para regularizar seu plano.',
-            role: (session.user.email?.toLowerCase() === saasService.getAdminEmail().toLowerCase()) 
-              ? 'admin' 
-              : (meta.role || appMeta.role || 'user')
-          };
-
-          // Atualiza status remoto do banco de dados (ex: se o dono marcou como parceiro)
-          await saasService.fetchRemoteSubscriptionStatus(usr.email);
-          saasService.registerNewUser(usr);
-          setUser(usr);
-          setToken(session.access_token);
-          localStorage.setItem('orcafacil_jwt_token', session.access_token);
-          localStorage.setItem('orcafacil_user', JSON.stringify(usr));
+          // Sempre busca o perfil autoritativo completo da tabela profiles
+          const authoritativeUser = await authService.getCurrentUserAsync();
+          if (authoritativeUser && isMounted) {
+            saasService.registerNewUser(authoritativeUser);
+            setUser(authoritativeUser);
+            setToken(session.access_token);
+          }
         } else if (event === 'SIGNED_OUT') {
-          setUser(null);
-          setToken(null);
+          if (isMounted) {
+            setUser(null);
+            setToken(null);
+            localStorage.removeItem('orcafacil_jwt_token');
+            localStorage.removeItem('orcafacil_user');
+          }
         }
       });
 
       return () => {
+        isMounted = false;
+        clearTimeout(safetyTimer);
         subscription.unsubscribe();
       };
     }
+
+    return () => {
+      isMounted = false;
+      clearTimeout(safetyTimer);
+    };
   }, []);
 
   const refreshUserStatus = async () => {
-    const freshUser = await authService.checkFreshUserStatus();
-    if (freshUser) {
-      await saasService.fetchRemoteSubscriptionStatus(freshUser.email);
-      saasService.registerNewUser(freshUser);
-      setUser(freshUser);
+    const authoritativeUser = await authService.getCurrentUserAsync();
+    if (authoritativeUser) {
+      saasService.registerNewUser(authoritativeUser);
+      setUser(authoritativeUser);
     }
   };
 
@@ -267,18 +255,28 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const isAdmin = saasService.isAdmin(user);
 
-  const subscriptionInfo = user 
-    ? saasService.getUserSubscriptionStatus(user)
-    : {
-        status: 'expired' as const,
-        daysRemaining: 0,
-        hoursRemaining: 0,
-        expiresAt: new Date(),
-        isExpired: true
-      };
+  const subscriptionInfo = user?.subscription
+    ? {
+        status: user.subscription.status === 'partner' ? ('active' as const) : (user.subscription.status as any),
+        daysRemaining: user.subscription.daysRemaining,
+        hoursRemaining: user.subscription.hoursRemaining,
+        expiresAt: new Date(user.subscription.subscriptionValidUntil || user.subscription.trialEndsAt || Date.now()),
+        isExpired: user.subscription.isExpired,
+        isPartner: user.subscription.isPartner,
+        partnerCompany: user.subscription.partnerCompany
+      }
+    : (user 
+        ? saasService.getUserSubscriptionStatus(user)
+        : {
+            status: 'expired' as const,
+            daysRemaining: 0,
+            hoursRemaining: 0,
+            expiresAt: new Date(),
+            isExpired: true
+          });
 
-  // Usuário é suspenso se seu status manual for suspended OU se não for admin e seu plano tiver expirado (passaram os 7 dias ou a mensalidade)
-  const isSuspended = !isAdmin && (user?.status === 'suspended' || subscriptionInfo.isExpired);
+  // Usuário é suspenso se seu status manual for suspended/blocked OU se não for admin e seu plano tiver expirado (passaram os 7 dias ou a mensalidade)
+  const isSuspended = !isAdmin && (user?.status === 'suspended' || user?.status === 'blocked' || subscriptionInfo.isExpired);
 
   const value = {
     user,

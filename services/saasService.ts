@@ -520,12 +520,14 @@ export const saasService = {
     const trialDaysToAdd = hasTrial ? TRIAL_DAYS : 0;
     const trialEnd = new Date(now.getTime() + trialDaysToAdd * 24 * 60 * 60 * 1000);
 
-    let initialStatus: 'trial' | 'active' | 'expired' | 'partner' = 'trial';
+    let initialStatus: 'trial' | 'active' | 'expired' | 'partner' = user.subscriptionStatus || (user.subscription?.status) || 'trial';
     if (isSystemAdmin || isTestDemo) {
       initialStatus = 'active';
     } else if (isPartnerSelf) {
       // Conta do PRÓPRIO parceiro (acesso VIP gratuito liberado)
       initialStatus = 'partner';
+    } else if (user.subscriptionStatus) {
+      initialStatus = user.subscriptionStatus;
     } else if (isPremium) {
       // Plano Premium: sem período de teste grátis, requer pagamento para ativação
       initialStatus = 'expired';
@@ -539,12 +541,12 @@ export const saasService = {
       email: user.email,
       name: user.name || user.email.split('@')[0],
       createdAt: now.toISOString(),
-      trialEndsAt: trialEnd.toISOString(),
+      trialEndsAt: user.trialEndsAt || user.subscription?.trialEndsAt || trialEnd.toISOString(),
       subscriptionStatus: initialStatus,
-      subscriptionValidUntil: isSystemAdmin 
+      subscriptionValidUntil: user.subscriptionValidUntil !== undefined ? user.subscriptionValidUntil : (isSystemAdmin 
         ? new Date(2099, 11, 31).toISOString() 
         : (isTestDemo ? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString() 
-        : (isPartnerSelf ? new Date(2099, 11, 31).toISOString() : undefined)),
+        : (isPartnerSelf ? new Date(2099, 11, 31).toISOString() : undefined))),
       plan: chosenPlan,
       billingCycle: chosenCycle,
       lastPaymentNote: isPartnerSelf 
@@ -637,11 +639,47 @@ export const saasService = {
       };
     }
 
+    // Se o objeto user já possui dados autoritativos de assinatura (vindos de profiles via getCurrentUserAsync)
+    if (user.subscription) {
+      try {
+        const users = saasService.getAllUsers();
+        let record = users.find(u => u.email.toLowerCase() === user.email.toLowerCase());
+        if (record) {
+          record.subscriptionStatus = user.subscription.status;
+          record.plan = user.subscription.plan;
+          if (user.subscription.trialEndsAt) record.trialEndsAt = user.subscription.trialEndsAt;
+          if (user.subscription.subscriptionValidUntil !== undefined) record.subscriptionValidUntil = user.subscription.subscriptionValidUntil;
+          if (user.subscription.partnerCompany) record.partnerCompany = user.subscription.partnerCompany;
+          if (user.subscription.partnerCode) record.partnerCode = user.subscription.partnerCode;
+          saasService.saveUserRecord(record);
+        }
+      } catch {}
+
+      return {
+        status: user.subscription.status === 'partner' ? 'active' : user.subscription.status,
+        daysRemaining: user.subscription.daysRemaining,
+        hoursRemaining: user.subscription.hoursRemaining,
+        expiresAt: new Date(user.subscription.subscriptionValidUntil || user.subscription.trialEndsAt || Date.now()),
+        isExpired: user.subscription.isExpired,
+        isPartner: user.subscription.isPartner,
+        partnerCompany: user.subscription.partnerCompany
+      };
+    }
+
     const users = saasService.getAllUsers();
     let record = users.find(u => u.email.toLowerCase() === user.email.toLowerCase());
 
     if (!record) {
       record = saasService.registerNewUser(user);
+    } else if (user.subscriptionStatus || user.plan) {
+      // Sincroniza o cache local com as informações autoritativas de profiles presentes no objeto user
+      if (user.subscriptionStatus) record.subscriptionStatus = user.subscriptionStatus;
+      if (user.plan) record.plan = user.plan;
+      if (user.trialEndsAt) record.trialEndsAt = user.trialEndsAt;
+      if (user.subscriptionValidUntil !== undefined) record.subscriptionValidUntil = user.subscriptionValidUntil;
+      if (user.partnerCompany) record.partnerCompany = user.partnerCompany;
+      if (user.partnerCode) record.partnerCode = user.partnerCode;
+      saasService.saveUserRecord(record);
     }
 
     const now = new Date().getTime();

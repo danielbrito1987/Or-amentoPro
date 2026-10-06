@@ -1,19 +1,27 @@
 
-import { User } from '../types';
+import { User, UserSubscription } from '../types';
 import { apiService } from './api.service';
 import { getSupabase, isSupabaseConfigured } from './supabase';
 
 const TOKEN_KEY = 'orcafacil_jwt_token';
 const USER_KEY = 'orcafacil_user';
 
-const mapSupabaseUser = (sbUser: any, token: string): { token: string; user: User } => {
+const mapSupabaseUser = (sbUser: any, token: string, profile?: any): { token: string; user: User } => {
   const meta = sbUser.user_metadata || {};
   const appMeta = sbUser.app_metadata || {};
-  const companyId = meta.company_id || sbUser.id;
-  const name = meta.name || (sbUser.email ? sbUser.email.split('@')[0] : 'Prestador');
+  const companyId = profile?.company_id || meta.company_id || sbUser.id;
+  const name = profile?.name || meta.name || (sbUser.email ? sbUser.email.split('@')[0] : 'Prestador');
 
-  // Suporte a status de suspensão configurado pelo Supabase (metadata ou app_metadata)
-  const isSuspended = 
+  const role = profile?.role || meta.role || appMeta.role || 'user';
+  const plan: 'basic' | 'pro' | 'premium' = profile?.plan || meta.plan || 'pro';
+  const billingCycle: 'monthly' | 'annual' = profile?.billing_cycle || meta.billing_cycle || 'monthly';
+  const partnerCompany = profile?.partner_company || meta.partner_company || undefined;
+  const partnerCode = profile?.partner_code || meta.partner_code || undefined;
+
+  // Suporte a status de suspensão ou bloqueio vindo do profiles, metadata ou app_metadata
+  const isExplicitlySuspended = 
+    profile?.status === 'blocked' ||
+    profile?.status === 'suspended' ||
     meta.status === 'suspended' || 
     meta.is_active === false || 
     meta.disabled === true ||
@@ -21,21 +29,151 @@ const mapSupabaseUser = (sbUser: any, token: string): { token: string; user: Use
     appMeta.is_active === false ||
     appMeta.disabled === true;
 
-  const status: 'active' | 'suspended' = isSuspended ? 'suspended' : 'active';
-  const statusReason = meta.status_reason || meta.statusReason || appMeta.status_reason || 'Sua assinatura ou período de acesso expirou. Entre em contato com o administrador para regularizar seu plano.';
+  // Status da assinatura e vigência vindos da tabela profiles (autoridade)
+  let subscriptionStatus: 'trial' | 'active' | 'expired' | 'partner' = 
+    profile?.subscription_status || meta.subscription_status || (plan === 'premium' ? 'expired' : 'trial');
+
+  const trialEndsAt = profile?.trial_ends_at || meta.trial_ends_at || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+  const subscriptionValidUntil = profile?.subscription_valid_until || meta.subscription_valid_until || undefined;
+
+  const now = Date.now();
+  let daysRemaining = 0;
+  let hoursRemaining = 0;
+  let isExpired = false;
+  const isAdminUser = role === 'admin' || (sbUser.email && sbUser.email.toLowerCase() === 'damasceno1871@gmail.com');
+
+  if (isAdminUser) {
+    subscriptionStatus = 'active';
+    daysRemaining = 9999;
+    hoursRemaining = 999999;
+    isExpired = false;
+  } else if (subscriptionStatus === 'partner') {
+    if (subscriptionValidUntil) {
+      const validUntilTime = new Date(subscriptionValidUntil).getTime();
+      if (now <= validUntilTime) {
+        const diff = validUntilTime - now;
+        daysRemaining = Math.ceil(diff / (1000 * 60 * 60 * 24));
+        hoursRemaining = Math.ceil(diff / (1000 * 60 * 60));
+        isExpired = false;
+      } else {
+        subscriptionStatus = 'expired';
+        daysRemaining = 0;
+        hoursRemaining = 0;
+        isExpired = true;
+      }
+    } else {
+      // Parceria vitalícia (sem expiração)
+      daysRemaining = 9999;
+      hoursRemaining = 999999;
+      isExpired = false;
+    }
+  } else if (subscriptionStatus === 'active') {
+    if (subscriptionValidUntil) {
+      const validUntilTime = new Date(subscriptionValidUntil).getTime();
+      if (now <= validUntilTime) {
+        const diff = validUntilTime - now;
+        daysRemaining = Math.ceil(diff / (1000 * 60 * 60 * 24));
+        hoursRemaining = Math.ceil(diff / (1000 * 60 * 60));
+        isExpired = false;
+      } else {
+        subscriptionStatus = 'expired';
+        daysRemaining = 0;
+        hoursRemaining = 0;
+        isExpired = true;
+      }
+    } else {
+      daysRemaining = 30;
+      hoursRemaining = 720;
+      isExpired = false;
+    }
+  } else if (plan === 'premium') {
+    // Plano Premium sem pagamento confirmado: sem dias gratuitos
+    subscriptionStatus = 'expired';
+    daysRemaining = 0;
+    hoursRemaining = 0;
+    isExpired = true;
+  } else {
+    // Período de teste (Trial de 7 dias)
+    const trialEndTime = new Date(trialEndsAt).getTime();
+    if (now <= trialEndTime) {
+      const diff = trialEndTime - now;
+      daysRemaining = Math.ceil(diff / (1000 * 60 * 60 * 24));
+      hoursRemaining = Math.ceil(diff / (1000 * 60 * 60));
+      isExpired = false;
+    } else {
+      subscriptionStatus = 'expired';
+      daysRemaining = 0;
+      hoursRemaining = 0;
+      isExpired = true;
+    }
+  }
+
+  // Preço e nome do plano
+  const planPrices: Record<string, number> = { basic: 29.90, pro: 59.90, premium: 199.90 };
+  const planNames: Record<string, string> = { basic: 'Básico', pro: 'Profissional', premium: 'Premium' };
+  const planPrice = planPrices[plan] || 59.90;
+  const planName = planNames[plan] || 'Profissional';
+
+  // Objeto autoritativo completo de assinatura
+  const subscription: UserSubscription = {
+    status: subscriptionStatus,
+    plan,
+    billingCycle,
+    trialEndsAt,
+    subscriptionValidUntil,
+    validUntil: subscriptionValidUntil,
+    daysRemaining,
+    hoursRemaining,
+    isExpired,
+    isPartner: subscriptionStatus === 'partner' || !!partnerCompany,
+    partnerCompany,
+    partnerCode,
+    price: planPrice,
+    planName
+  };
+
+  // Status autoritativo do usuário:
+  // Se estiver bloqueado ou suspenso na autoridade (profiles), reflete imediatamente.
+  // Se não estiver suspenso mas o plano expirou, o status reflete 'expired' (em vez de simplesmente 'active').
+  // Caso contrário, reflete o status registrado em profiles (ou 'active' se regular).
+  let status: 'active' | 'suspended' | 'blocked' | 'expired' | 'pending' | string = 'active';
+  if (isExplicitlySuspended) {
+    status = 'suspended';
+  } else if (profile?.status && profile.status !== 'active') {
+    status = profile.status;
+  } else if (isExpired && !isAdminUser) {
+    status = 'expired';
+  } else {
+    status = profile?.status || 'active';
+  }
+
+  const statusReason = profile?.status_reason || meta.status_reason || meta.statusReason || appMeta.status_reason || (
+    isExplicitlySuspended 
+      ? 'Sua conta foi suspensa ou bloqueada pelo administrador.' 
+      : (isExpired && !isAdminUser ? 'Seu período de teste ou assinatura expirou. Regularize seu plano para continuar emitindo orçamentos.' : undefined)
+  );
 
   const user: User = {
     id: sbUser.id,
-    email: sbUser.email || '',
+    email: sbUser.email || profile?.email || '',
     name,
     companyId,
     status,
     statusReason,
-    role: meta.role || appMeta.role || 'user',
-    plan: meta.plan || 'pro',
-    billingCycle: meta.billing_cycle || 'monthly'
+    role,
+    plan,
+    billingCycle,
+    subscriptionStatus,
+    trialEndsAt,
+    subscriptionValidUntil,
+    partnerCompany,
+    partnerCode,
+    createdAt: profile?.created_at || sbUser.created_at,
+    subscription,
+    assinatura: subscription
   };
 
+  // O localStorage funciona APENAS como CACHE temporário de leitura rápida, NUNCA como autoridade
   localStorage.setItem(TOKEN_KEY, token);
   localStorage.setItem(USER_KEY, JSON.stringify(user));
   return { token, user };
@@ -57,44 +195,90 @@ export const authService = {
     if (!supabase) return authService.getCurrentUser();
     
     try {
-      const sessionPromise = supabase.auth.getSession().catch(() => ({ data: { session: null }, error: null }));
-      const timeoutPromise = new Promise<{ data: { session: null }, error: null }>((res) => 
-        setTimeout(() => res({ data: { session: null }, error: null }), timeoutMs)
+      // 1. Consulta a sessão no Supabase de forma rápida e segura
+      const sessionPromise = supabase.auth.getSession().catch(() => ({ data: { session: null } }));
+      const timeoutPromise = new Promise<any>((res) => 
+        setTimeout(() => res({ data: { session: null } }), timeoutMs)
       );
 
-      const result: any = await Promise.race([sessionPromise, timeoutPromise]);
-      const session = result?.data?.session || null;
-      const error = result?.error || null;
+      const sessionResult: any = await Promise.race([sessionPromise, timeoutPromise]);
+      const session = sessionResult?.data?.session || null;
 
-      if (session?.user && !error && supabase) {
-        try {
-          const { data: profile } = await supabase
+      // Se não houver sessão ativa no Supabase:
+      if (!session || !session.user) {
+        // Se for o usuário de demonstração em memória/cache, mantém a sessão demo
+        const cachedUser = authService.getCurrentUser();
+        if (cachedUser && (cachedUser.isDemo || cachedUser.companyId === 'comp_demo_eletro')) {
+          return cachedUser;
+        }
+
+        // Sem sessão ativa: limpa o cache local e retorna null
+        localStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem(USER_KEY);
+        return null;
+      }
+
+      const activeToken = session.access_token || localStorage.getItem(TOKEN_KEY) || '';
+
+      // 2. Busca o registro completo na tabela profiles (AUTORIDADE MÁXIMA de perfil, status e assinatura)
+      let profile: any = null;
+      try {
+        const { data: pById } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .maybeSingle();
+        profile = pById;
+
+        if (!profile && session.user.email) {
+          const { data: pByEmail } = await supabase
             .from('profiles')
             .select('*')
-            .eq('id', session.user.id)
-            .single();
+            .ilike('email', session.user.email.trim())
+            .maybeSingle();
+          profile = pByEmail;
+        }
 
-          const activeUser: User = {
+        // Se o usuário está autenticado no Supabase Auth mas ainda não possui linha na tabela profiles,
+        // auto-provisiona a linha na tabela profiles para manter a integridade autoritativa
+        if (!profile && session.user.id && session.user.email) {
+          const isOwner = session.user.email.trim().toLowerCase() === 'damasceno1871@gmail.com';
+          const defaultProfile = {
             id: session.user.id,
-            email: session.user.email || '',
-            name: profile?.name || session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'Usuário',
-            role: profile?.role || 'user',
-            companyId: profile?.company_id || session.user.id,
-            plan: profile?.plan || 'pro',
+            email: session.user.email.trim().toLowerCase(),
+            name: session.user.user_metadata?.name || session.user.email.split('@')[0],
+            company_id: session.user.user_metadata?.company_id || 'comp_' + session.user.id.substring(0, 8),
+            role: session.user.user_metadata?.role || (isOwner ? 'admin' : 'user'),
+            plan: session.user.user_metadata?.plan || 'pro',
+            billing_cycle: session.user.user_metadata?.billing_cycle || 'monthly',
+            subscription_status: isOwner ? 'active' : (session.user.user_metadata?.plan === 'premium' ? 'expired' : 'trial'),
+            trial_ends_at: isOwner ? new Date(2099, 11, 31).toISOString() : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
             status: 'active'
           };
 
-          localStorage.setItem(USER_KEY, JSON.stringify(activeUser));
-          return activeUser;
-        } catch (profileErr) {
-          console.warn('Erro ao buscar perfil:', profileErr);
+          try {
+            const { data: insertedProfile } = await supabase
+              .from('profiles')
+              .upsert(defaultProfile, { onConflict: 'id' })
+              .select('*')
+              .maybeSingle();
+            profile = insertedProfile || defaultProfile;
+          } catch {
+            profile = defaultProfile;
+          }
         }
+      } catch (profileErr) {
+        console.warn('Aviso ao buscar dados em profiles:', profileErr);
       }
+
+      // 3. Mapeia o usuário com todas as informações autoritativas de profiles (inclusive assinatura)
+      const mapped = mapSupabaseUser(session.user, activeToken, profile);
+      return mapped.user;
     } catch (err) {
-      console.warn('Erro ao conectar com Supabase Auth, utilizando cache local:', err);
+      console.warn('Erro na validação autoritativa no Supabase:', err);
     }
 
-    // Fallback síncrono local se Supabase não responder
+    // Se estiver offline ou falhar rede, usa o cache local temporariamente como fallback
     const localUser = authService.getCurrentUser();
     if (localUser) return localUser;
 
@@ -128,7 +312,17 @@ export const authService = {
       }
 
       if (data.session && data.user) {
-        return mapSupabaseUser(data.user, data.session.access_token);
+        let profile: any = null;
+        try {
+          const { data: p } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', data.user.id)
+            .maybeSingle();
+          profile = p;
+        } catch {}
+
+        return mapSupabaseUser(data.user, data.session.access_token, profile);
       }
     }
 
@@ -230,7 +424,17 @@ export const authService = {
 
       // Se a confirmação de e-mail estiver desabilitada no Supabase, a sessão já vem pronta
       if (data.session && data.user) {
-        return mapSupabaseUser(data.user, data.session.access_token);
+        let profile: any = null;
+        try {
+          const { data: p } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', data.user.id)
+            .maybeSingle();
+          profile = p;
+        } catch {}
+
+        return mapSupabaseUser(data.user, data.session.access_token, profile);
       }
 
       // Se exigir confirmação de e-mail por link
@@ -288,19 +492,7 @@ export const authService = {
   },
 
   checkFreshUserStatus: async (): Promise<User | null> => {
-    const supabase = getSupabase();
-    if (!supabase) return authService.getCurrentUser();
-
-    try {
-      const { data: { user: sbUser }, error } = await supabase.auth.getUser();
-      if (error || !sbUser) return null;
-
-      const token = authService.getToken() || '';
-      const mapped = mapSupabaseUser(sbUser, token);
-      return mapped.user;
-    } catch {
-      return authService.getCurrentUser();
-    }
+    return authService.getCurrentUserAsync();
   },
 
   getToken: (): string | null => {

@@ -62,12 +62,29 @@ export interface SubscriptionInfo {
   whatsappConfirmationPhone?: string;
 }
 
+export interface UserSubscription {
+  status: 'trial' | 'active' | 'expired' | 'partner';
+  plan: 'basic' | 'pro' | 'premium';
+  billingCycle: 'monthly' | 'annual';
+  trialEndsAt?: string;
+  subscriptionValidUntil?: string;
+  validUntil?: string;
+  daysRemaining: number;
+  hoursRemaining: number;
+  isExpired: boolean;
+  isPartner?: boolean;
+  partnerCompany?: string;
+  partnerCode?: string;
+  price: number;
+  planName: string;
+}
+
 export interface User {
   id: string;
   email: string;
   name: string;
   companyId?: string;
-  status?: 'active' | 'suspended';
+  status?: 'active' | 'suspended' | 'blocked' | 'expired' | 'pending' | string;
   statusReason?: string;
   role?: 'admin' | 'user' | string;
   createdAt?: string;
@@ -79,6 +96,8 @@ export interface User {
   partnerCompany?: string;
   partnerCode?: string;
   isDemo?: boolean;
+  subscription?: UserSubscription;
+  assinatura?: UserSubscription;
 }
 
 export interface AuthState {
