@@ -30,7 +30,10 @@ import {
   Check,
   Crown,
   Layers,
-  Zap
+  Zap,
+  Phone,
+  MessageSquare,
+  FileText
 } from 'lucide-react';
 import { saasService, SaaSUserRecord, SubscriptionPlanId } from '../services/saasService';
 import { partnerService, PartnerCompany } from '../services/partnerService';
@@ -48,7 +51,7 @@ export const AdminDashboardPage: React.FC = () => {
   const [feedback, setFeedback] = useState<string | null>(null);
   const [userToBlock, setUserToBlock] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'partner' | 'trial' | 'expired'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'partner' | 'trial' | 'expired' | 'unauthenticated'>('all');
 
   // Modal para alterar o plano do cliente (Básico, Pro ou Premium)
   const [userToChangePlan, setUserToChangePlan] = useState<SaaSUserRecord | null>(null);
@@ -311,6 +314,7 @@ export const AdminDashboardPage: React.FC = () => {
   const partnerUsers = users.filter(u => saasService.getEffectiveUserStatus(u) === 'partner').length;
   const trialUsers = users.filter(u => saasService.getEffectiveUserStatus(u) === 'trial').length;
   const expiredUsers = users.filter(u => saasService.getEffectiveUserStatus(u) === 'expired').length;
+  const unauthenticatedUsers = users.filter(u => u.isUnauthenticatedProvider).length;
   const monthlyRevenue = users
     .filter(u => saasService.getEffectiveUserStatus(u) === 'active' && u.role !== 'admin')
     .reduce((acc, u) => {
@@ -329,12 +333,17 @@ export const AdminDashboardPage: React.FC = () => {
         if (effectiveStatus !== 'trial') return false;
       } else if (statusFilter === 'expired') {
         if (effectiveStatus !== 'expired') return false;
+      } else if (statusFilter === 'unauthenticated') {
+        if (!u.isUnauthenticatedProvider) return false;
       }
     }
 
     const matchesSearch = 
       u.email.toLowerCase().includes(search.toLowerCase()) ||
       u.name.toLowerCase().includes(search.toLowerCase()) ||
+      (u.phone && u.phone.toLowerCase().includes(search.toLowerCase())) ||
+      (u.document && u.document.toLowerCase().includes(search.toLowerCase())) ||
+      (u.companyId && u.companyId.toLowerCase().includes(search.toLowerCase())) ||
       (u.partnerCompany && u.partnerCompany.toLowerCase().includes(search.toLowerCase()));
 
     return matchesSearch;
@@ -547,19 +556,37 @@ export const AdminDashboardPage: React.FC = () => {
                     <span>{isSyncing ? "Sincronizando..." : "Sincronizar"}</span>
                   </button>
                 </div>
-                <div className="flex items-center gap-2 mt-1">
+                <div className="flex flex-wrap items-center gap-2 mt-1">
                   <p className="text-xs text-slate-500">Total de {filteredUsers.length} usuário(s) exibido(s)</p>
+                  
+                  {unauthenticatedUsers > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setStatusFilter(statusFilter === 'unauthenticated' ? 'all' : 'unauthenticated')}
+                      className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-semibold border transition-all cursor-pointer ${
+                        statusFilter === 'unauthenticated'
+                          ? 'bg-amber-500 text-white border-amber-600 shadow-sm'
+                          : 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100'
+                      }`}
+                      title="Clique para ver os prestadores salvos em provider_info que ainda não criaram login"
+                    >
+                      <AlertCircle className="w-3 h-3 text-amber-500" />
+                      <span>{unauthenticatedUsers} sem login Auth</span>
+                    </button>
+                  )}
+
                   {statusFilter !== 'all' && (
                     <span className="inline-flex items-center gap-1.5 text-xs bg-slate-100 text-slate-700 px-2.5 py-0.5 rounded-full font-medium">
                       <span>Filtrando por: <strong>
                         {statusFilter === 'expired' ? 'Vencidos / Expirados' :
                          statusFilter === 'trial' ? 'Em Teste (Trial)' :
                          statusFilter === 'active' ? 'Assinantes Pagantes' :
+                         statusFilter === 'unauthenticated' ? 'Sem Login Auth (Direto no App)' :
                          'Empresas Parceiras'}
                       </strong></span>
                       <button
                         onClick={() => setStatusFilter('all')}
-                        className="text-slate-400 hover:text-slate-700 font-bold ml-1 text-sm leading-none"
+                        className="text-slate-400 hover:text-slate-700 font-bold ml-1 text-sm leading-none cursor-pointer"
                         title="Limpar filtro"
                       >
                         &times;
@@ -612,8 +639,8 @@ export const AdminDashboardPage: React.FC = () => {
                     return (
                       <tr key={u.id || u.email} className="hover:bg-slate-50/80 transition-colors">
                         <td className="py-3.5 px-4 sm:px-6">
-                          <div className="flex items-center gap-2.5">
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
+                          <div className="flex items-start gap-2.5">
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 mt-0.5 ${
                               isMasterAdmin 
                                 ? 'bg-purple-100 text-purple-700 border border-purple-200' 
                                 : isPartner || u.isPartnerAccount
@@ -622,20 +649,62 @@ export const AdminDashboardPage: React.FC = () => {
                             }`}>
                               {u.name ? u.name.charAt(0).toUpperCase() : u.email.charAt(0).toUpperCase()}
                             </div>
-                            <div className="min-w-0">
-                              <span className="font-bold text-slate-900 block truncate">{u.name}</span>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-bold text-slate-900 block truncate">{u.name}</span>
+                                {u.document && (
+                                  <span className="text-[10px] text-slate-600 bg-slate-100 px-1.5 py-0.2 rounded border border-slate-200 font-mono shrink-0">
+                                    {u.document}
+                                  </span>
+                                )}
+                              </div>
                               <span className="text-slate-500 text-xs block font-mono truncate">{u.email}</span>
-                              {u.isPartnerAccount ? (
-                                <span className="inline-flex items-center gap-1 text-[10px] text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded-full font-bold mt-0.5">
-                                  <Sparkles className="w-2.5 h-2.5 text-amber-500" />
-                                  Conta VIP do Parceiro ({u.partnerCompany})
-                                </span>
-                              ) : u.partnerCompany ? (
-                                <span className="inline-flex items-center gap-1 text-[10px] text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded-full font-semibold mt-0.5">
-                                  <Building2 className="w-2.5 h-2.5 text-blue-500" />
-                                  Indicado por: {u.partnerCompany}
-                                </span>
-                              ) : null}
+
+                              <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                                {u.phone && (
+                                  <a
+                                    href={`https://wa.me/55${u.phone.replace(/\D/g, '')}?text=${encodeURIComponent(`Olá ${u.name || ''}, tudo bem? Aqui é o suporte do OrçaFácil Pro!`)}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 text-[10px] text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-1.5 py-0.5 rounded font-medium transition-colors cursor-pointer"
+                                    title="Chamar no WhatsApp"
+                                  >
+                                    <MessageSquare className="w-2.5 h-2.5 text-emerald-600" />
+                                    <span>{u.phone}</span>
+                                  </a>
+                                )}
+
+                                {u.quotesCount && u.quotesCount > 0 ? (
+                                  <span className="inline-flex items-center gap-1 text-[10px] text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded font-medium">
+                                    <FileText className="w-2.5 h-2.5 text-blue-500" />
+                                    <span>{u.quotesCount} orçamentos</span>
+                                  </span>
+                                ) : null}
+
+                                {u.isUnauthenticatedProvider ? (
+                                  <span className="inline-flex items-center gap-1 text-[10px] text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded font-semibold" title="Cadastrado na tabela provider_info mas sem login no Supabase Auth">
+                                    <AlertCircle className="w-2.5 h-2.5 text-amber-600" />
+                                    <span>Sem Login Auth (Direto no App)</span>
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded font-normal" title="Conta com autenticação no Supabase Auth">
+                                    <CheckCircle2 className="w-2.5 h-2.5 text-emerald-500" />
+                                    <span>Conta Auth</span>
+                                  </span>
+                                )}
+
+                                {u.isPartnerAccount ? (
+                                  <span className="inline-flex items-center gap-1 text-[10px] text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded-full font-bold">
+                                    <Sparkles className="w-2.5 h-2.5 text-amber-500" />
+                                    VIP ({u.partnerCompany})
+                                  </span>
+                                ) : u.partnerCompany ? (
+                                  <span className="inline-flex items-center gap-1 text-[10px] text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded-full font-semibold">
+                                    <Building2 className="w-2.5 h-2.5 text-blue-500" />
+                                    Indicado: {u.partnerCompany}
+                                  </span>
+                                ) : null}
+                              </div>
                             </div>
                           </div>
                         </td>

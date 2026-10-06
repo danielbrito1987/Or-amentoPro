@@ -112,6 +112,10 @@ export interface SaaSUserRecord {
   partnerCode?: string; // Código utilizado
   isPartnerAccount?: boolean; // Verdadeiro se for a conta DO PRÓPRIO parceiro (acesso VIP gratuito)
   referredByPartner?: string; // Nome do parceiro que indicou este cliente pagante
+  phone?: string; // Telefone / WhatsApp do prestador (de provider_info)
+  document?: string; // CPF ou CNPJ (de provider_info)
+  address?: string; // Endereço comercial
+  isUnauthenticatedProvider?: boolean; // Verdadeiro se está em provider_info mas ainda não criou login no Supabase Auth
 }
 
 export const saasService = {
@@ -1002,69 +1006,163 @@ export const saasService = {
     }
 
     try {
-      // 1. Tentar buscar da tabela profiles
-      const { data: profiles, error } = await supabase
+      // 1. Buscar perfis de autenticação (profiles)
+      const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select('*');
 
-      if (error) {
-        console.warn('Erro ao consultar profiles no Supabase:', error.message);
-        return { success: false, count: 0, message: `Erro no Supabase: ${error.message}` };
+      if (profilesError) {
+        console.warn('Aviso ao consultar profiles no Supabase:', profilesError.message);
       }
 
-      if (!profiles || profiles.length === 0) {
-        return { success: true, count: 0, message: 'Nenhum perfil encontrado na tabela profiles do Supabase.' };
+      // 2. Buscar cadastros profissionais de prestadores (provider_info) - essencial para listar todos os 13+ cadastros
+      const { data: providers, error: providersError } = await supabase
+        .from('provider_info')
+        .select('*');
+
+      if (providersError) {
+        console.warn('Aviso ao consultar provider_info no Supabase:', providersError.message);
+      }
+
+      // 3. Buscar orçamentos para contabilizar atividade por empresa
+      const quotesCountMap: Record<string, number> = {};
+      try {
+        const { data: quotesData } = await supabase
+          .from('quotes')
+          .select('company_id, id');
+        if (quotesData) {
+          quotesData.forEach((q: any) => {
+            if (q.company_id) {
+              quotesCountMap[q.company_id] = (quotesCountMap[q.company_id] || 0) + 1;
+            }
+          });
+        }
+      } catch {
+        // Silencioso se quotes falhar
       }
 
       const users = saasService.getAllUsers();
-      let imported = 0;
+      let importedFromProfiles = 0;
+      let importedFromProviders = 0;
 
-      profiles.forEach((p: any) => {
-        if (!p.email) return;
-        const emailLower = p.email.trim().toLowerCase();
-        const existingIndex = users.findIndex(u => u.email.toLowerCase() === emailLower);
+      // Processar perfis autenticados (profiles)
+      if (profiles && profiles.length > 0) {
+        profiles.forEach((p: any) => {
+          if (!p.email) return;
+          const emailLower = p.email.trim().toLowerCase();
+          const existingIndex = users.findIndex(u => u.email.toLowerCase() === emailLower);
 
-        const createdAt = p.created_at || new Date().toISOString();
-        const trialDays = saasService.getTrialDays();
-        const defaultTrialEnd = new Date(new Date(createdAt).getTime() + trialDays * 24 * 60 * 60 * 1000).toISOString();
+          const createdAt = p.created_at || new Date().toISOString();
+          const trialDays = saasService.getTrialDays();
+          const defaultTrialEnd = new Date(new Date(createdAt).getTime() + trialDays * 24 * 60 * 60 * 1000).toISOString();
 
-        const isOwner = emailLower === saasService.getAdminEmail().toLowerCase();
-        const rawStatus = isOwner
-          ? 'active'
-          : (p.status === 'blocked' ? 'expired' : (p.subscription_status || 'trial'));
+          const isOwner = emailLower === saasService.getAdminEmail().toLowerCase();
+          const rawStatus = isOwner
+            ? 'active'
+            : (p.status === 'blocked' ? 'expired' : (p.subscription_status || 'trial'));
 
-        const record: SaaSUserRecord = {
-          id: p.id || `user_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-          email: p.email,
-          name: p.name || (p.email.split('@')[0]),
-          createdAt: createdAt,
-          trialEndsAt: p.trial_ends_at || defaultTrialEnd,
-          subscriptionStatus: rawStatus,
-          subscriptionValidUntil: isOwner ? new Date(2099, 11, 31).toISOString() : (p.subscription_valid_until || undefined),
-          plan: isOwner ? 'premium' : (p.plan === 'basic' ? 'basic' : p.plan === 'premium' ? 'premium' : 'pro'),
-          role: isOwner ? 'admin' : (p.role === 'admin' ? 'admin' : 'user'),
-          companyId: p.company_id || `comp_${p.id || Date.now()}`,
-          partnerCompany: p.partner_company || undefined,
-          partnerCode: p.partner_code || undefined
-        };
-
-        // Calcula o status real e efetivo considerando as datas de validade/trial
-        record.subscriptionStatus = saasService.getEffectiveUserStatus(record);
-
-        if (existingIndex >= 0) {
-          users[existingIndex] = {
-            ...users[existingIndex],
-            ...record,
-            subscriptionStatus: record.subscriptionStatus
+          const record: SaaSUserRecord = {
+            id: p.id || `user_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+            email: p.email,
+            name: p.name || (p.email.split('@')[0]),
+            createdAt: createdAt,
+            trialEndsAt: p.trial_ends_at || defaultTrialEnd,
+            subscriptionStatus: rawStatus,
+            subscriptionValidUntil: isOwner ? new Date(2099, 11, 31).toISOString() : (p.subscription_valid_until || undefined),
+            plan: isOwner ? 'premium' : (p.plan === 'basic' ? 'basic' : p.plan === 'premium' ? 'premium' : 'pro'),
+            role: isOwner ? 'admin' : (p.role === 'admin' ? 'admin' : 'user'),
+            companyId: p.company_id || `comp_${p.id || Date.now()}`,
+            partnerCompany: p.partner_company || undefined,
+            partnerCode: p.partner_code || undefined,
+            quotesCount: quotesCountMap[p.company_id] || 0,
+            isUnauthenticatedProvider: false
           };
-        } else {
-          users.push(record);
-          imported++;
-        }
-      });
+
+          record.subscriptionStatus = saasService.getEffectiveUserStatus(record);
+
+          if (existingIndex >= 0) {
+            users[existingIndex] = {
+              ...users[existingIndex],
+              ...record,
+              subscriptionStatus: record.subscriptionStatus
+            };
+          } else {
+            users.push(record);
+            importedFromProfiles++;
+          }
+        });
+      }
+
+      // Processar dados dos prestadores (provider_info) - garante que mesmo quem não fez login apareça no painel
+      if (providers && providers.length > 0) {
+        providers.forEach((prov: any) => {
+          const provEmail = (prov.email || '').trim().toLowerCase();
+          const provCompanyId = prov.company_id || '';
+
+          // Tenta localizar por e-mail ou por companyId
+          let userIndex = -1;
+          if (provEmail) {
+            userIndex = users.findIndex(u => u.email.toLowerCase() === provEmail);
+          }
+          if (userIndex === -1 && provCompanyId) {
+            userIndex = users.findIndex(u => u.companyId === provCompanyId);
+          }
+
+          if (userIndex >= 0) {
+            // Enriquece o registro existente com os dados comerciais reais
+            const existing = users[userIndex];
+            if (prov.name && (!existing.name || existing.name === existing.email.split('@')[0])) {
+              existing.name = prov.name;
+            }
+            if (prov.phone) existing.phone = prov.phone;
+            if (prov.document) existing.document = prov.document;
+            if (prov.address) existing.address = prov.address;
+            if (provCompanyId && !existing.companyId) existing.companyId = provCompanyId;
+            if (quotesCountMap[provCompanyId]) existing.quotesCount = quotesCountMap[provCompanyId];
+          } else {
+            // Prestador que está em provider_info mas NÃO está em profiles (cadastrou empresa/orçamento sem Auth)
+            const fallbackEmail = provEmail || (
+              prov.name 
+                ? `${prov.name.toLowerCase().replace(/[^a-z0-9]/g, '') || 'prestador'}@empresa.orcafacil.com` 
+                : `prestador_${provCompanyId || Date.now()}@orcafacil.com`
+            );
+
+            const createdAt = prov.updated_at || new Date().toISOString();
+            const trialDays = saasService.getTrialDays();
+            const defaultTrialEnd = new Date(new Date(createdAt).getTime() + trialDays * 24 * 60 * 60 * 1000).toISOString();
+
+            const newRecord: SaaSUserRecord = {
+              id: prov.id || `prov_${provCompanyId || Date.now()}`,
+              email: fallbackEmail,
+              name: prov.name || 'Prestador de Serviços',
+              phone: prov.phone || '',
+              document: prov.document || '',
+              address: prov.address || '',
+              companyId: provCompanyId || prov.id,
+              createdAt: createdAt,
+              trialEndsAt: defaultTrialEnd,
+              subscriptionStatus: 'trial',
+              plan: 'pro',
+              role: 'user',
+              quotesCount: quotesCountMap[provCompanyId] || 0,
+              isUnauthenticatedProvider: true
+            };
+
+            newRecord.subscriptionStatus = saasService.getEffectiveUserStatus(newRecord);
+            users.push(newRecord);
+            importedFromProviders++;
+          }
+        });
+      }
 
       localStorage.setItem(USERS_REGISTRY_KEY, JSON.stringify(users));
-      return { success: true, count: profiles.length, message: `${profiles.length} cadastros sincronizados do Supabase com sucesso!` };
+
+      const totalCount = users.filter(u => u.role !== 'admin' || u.email !== saasService.getAdminEmail()).length;
+      return { 
+        success: true, 
+        count: users.length, 
+        message: `Sincronização completa! Total de ${users.length} cadastros listados (incluindo todos os ${providers?.length || 0} prestadores da tabela provider_info).` 
+      };
     } catch (err: any) {
       console.error('Falha na sincronização:', err);
       return { success: false, count: 0, message: err.message || 'Erro inesperado na sincronização.' };
