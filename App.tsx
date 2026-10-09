@@ -44,6 +44,21 @@ const AppContent: React.FC = () => {
     setLegalModalState({ isOpen: true, tab });
   };
 
+  // Telemetria automática de visualização de páginas públicas
+  useEffect(() => {
+    if (!isAuthenticated) {
+      const publicTitles: Record<string, string> = {
+        landing: 'Página Inicial',
+        login: 'Entrar na Conta',
+        register: 'Cadastro Teste Grátis'
+      };
+      analyticsService.trackPageView(
+        publicView === 'landing' ? '/' : `/${publicView}`,
+        publicTitles[publicView] || 'OrçaFácil Pro'
+      );
+    }
+  }, [publicView, isAuthenticated]);
+
   const [showQuoteLimitModal, setShowQuoteLimitModal] = useState(false);
   const [activeTab, setActiveTab] = useState<'quotes' | 'contracts' | 'catalog' | 'settings' | 'admin'>('quotes');
   const [quotes, setQuotes] = useState<Quote[]>([]);
@@ -142,6 +157,15 @@ const AppContent: React.FC = () => {
     setIsEditingQuote(false);
     setIsEditingContract(false);
     setIsSidebarOpen(false);
+
+    // Telemetria de navegação por abas
+    const tabNames: Record<string, string> = {
+      quotes: 'Painel de Orçamentos',
+      contracts: 'Contratos Digitais',
+      catalog: 'Catálogo de Preços',
+      settings: 'Configurações do Prestador'
+    };
+    analyticsService.trackPageView(`/${tab}`, tabNames[tab]);
 
     // Tenta pegar o ID do estado ou direto do storage (fallback para logo após login)
     const currentCompId = user?.companyId || authService.getCurrentUser()?.companyId;
@@ -293,6 +317,7 @@ const AppContent: React.FC = () => {
         await storageService.updateCatalogItem(itemToSave);
       } else {
         await storageService.saveCatalogItem(itemToSave);
+        analyticsService.trackCatalogItemAdded(itemToSave.type || 'SERVICE');
       }
       const updated = await storageService.getCatalog(currentCompId);
       setCatalog(updated);

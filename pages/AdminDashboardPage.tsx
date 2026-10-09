@@ -33,7 +33,8 @@ import {
   Zap,
   Phone,
   MessageSquare,
-  FileText
+  FileText,
+  BarChart3
 } from 'lucide-react';
 import { saasService, SaaSUserRecord, SubscriptionPlanId } from '../services/saasService';
 import { partnerService, PartnerCompany } from '../services/partnerService';
@@ -41,10 +42,11 @@ import { formatCurrency } from '../utils/formatters';
 import { Button } from '../components/Button';
 import { useAuth } from '../contexts/AuthContext';
 import { ConfirmModal } from '../components/ConfirmModal';
+import { AnalyticsDashboard } from '../components/AnalyticsDashboard';
 
 export const AdminDashboardPage: React.FC = () => {
   const { user, refreshUserStatus } = useAuth();
-  const [activeSubTab, setActiveSubTab] = useState<'users' | 'partners'>('users');
+  const [activeSubTab, setActiveSubTab] = useState<'users' | 'partners' | 'analytics'>('users');
   const [users, setUsers] = useState<SaaSUserRecord[]>([]);
   const [partners, setPartners] = useState<PartnerCompany[]>([]);
   const [search, setSearch] = useState('');
@@ -514,6 +516,18 @@ export const AdminDashboardPage: React.FC = () => {
         >
           <Handshake className="w-4 h-4" />
           <span>Estrutura de Parcerias & Cupons VIP ({partners.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveSubTab('analytics')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all ${
+            activeSubTab === 'analytics'
+              ? 'bg-violet-600 text-white shadow-md shadow-violet-500/20'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+          }`}
+        >
+          <BarChart3 className="w-4 h-4" />
+          <span>Métricas & Google Analytics (Visitas & Uso)</span>
         </button>
       </div>
 
@@ -1080,6 +1094,11 @@ export const AdminDashboardPage: React.FC = () => {
             })}
           </div>
         </div>
+      )}
+
+      {/* ABA 3: GOOGLE ANALYTICS & MÉTRICAS DE USO */}
+      {activeSubTab === 'analytics' && (
+        <AnalyticsDashboard />
       )}
 
       {/* Modal para Vincular Usuário a uma Parceria */}
